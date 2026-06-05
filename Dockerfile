@@ -131,6 +131,10 @@ FROM deps AS studio-builder
 COPY tools/chiplet-studio /opt/adk-tools/chiplet-studio
 WORKDIR /opt/adk-tools/chiplet-studio
 
+# gtest_discover_tests executes the test binary at build time; make the
+# in-tree KLayout libs resolvable for it.
+ENV LD_LIBRARY_PATH=/opt/adk-tools/chiplet-studio/extern/klayout/bin-release
+
 RUN cd extern/klayout && ./build.sh -j"$(nproc)" -without-qtbinding
 
 RUN mkdir -p build && cd build \
