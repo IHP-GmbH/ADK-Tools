@@ -29,7 +29,7 @@ override with `ADK_WORK=...`):
 
 ```
 /work/example              wire-bond demo, seeded on start (disposable)
-/work/heterogenous-design  your persistent work area
+/work/heterogenic-designs  your persistent work area
 ```
 
 ## Tools
