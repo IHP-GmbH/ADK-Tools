@@ -140,6 +140,11 @@ RUN mkdir -p build && cd build \
 ############################################################################
 FROM deps AS runtime
 
+# Links the ghcr package to the repo: access is then managed in one place
+# (people with ADK-Tools access get the image). Keep both private.
+LABEL org.opencontainers.image.source=https://github.com/IHP-GmbH/ADK-Tools \
+      org.opencontainers.image.description="Heterogeneous integration flow: KiCad fork, Chiplet Studio, PDKs, assembly DRC -- pre-wired"
+
 # Ecosystem discovery roots (env is the first link of every tool's discovery
 # chain: env -> textvar -> sibling walk -> loud). PDK dirs carry their IHP
 # repository names. Kept out of `deps` so env changes never invalidate the
