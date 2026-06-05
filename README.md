@@ -81,5 +81,5 @@ docker run --rm -it -v ~/git/.../chiplet_kicad_plugin:/opt/adk-tools/chiplet_kic
 - GUIs need an X server; `run.sh` wires `DISPLAY`/Xauthority automatically
   (local X, ThinLinc and WSLg all work).
 - The image embeds private-repo code: keep it on the private registry.
-- KiCad ships without the standard symbol/footprint libraries; flow projects
-  carry their own project-local libs (the demo does).
+- KiCad ships the official v9 symbol/footprint libraries (pinned tag,
+  `KICAD_LIBS_TAG` build arg). 3D model packages are not included.
