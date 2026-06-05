@@ -38,7 +38,8 @@ for line in git("submodule", "status").splitlines():
     name = path.split("/", 1)[1]
     url = git("config", "-f", ".gitmodules", "--get", f"submodule.{path}.url")
     try:
-        describe = git("-C", path, "describe", "--tags", "--always")
+        describe = git("-C", path, "describe", "--tags", "--always",
+                       "--exclude", "backup/*")
     except subprocess.CalledProcessError:
         describe = sha[:10]
     tools[name] = {"repo": url, "ref": sha, "describe": describe}
