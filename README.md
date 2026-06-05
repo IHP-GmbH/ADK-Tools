@@ -11,8 +11,8 @@ are the version lockfile; one commit of this repo = one tested combination.
 docker pull ghcr.io/ihp-gmbh/adk-tools:latest
 
 # or build locally (~1 h first time, cached afterwards)
-git clone --recurse-submodules git@github.com:IHP-GmbH/adk-tools.git
-cd adk-tools && ./build.sh
+git clone --recurse-submodules git@github.com:IHP-GmbH/ADK-Tools.git
+cd ADK-Tools && ./build.sh
 
 # run (X11 passthrough for the GUIs; ~/adk-work mounted at /work)
 ./run.sh                              # interactive shell
