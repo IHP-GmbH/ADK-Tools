@@ -12,4 +12,15 @@ if [ -d /work ] && [ -w /work ]; then
         cp -r /opt/adk-tools/kicad_designs/interposer_wire_bonding_demo /work/example 2>/dev/null || true
     fi
 fi
+
+# Pre-seed KiCad's global library tables (suppresses the first-run
+# "configure library table" dialog; the templates point at the shipped
+# /usr/share/kicad/{symbols,footprints}).
+kicad_cfg="${HOME:-/tmp}/.config/kicad/9.99"
+if [ ! -f "$kicad_cfg/sym-lib-table" ]; then
+    mkdir -p "$kicad_cfg" 2>/dev/null \
+        && cp -n /usr/share/kicad/template/sym-lib-table \
+                 /usr/share/kicad/template/fp-lib-table \
+                 "$kicad_cfg/" 2>/dev/null || true
+fi
 exec "$@"

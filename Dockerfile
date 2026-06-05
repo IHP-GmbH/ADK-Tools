@@ -138,6 +138,22 @@ RUN mkdir -p build && cd build \
     && make -j"${JOBS}"
 
 ############################################################################
+# Official KiCad symbol/footprint libraries, pinned release tags. The fork
+# is 9.99 (v10 dev line) but predates the .kicad_symdir format, so the v9
+# libraries are the compatible set (.kicad_sym + ${KICAD9_*_DIR} tables).
+# 3D models (multi-GB) are deliberately not shipped.
+FROM ubuntu:24.04 AS kicad-libs
+ARG KICAD_LIBS_TAG=9.0.9.1
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && git clone --depth 1 --branch "${KICAD_LIBS_TAG}" \
+        https://gitlab.com/kicad/libraries/kicad-symbols.git /libs/symbols \
+    && git clone --depth 1 --branch "${KICAD_LIBS_TAG}" \
+        https://gitlab.com/kicad/libraries/kicad-footprints.git /libs/footprints \
+    && rm -rf /libs/symbols/.git /libs/footprints/.git
+
+############################################################################
 FROM deps AS runtime
 
 # Links the ghcr package to the repo: access is then managed in one place
@@ -159,6 +175,15 @@ ENV ADK_TOOLS=/opt/adk-tools \
 # KiCad fork (kicad, pcbnew, kicad-cli in /usr/bin; pcbnew python module in
 # /usr/lib/python3/dist-packages -> headless plugin pipeline works)
 COPY --from=kicad-builder /install/ /
+
+# Standard libraries + their default global tables (the repos ship them);
+# the env pins resolution regardless of KiCad's built-in defaults.
+COPY --from=kicad-libs /libs/symbols/ /usr/share/kicad/symbols/
+COPY --from=kicad-libs /libs/footprints/ /usr/share/kicad/footprints/
+ENV KICAD9_SYMBOL_DIR=/usr/share/kicad/symbols \
+    KICAD9_FOOTPRINT_DIR=/usr/share/kicad/footprints
+RUN cp /usr/share/kicad/symbols/sym-lib-table /usr/share/kicad/template/ \
+    && cp /usr/share/kicad/footprints/fp-lib-table /usr/share/kicad/template/
 
 # Chiplet Studio: binary + configs + embedded-python module (PYTHON_MODULE_DIR
 # is baked as build/python) + the in-tree KLayout (libs + klayout CLI)
