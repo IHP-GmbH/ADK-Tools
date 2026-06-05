@@ -1,0 +1,4 @@
+#!/bin/sh
+# KLayout (in-tree build pinned by the chiplet-studio submodule)
+export LD_LIBRARY_PATH="/opt/adk-tools/chiplet-studio/extern/klayout/bin-release${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec /opt/adk-tools/chiplet-studio/extern/klayout/bin-release/klayout "$@"

@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+"""List the tools available in this image and their pinned versions."""
+import json
+import sys
+
+MANIFEST = "/opt/adk-tools/manifest.json"
+
+# command -> (tool key in manifest, one-line description)
+COMMANDS = [
+    ("kicad",          "kicad",                "KiCad fork (GUI; pcbnew/kicad-cli also installed)"),
+    ("chiplet-studio", "chiplet-studio",       "3D assembly viewer / .chiplet editor (GUI)"),
+    ("gds-to-kicad",   "gds_to_kicad",         "GDS -> KiCad footprint generator (GUI)"),
+    ("hyp-to-gds",     "chiplet_kicad_plugin", "HyperLynx -> GDS converter (CLI)"),
+    ("adk-drc",        "adk",                  "ADK assembly DRC runner (CLI)"),
+    ("klayout",        "chiplet-studio",       "KLayout, pinned by the studio submodule"),
+    ("adk-smoke",      "-",                    "End-to-end smoke test (demo export + dual DRC)"),
+]
+
+# data-only roots, no command
+DATA = [
+    ("interposer",       "IntM4TM2 interposer PDK      $INTERPOSER_PDK_ROOT"),
+    ("interconnect_pdk", "Interconnect PDK             $INTERCONNECT_PDK_ROOT"),
+    ("kicad_designs",    "Demo designs                 /opt/adk-tools/kicad_designs"),
+]
+
+
+def main():
+    try:
+        with open(MANIFEST) as fh:
+            manifest = json.load(fh)
+    except (OSError, ValueError):
+        manifest = {}
+    tools = manifest.get("tools", {})
+
+    built = manifest.get("built", "unknown")
+    meta = manifest.get("meta", "unknown")
+    print(f"adk-tools image  (meta-repo {meta}, built {built})")
+    print()
+    print(f"{'command':<16} {'pinned ref':<14} description")
+    print("-" * 78)
+    for cmd, key, desc in COMMANDS:
+        ref = tools.get(key, {}).get("describe") or tools.get(key, {}).get("ref", "")[:10] or "-"
+        print(f"{cmd:<16} {ref:<14} {desc}")
+    print()
+    print("data roots:")
+    for key, desc in DATA:
+        ref = tools.get(key, {}).get("describe") or tools.get(key, {}).get("ref", "")[:10] or "-"
+        print(f"  {key:<16} {ref:<14} {desc}")
+    print()
+    print("Mount your work at /work (run.sh does this with the current directory).")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

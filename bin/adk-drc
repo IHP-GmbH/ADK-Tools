@@ -1,0 +1,3 @@
+#!/bin/sh
+# ADK assembly DRC runner
+exec /opt/adk-tools/venv/bin/python3 /opt/adk-tools/adk/klayout/drc/run_drc.py "$@"
