@@ -60,6 +60,14 @@ export BUILDX_BUILDER=default
 
 JOBS="${JOBS:-16}"
 
+# Pre-pass: kicad-builder alone. BuildKit otherwise runs kicad-builder and
+# studio-builder concurrently, doubling the job count; sequencing keeps the
+# machine at <= JOBS compile jobs total. Cache hit when kicad is unchanged.
+echo "== building kicad-builder (sequenced so total jobs stay <= $JOBS)"
+docker build --target kicad-builder \
+    --build-arg JOBS="$JOBS" \
+    --build-arg MANIFEST_B64="$MANIFEST_B64" .
+
 if [ "$SKIP_VERIFY" -eq 0 ]; then
     echo "== building verify stage (compiles everything + runs all suites)"
     docker build --target verify -t adk-tools:verify \
