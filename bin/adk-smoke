@@ -11,6 +11,7 @@ trap 'rm -rf "$OUT"' EXIT
 echo "adk-smoke: exporting wire-bond demo to $OUT"
 python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.py \
     --require-drc \
+    --board /opt/adk-tools/examples/interposer_wire_bonding_demo/interposer_wire_bonding_demo.kicad_pcb \
     --output-dir "$OUT"
 
 echo

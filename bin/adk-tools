@@ -20,7 +20,7 @@ COMMANDS = [
 DATA = [
     ("OpenIntM4TM2",              "IntM4TM2 interposer PDK   $INTERPOSER_PDK_ROOT"),
     ("IHP-Interconnect-IntM4TM2", "Interconnect PDK          $INTERCONNECT_PDK_ROOT"),
-    ("kicad_designs",             "Demo designs              /opt/adk-tools/kicad_designs"),
+    ("examples",                  "Demo designs              /opt/adk-tools/examples"),
 ]
 
 
@@ -47,7 +47,8 @@ def main():
         ref = tools.get(key, {}).get("describe") or tools.get(key, {}).get("ref", "")[:10] or "-"
         print(f"  {key:<16} {ref:<14} {desc}")
     print()
-    print("Mount your work at /work (run.sh does this with the current directory).")
+    print("Your work area is /work (run.sh mounts ~/adk-work there; "
+          "the demo is seeded at /work/example).")
     return 0
 
 

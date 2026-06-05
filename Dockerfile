@@ -199,7 +199,7 @@ COPY tools/gds_to_kicad /opt/adk-tools/gds_to_kicad
 COPY tools/adk /opt/adk-tools/adk
 COPY tools/OpenIntM4TM2 /opt/adk-tools/OpenIntM4TM2
 COPY tools/IHP-Interconnect-IntM4TM2 /opt/adk-tools/IHP-Interconnect-IntM4TM2
-COPY tools/kicad_designs /opt/adk-tools/kicad_designs
+COPY examples /opt/adk-tools/examples
 
 # Worker venv. --system-site-packages on purpose: the venv python then also
 # sees pcbnew (kicad install) and wx (python3-wxgtk4.0), so one interpreter
@@ -242,14 +242,15 @@ COPY --from=studio-builder /opt/adk-tools/chiplet-studio /opt/adk-tools/chiplet-
 #    breaks assembly DRC fails the image build.
 RUN python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.py \
         --require-drc \
-        --output-dir /opt/adk-tools/kicad_designs/interposer_wire_bonding_demo
+        --board /opt/adk-tools/examples/interposer_wire_bonding_demo/interposer_wire_bonding_demo.kicad_pcb \
+        --output-dir /opt/adk-tools/examples/interposer_wire_bonding_demo
 
 # 2. Chiplet Studio full suite (gated tests resolve the PDK/tool roots via the
 #    env baked in deps).
 RUN cd /opt/adk-tools/chiplet-studio/build \
     && QT_QPA_PLATFORM=offscreen \
        LD_LIBRARY_PATH=/opt/adk-tools/chiplet-studio/extern/klayout/bin-release \
-       WIREBOND_DEMO_CHIPLET=/opt/adk-tools/kicad_designs/interposer_wire_bonding_demo/interposer_wire_bonding_demo.chiplet \
+       WIREBOND_DEMO_CHIPLET=/opt/adk-tools/examples/interposer_wire_bonding_demo/interposer_wire_bonding_demo.chiplet \
        ctest --output-on-failure
 
 # 3. Plugin suite (pcbnew available here, so the env-gated tests run too).
