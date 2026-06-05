@@ -14,13 +14,25 @@ set -euo pipefail
 
 IMAGE="${ADK_TOOLS_IMAGE:-adk-tools:dev}"
 
+# Minimal passwd/group so the container user has a name (avoids
+# "I have no name!" prompts and user-lookup failures). Reused per uid.
+ETC_DIR="/tmp/adk-tools-etc-$(id -u)"
+mkdir -p "$ETC_DIR"
+printf 'root:x:0:0:root:/root:/bin/bash\nadk:x:%s:%s:adk:/tmp:/bin/bash\n' \
+    "$(id -u)" "$(id -g)" > "$ETC_DIR/passwd"
+printf 'root:x:0:\nadk:x:%s:\n' "$(id -g)" > "$ETC_DIR/group"
+
 ARGS=(
-    --rm -it
+    --rm
     --user "$(id -u):$(id -g)"
     -e HOME=/tmp
+    -v "$ETC_DIR/passwd:/etc/passwd:ro"
+    -v "$ETC_DIR/group:/etc/group:ro"
     -v "$PWD:/work"
     -w /work
 )
+# Interactive TTY only when we actually have one (scripted/CI launches do not)
+[ -t 0 ] && ARGS+=(-it)
 
 # X11 (works on local X and ThinLinc sessions; GUI tools need it, CLI does not)
 if [ -n "${DISPLAY:-}" ]; then
