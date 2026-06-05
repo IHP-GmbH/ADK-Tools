@@ -102,16 +102,6 @@ RUN apt-get update && apt-get install -y \
 # KLayout's qmake-based build expects plain `qmake`
 RUN ln -sf /usr/bin/qmake6 /usr/bin/qmake
 
-# Ecosystem discovery roots (env is the first link of every tool's discovery
-# chain: env -> textvar -> sibling walk -> loud). Set here so all stages,
-# including verify, resolve identically.
-ENV ADK_TOOLS=/opt/adk-tools \
-    ADK_ROOT=/opt/adk-tools/adk \
-    INTERPOSER_PDK_ROOT=/opt/adk-tools/interposer \
-    INTERCONNECT_PDK_ROOT=/opt/adk-tools/interconnect_pdk \
-    GDS_TO_KICAD_ROOT=/opt/adk-tools/gds_to_kicad \
-    KICAD_CHIPLET_PYTHON=/opt/adk-tools/venv/bin/python3
-
 ############################################################################
 FROM deps AS kicad-builder
 ARG JOBS
@@ -150,6 +140,17 @@ RUN mkdir -p build && cd build \
 ############################################################################
 FROM deps AS runtime
 
+# Ecosystem discovery roots (env is the first link of every tool's discovery
+# chain: env -> textvar -> sibling walk -> loud). PDK dirs carry their IHP
+# repository names. Kept out of `deps` so env changes never invalidate the
+# builder caches; `verify` inherits them via FROM runtime.
+ENV ADK_TOOLS=/opt/adk-tools \
+    ADK_ROOT=/opt/adk-tools/adk \
+    INTERPOSER_PDK_ROOT=/opt/adk-tools/OpenIntM4TM2 \
+    INTERCONNECT_PDK_ROOT=/opt/adk-tools/IHP-Interconnect-IntM4TM2 \
+    GDS_TO_KICAD_ROOT=/opt/adk-tools/gds_to_kicad \
+    KICAD_CHIPLET_PYTHON=/opt/adk-tools/venv/bin/python3
+
 # KiCad fork (kicad, pcbnew, kicad-cli in /usr/bin; pcbnew python module in
 # /usr/lib/python3/dist-packages -> headless plugin pipeline works)
 COPY --from=kicad-builder /install/ /
@@ -166,8 +167,8 @@ COPY --from=studio-builder /opt/adk-tools/chiplet-studio/extern/klayout/bin-rele
 COPY tools/chiplet_kicad_plugin /opt/adk-tools/chiplet_kicad_plugin
 COPY tools/gds_to_kicad /opt/adk-tools/gds_to_kicad
 COPY tools/adk /opt/adk-tools/adk
-COPY tools/interposer /opt/adk-tools/interposer
-COPY tools/interconnect_pdk /opt/adk-tools/interconnect_pdk
+COPY tools/OpenIntM4TM2 /opt/adk-tools/OpenIntM4TM2
+COPY tools/IHP-Interconnect-IntM4TM2 /opt/adk-tools/IHP-Interconnect-IntM4TM2
 COPY tools/kicad_designs /opt/adk-tools/kicad_designs
 
 # Worker venv. --system-site-packages on purpose: the venv python then also
@@ -195,6 +196,7 @@ ARG MANIFEST_B64=e30K
 RUN echo "${MANIFEST_B64}" | base64 -d > /opt/adk-tools/manifest.json
 
 WORKDIR /work
+ENTRYPOINT ["/usr/local/bin/adk-entrypoint"]
 CMD ["bash"]
 
 ############################################################################

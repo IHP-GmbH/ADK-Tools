@@ -18,9 +18,9 @@ COMMANDS = [
 
 # data-only roots, no command
 DATA = [
-    ("interposer",       "IntM4TM2 interposer PDK      $INTERPOSER_PDK_ROOT"),
-    ("interconnect_pdk", "Interconnect PDK             $INTERCONNECT_PDK_ROOT"),
-    ("kicad_designs",    "Demo designs                 /opt/adk-tools/kicad_designs"),
+    ("OpenIntM4TM2",              "IntM4TM2 interposer PDK   $INTERPOSER_PDK_ROOT"),
+    ("IHP-Interconnect-IntM4TM2", "Interconnect PDK          $INTERCONNECT_PDK_ROOT"),
+    ("kicad_designs",             "Demo designs              /opt/adk-tools/kicad_designs"),
 ]
 
 

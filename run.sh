@@ -1,18 +1,27 @@
 #!/bin/bash
-# Run the adk-tools image with X11 and the current directory mounted at /work.
+# Run the adk-tools image with X11 and a persistent work directory.
 #
 # Usage: ./run.sh [command ...]        (default: interactive bash)
 #
 #   ADK_TOOLS_IMAGE   image to run (default: adk-tools:dev)
+#   ADK_WORK          host work dir mounted at /work
+#                     (default: ~/adk-work; created on first run)
+#
+# Container layout (seeded on start):
+#   /work/example              wire-bond demo, ready to open (disposable)
+#   /work/heterogenous-design  your persistent work area (host-backed)
 #
 # Examples:
-#   ./run.sh                      # shell; run `adk-tools` inside for the list
-#   ./run.sh kicad board.kicad_pcb
-#   ./run.sh chiplet-studio design.chiplet
+#   ./run.sh                                  # shell; `adk-tools` lists tools
+#   ./run.sh kicad example/interposer_wire_bonding_demo.kicad_pro
+#   ./run.sh chiplet-studio example/interposer_wire_bonding_demo.chiplet
 #   ./run.sh adk-smoke
 set -euo pipefail
 
 IMAGE="${ADK_TOOLS_IMAGE:-adk-tools:dev}"
+
+ADK_WORK="${ADK_WORK:-$HOME/adk-work}"
+mkdir -p "$ADK_WORK"
 
 # Minimal passwd/group so the container user has a name (avoids
 # "I have no name!" prompts and user-lookup failures). Reused per uid.
@@ -28,7 +37,7 @@ ARGS=(
     -e HOME=/tmp
     -v "$ETC_DIR/passwd:/etc/passwd:ro"
     -v "$ETC_DIR/group:/etc/group:ro"
-    -v "$PWD:/work"
+    -v "$ADK_WORK:/work"
     -w /work
 )
 # Interactive TTY only when we actually have one (scripted/CI launches do not)
