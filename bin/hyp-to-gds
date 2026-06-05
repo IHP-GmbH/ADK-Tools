@@ -1,0 +1,3 @@
+#!/bin/sh
+# HyperLynx -> GDS converter (chiplet_kicad_plugin worker CLI)
+exec /opt/adk-tools/venv/bin/python3 /opt/adk-tools/chiplet_kicad_plugin/hyp_to_gds.py "$@"

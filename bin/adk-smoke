@@ -1,0 +1,17 @@
+#!/bin/bash
+# End-to-end smoke test: export the wire-bond demo headless through the full
+# pipeline (pcbnew -> hyperlynx writer -> hyp_to_gds worker -> ADK assembly
+# DRC) and fail unless the DRC passes. Verifies any running image in one
+# command; also the last gate of the verify build stage.
+set -euo pipefail
+
+OUT="$(mktemp -d /tmp/adk-smoke.XXXXXX)"
+trap 'rm -rf "$OUT"' EXIT
+
+echo "adk-smoke: exporting wire-bond demo to $OUT"
+python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.py \
+    --require-drc \
+    --output-dir "$OUT"
+
+echo
+echo "adk-smoke: PASS (export + assembly DRC green)"

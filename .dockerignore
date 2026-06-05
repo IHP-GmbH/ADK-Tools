@@ -1,0 +1,23 @@
+# Git metadata (submodule gitfiles included); the image gets versions via the
+# manifest, not via git history.
+.git
+.gitmodules
+**/.git
+
+# Host build artifacts: everything compiles inside the image
+tools/kicad/build
+tools/chiplet-studio/build
+tools/chiplet-studio/extern/klayout/build-release
+tools/chiplet-studio/extern/klayout/bin-release
+tools/chiplet-studio/extern/klayout/build-debug
+tools/chiplet-studio/extern/klayout/bin-debug
+
+# Python noise
+**/__pycache__
+**/*.pyc
+**/.venv
+**/.pytest_cache
+
+# Generated at build time / local files
+manifest.json
+*.log

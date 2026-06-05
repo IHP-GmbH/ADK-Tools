@@ -1,0 +1,3 @@
+#!/bin/sh
+# GDS -> KiCad footprint generator (GUI)
+exec /opt/adk-tools/venv/bin/python3 /opt/adk-tools/gds_to_kicad/gds_to_kicad_gui.py "$@"
