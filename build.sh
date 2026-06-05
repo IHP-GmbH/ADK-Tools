@@ -67,7 +67,7 @@ export DOCKER_BUILDKIT=1
 # duplicate multi-GB cache).
 export BUILDX_BUILDER=default
 
-JOBS="${JOBS:-16}"
+JOBS="${JOBS:-8}"
 
 # Pre-pass: kicad-builder alone. BuildKit otherwise runs kicad-builder and
 # studio-builder concurrently, doubling the job count; sequencing keeps the
