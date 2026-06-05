@@ -14,15 +14,23 @@ docker pull ghcr.io/ihp-gmbh/adk-tools:latest
 git clone --recurse-submodules git@github.com:IHP-GmbH/adk-tools.git
 cd adk-tools && ./build.sh
 
-# run (mounts the current directory at /work, X11 passthrough for the GUIs)
+# run (X11 passthrough for the GUIs; ~/adk-work mounted at /work)
 ./run.sh                              # interactive shell
-./run.sh kicad my_board.kicad_pcb
-./run.sh chiplet-studio design.chiplet
+./run.sh kicad example/interposer_wire_bonding_demo.kicad_pro
+./run.sh chiplet-studio example/interposer_wire_bonding_demo.chiplet
 ./run.sh adk-smoke                    # end-to-end self test
 ```
 
 Inside the shell, `adk-tools` prints this table with the pinned versions of
 the running image.
+
+Work directory layout (`~/adk-work` on the host, `/work` in the container;
+override with `ADK_WORK=...`):
+
+```
+/work/example              wire-bond demo, seeded on start (disposable)
+/work/heterogenous-design  your persistent work area
+```
 
 ## Tools
 
@@ -36,10 +44,12 @@ the running image.
 | `klayout`        | KLayout (version pinned by the studio submodule) | GUI/CLI |
 | `adk-smoke`      | Demo export + dual DRC, asserts green  | CLI |
 
-Data roots baked in (and exported as env): `ADK_ROOT`, `INTERPOSER_PDK_ROOT`,
-`INTERCONNECT_PDK_ROOT`, `GDS_TO_KICAD_ROOT` under `/opt/adk-tools/`, plus the
-demo designs at `/opt/adk-tools/kicad_designs/`. Python worker venv:
-`/opt/adk-tools/venv` (`KICAD_CHIPLET_PYTHON` already points at it).
+Data roots baked in (and exported as env), named after their IHP
+repositories: `INTERPOSER_PDK_ROOT=/opt/adk-tools/OpenIntM4TM2`,
+`INTERCONNECT_PDK_ROOT=/opt/adk-tools/IHP-Interconnect-IntM4TM2`, plus
+`ADK_ROOT`, `GDS_TO_KICAD_ROOT` and the demo designs under
+`/opt/adk-tools/`. Python worker venv: `/opt/adk-tools/venv`
+(`KICAD_CHIPLET_PYTHON` already points at it).
 
 ## Updating / testing a tool release
 

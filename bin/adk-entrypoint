@@ -1,0 +1,15 @@
+#!/bin/bash
+# Seed the /work structure on first run, then exec the requested command.
+#
+#   /work/example              wire-bond demo, copied here if absent (disposable)
+#   /work/heterogenous-design  persistent host<->container exchange dir
+#
+# Skipped silently when /work is not writable (e.g. plain docker run without
+# the run.sh mount).
+if [ -d /work ] && [ -w /work ]; then
+    mkdir -p /work/heterogenous-design
+    if [ ! -d /work/example ]; then
+        cp -r /opt/adk-tools/kicad_designs/interposer_wire_bonding_demo /work/example 2>/dev/null || true
+    fi
+fi
+exec "$@"
