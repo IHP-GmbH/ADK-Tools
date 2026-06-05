@@ -31,12 +31,20 @@ import json, subprocess, datetime
 def git(*args):
     return subprocess.check_output(["git", *args], text=True).strip()
 
+# .gitmodules section names can diverge from paths after `git mv`; map them.
+section_by_path = {}
+for line in git("config", "-f", ".gitmodules",
+                "--get-regexp", r"submodule\..*\.path").splitlines():
+    key, path = line.split(None, 1)
+    section_by_path[path] = key[len("submodule."):-len(".path")]
+
 tools = {}
 for line in git("submodule", "status").splitlines():
     sha, path = line.split()[:2]
     sha = sha.lstrip("+-U")
     name = path.split("/", 1)[1]
-    url = git("config", "-f", ".gitmodules", "--get", f"submodule.{path}.url")
+    section = section_by_path.get(path, path)
+    url = git("config", "-f", ".gitmodules", "--get", f"submodule.{section}.url")
     try:
         describe = git("-C", path, "describe", "--tags", "--always",
                        "--exclude", "backup/*")
