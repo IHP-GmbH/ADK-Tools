@@ -55,6 +55,27 @@ repo under `examples/` (baked at `/opt/adk-tools/examples`, regenerated
 and DRC-gated by every verify build). Python worker venv:
 `/opt/adk-tools/venv` (`KICAD_CHIPLET_PYTHON` already points at it).
 
+## Updating an existing clone
+
+```bash
+cd ADK-Tools
+git pull
+git submodule update --init --recursive
+./build.sh    # cached stages rebuild only what changed
+```
+
+One-time cleanups, depending on how old the clone is:
+
+- Clones from before the demo moved into `examples/` still carry the
+  removed `kicad_designs` submodule as leftovers:
+  `rm -rf tools/kicad_designs .git/modules/tools/kicad_designs`
+- If the default job count changed since your last build (it keys the
+  compile layers), the heavy stages rebuild once (~40 min), then cache
+  normally again.
+- A `/work/example` seeded by an older image stays as-is (seeding only
+  happens when absent); `rm -rf ~/adk-work/example` to get the current
+  one on next start.
+
 ## Updating / testing a tool release
 
 ```bash
