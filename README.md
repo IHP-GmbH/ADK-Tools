@@ -6,13 +6,16 @@ are the version lockfile; one commit of this repo = one tested combination.
 
 ## Quickstart
 
-```bash
-# from the registry (private; needs IHP-GmbH access: docker login ghcr.io)
-docker pull ghcr.io/ihp-gmbh/adk-tools:latest
+Primary distribution channel: clone + local build (internal use).
 
-# or build locally (~1 h first time, cached afterwards)
+```bash
+# build locally (~1 h first time, cached afterwards; JOBS=N overrides
+# the default 8 parallel compile jobs)
 git clone --recurse-submodules git@github.com:IHP-GmbH/ADK-Tools.git
 cd ADK-Tools && ./build.sh
+
+# alternatively, best-effort registry copy (private; small org quota --
+# may lag behind main): docker pull ghcr.io/ihp-gmbh/adk-tools:latest
 
 # run (X11 passthrough for the GUIs; ~/adk-work mounted at /work)
 ./run.sh                              # interactive shell

@@ -15,7 +15,7 @@
 # Parallel compile jobs for the heavy stages (kicad-builder and studio-builder
 # can overlap; 2 x nproc jobs on big machines exhausts RAM). Override per
 # machine: --build-arg JOBS=N (build.sh: JOBS=N ./build.sh).
-ARG JOBS=16
+ARG JOBS=8
 
 ############################################################################
 FROM ubuntu:24.04 AS deps
