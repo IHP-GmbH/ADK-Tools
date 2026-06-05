@@ -1,9 +1,10 @@
 #!/bin/bash
 # Build the adk-tools image.
 #
-# Usage: ./build.sh [TAG] [--skip-verify]
+# Usage: [JOBS=N] ./build.sh [TAG] [--skip-verify]
 #
 #   TAG            image tag (default: dev). Result: adk-tools:TAG
+#   JOBS           parallel compile jobs for the heavy stages (default: 16)
 #   --skip-verify  skip the verify stage (demo regen + studio ctest +
 #                  plugin pytest + adk-smoke). Only for quick iteration.
 #
@@ -52,15 +53,23 @@ PY
 
 MANIFEST_B64="$(base64 -w0 manifest.json)"
 export DOCKER_BUILDKIT=1
+# Daemon's embedded builder: images land directly in `docker images`
+# (container-driver builders like buildx_buildkit_* need --load and keep a
+# duplicate multi-GB cache).
+export BUILDX_BUILDER=default
+
+JOBS="${JOBS:-16}"
 
 if [ "$SKIP_VERIFY" -eq 0 ]; then
     echo "== building verify stage (compiles everything + runs all suites)"
     docker build --target verify -t adk-tools:verify \
+        --build-arg JOBS="$JOBS" \
         --build-arg MANIFEST_B64="$MANIFEST_B64" .
 fi
 
 echo "== tagging lean runtime image: adk-tools:$TAG"
 docker build --target runtime -t "adk-tools:$TAG" \
+    --build-arg JOBS="$JOBS" \
     --build-arg MANIFEST_B64="$MANIFEST_B64" .
 
 echo

@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # adk-tools: single distributable image for the heterogeneous integration flow.
 #
 # Stages:
@@ -12,6 +11,11 @@
 #
 # Build through ./build.sh (generates the version manifest and tags the lean
 # runtime image after verify passes).
+
+# Parallel compile jobs for the heavy stages (kicad-builder and studio-builder
+# can overlap; 2 x nproc jobs on big machines exhausts RAM). Override per
+# machine: --build-arg JOBS=N (build.sh: JOBS=N ./build.sh).
+ARG JOBS=16
 
 ############################################################################
 FROM ubuntu:24.04 AS deps
@@ -110,6 +114,7 @@ ENV ADK_TOOLS=/opt/adk-tools \
 
 ############################################################################
 FROM deps AS kicad-builder
+ARG JOBS
 
 COPY tools/kicad /src/kicad
 
@@ -120,11 +125,12 @@ RUN cmake -G Ninja -S /src/kicad -B /build/kicad \
         -DKICAD_USE_OCC=ON \
         -DKICAD_SPICE=ON \
         -DKICAD_BUILD_QA_TESTS=OFF \
-    && ninja -C /build/kicad \
-    && DESTDIR=/install ninja -C /build/kicad install
+    && ninja -C /build/kicad -j"${JOBS}" \
+    && DESTDIR=/install ninja -C /build/kicad -j"${JOBS}" install
 
 ############################################################################
 FROM deps AS studio-builder
+ARG JOBS
 
 # Build at the final runtime path: CMake bakes CONFIGS_DIR (absolute) into the
 # binary, and ctest metadata in build/ keeps working in the verify stage.
@@ -135,11 +141,11 @@ WORKDIR /opt/adk-tools/chiplet-studio
 # in-tree KLayout libs resolvable for it.
 ENV LD_LIBRARY_PATH=/opt/adk-tools/chiplet-studio/extern/klayout/bin-release
 
-RUN cd extern/klayout && ./build.sh -j"$(nproc)" -without-qtbinding
+RUN cd extern/klayout && ./build.sh -j"${JOBS}" -without-qtbinding
 
 RUN mkdir -p build && cd build \
     && cmake .. -DKLAYOUT_BUILD_DIR=/opt/adk-tools/chiplet-studio/extern/klayout/bin-release \
-    && make -j"$(nproc)"
+    && make -j"${JOBS}"
 
 ############################################################################
 FROM deps AS runtime
