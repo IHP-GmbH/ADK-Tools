@@ -154,8 +154,10 @@ FROM deps AS runtime
 # /usr/lib/python3/dist-packages -> headless plugin pipeline works)
 COPY --from=kicad-builder /install/ /
 
-# Chiplet Studio: binary + configs + the in-tree KLayout (libs + klayout CLI)
+# Chiplet Studio: binary + configs + embedded-python module (PYTHON_MODULE_DIR
+# is baked as build/python) + the in-tree KLayout (libs + klayout CLI)
 COPY --from=studio-builder /opt/adk-tools/chiplet-studio/build/chiplet-studio /opt/adk-tools/chiplet-studio/build/chiplet-studio
+COPY --from=studio-builder /opt/adk-tools/chiplet-studio/build/python /opt/adk-tools/chiplet-studio/build/python
 COPY --from=studio-builder /opt/adk-tools/chiplet-studio/configs /opt/adk-tools/chiplet-studio/configs
 COPY --from=studio-builder /opt/adk-tools/chiplet-studio/extern/klayout/bin-release /opt/adk-tools/chiplet-studio/extern/klayout/bin-release
 
