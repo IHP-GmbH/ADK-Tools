@@ -26,7 +26,3 @@
 	path = tools/IHP-Interconnect-IntM4TM2
 	url = git@github.com:IHP-GmbH/IHP-Interconnect-IntM4TM2.git
 	branch = main
-[submodule "tools/kicad_designs"]
-	path = tools/kicad_designs
-	url = git@github.com:Mauricio-xx/kicad_designs.git
-	branch = main

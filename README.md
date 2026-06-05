@@ -50,9 +50,10 @@ override with `ADK_WORK=...`):
 Data roots baked in (and exported as env), named after their IHP
 repositories: `INTERPOSER_PDK_ROOT=/opt/adk-tools/OpenIntM4TM2`,
 `INTERCONNECT_PDK_ROOT=/opt/adk-tools/IHP-Interconnect-IntM4TM2`, plus
-`ADK_ROOT`, `GDS_TO_KICAD_ROOT` and the demo designs under
-`/opt/adk-tools/`. Python worker venv: `/opt/adk-tools/venv`
-(`KICAD_CHIPLET_PYTHON` already points at it).
+`ADK_ROOT` and `GDS_TO_KICAD_ROOT`. The wire-bond demo lives in this
+repo under `examples/` (baked at `/opt/adk-tools/examples`, regenerated
+and DRC-gated by every verify build). Python worker venv:
+`/opt/adk-tools/venv` (`KICAD_CHIPLET_PYTHON` already points at it).
 
 ## Updating / testing a tool release
 

@@ -9,7 +9,7 @@
 if [ -d /work ] && [ -w /work ]; then
     mkdir -p /work/heterogenic-designs
     if [ ! -d /work/example ]; then
-        cp -r /opt/adk-tools/kicad_designs/interposer_wire_bonding_demo /work/example 2>/dev/null || true
+        cp -r /opt/adk-tools/examples/interposer_wire_bonding_demo /work/example 2>/dev/null || true
     fi
 fi
 
