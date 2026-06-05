@@ -9,7 +9,7 @@
 #
 # Container layout (seeded on start):
 #   /work/example              wire-bond demo, ready to open (disposable)
-#   /work/heterogenous-design  your persistent work area (host-backed)
+#   /work/heterogenic-designs  your persistent work area (host-backed)
 #
 # Examples:
 #   ./run.sh                                  # shell; `adk-tools` lists tools
