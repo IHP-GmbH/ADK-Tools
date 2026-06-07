@@ -49,11 +49,15 @@ override with `ADK_WORK=...`):
 
 Data roots baked in (and exported as env), named after their IHP
 repositories: `INTERPOSER_PDK_ROOT=/opt/adk-tools/OpenIntM4TM2`,
-`INTERCONNECT_PDK_ROOT=/opt/adk-tools/IHP-Interconnect-IntM4TM2`, plus
-`ADK_ROOT` and `GDS_TO_KICAD_ROOT`. The wire-bond demo lives in this
-repo under `examples/` (baked at `/opt/adk-tools/examples`, regenerated
-and DRC-gated by every verify build). Python worker venv:
-`/opt/adk-tools/venv` (`KICAD_CHIPLET_PYTHON` already points at it).
+`INTERCONNECT_PDK_ROOT=/opt/adk-tools/IHP-Interconnect-IntM4TM2`,
+`PDK_ROOT=/opt/adk-tools/IHP-Open-PDK` (SG13G2 KLayout slice: the
+SG13_dev PCell library + tech, pinned in the Dockerfile -- so
+`hyp-to-gds` builds vias from real `via_stack` PCells, not the
+rectangle fallback), plus `ADK_ROOT` and `GDS_TO_KICAD_ROOT`. The
+wire-bond demo lives in this repo under `examples/` (baked at
+`/opt/adk-tools/examples`, regenerated and DRC-gated by every verify
+build). Python worker venv: `/opt/adk-tools/venv`
+(`KICAD_CHIPLET_PYTHON` already points at it).
 
 ## Updating an existing clone
 

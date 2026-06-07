@@ -20,6 +20,7 @@ COMMANDS = [
 DATA = [
     ("OpenIntM4TM2",              "IntM4TM2 interposer PDK   $INTERPOSER_PDK_ROOT"),
     ("IHP-Interconnect-IntM4TM2", "Interconnect PDK          $INTERCONNECT_PDK_ROOT"),
+    ("IHP-Open-PDK",              "SG13G2 PCell/tech slice   $PDK_ROOT"),
     ("examples",                  "Demo designs              /opt/adk-tools/examples"),
 ]
 
