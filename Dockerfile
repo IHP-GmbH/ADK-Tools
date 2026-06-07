@@ -4,6 +4,8 @@
 #   deps           shared apt layer (build deps + runtime libs, one layer for all stages)
 #   kicad-builder  compiles the KiCad fork (wxPython scripting ON -> headless pcbnew)
 #   studio-builder builds KLayout in-tree + Chiplet Studio at its final path
+#   kicad-libs     official v9 symbol/footprint libraries (pinned tag)
+#   sg13g2-pdk     SG13G2 base-PDK KLayout slice (PCell library, pinned refs)
 #   runtime        lean image: kicad in /usr, tools under /opt/adk-tools, venv, wrappers
 #   verify         FROM runtime: regenerates the demo headless, runs studio ctest,
 #                  plugin pytest and adk-smoke. Default target, so a plain
@@ -154,12 +156,53 @@ RUN apt-get update \
     && rm -rf /libs/symbols/.git /libs/footprints/.git
 
 ############################################################################
+# SG13G2 base-PDK KLayout slice: the SG13_dev PCell library (hyp_to_gds
+# instantiates its via_stack for vias) + tech files. A few MB, not the
+# multi-GB PDK. pycell4klayout-api and pypreprocessor are submodules of
+# IHP-Open-PDK, cloned here at the gitlink pins of SG13G2_REF. The PDK's
+# Apache-2.0 LICENSE ships with the slice.
+FROM ubuntu:24.04 AS sg13g2-pdk
+# IHP-Open-PDK dev 2026-05-22 + its submodule gitlinks
+ARG SG13G2_REF=efe8364456a5c5d0042c15429ac88f2ae9f41b4f
+ARG PYCELL_API_REF=99f469aa348201536b2f3b55c69e58969bd4847b
+ARG PYPREPROCESSOR_REF=cf1ff9bad0fb5338cf1c5b990b2b816b1ea01a64
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && git init -q /pdk \
+    && git -C /pdk remote add origin https://github.com/IHP-GmbH/IHP-Open-PDK.git \
+    && git -C /pdk fetch -q --depth 1 origin "${SG13G2_REF}" \
+    && git -C /pdk checkout -q FETCH_HEAD -- \
+        LICENSE \
+        ihp-sg13g2/libs.tech/klayout/python/sg13g2_pycell_lib \
+        ihp-sg13g2/libs.tech/klayout/tech/sg13g2.lyt \
+        ihp-sg13g2/libs.tech/klayout/tech/sg13g2.lyp \
+        ihp-sg13g2/libs.tech/klayout/tech/sg13g2.map \
+    && git clone -q https://github.com/IHP-GmbH/pycell4klayout-api.git \
+        /pdk/ihp-sg13g2/libs.tech/klayout/python/pycell4klayout-api \
+    && git -C /pdk/ihp-sg13g2/libs.tech/klayout/python/pycell4klayout-api \
+        checkout -q "${PYCELL_API_REF}" \
+    && git clone -q https://github.com/IHP-GmbH/pypreprocessor.git \
+        /pdk/ihp-sg13g2/libs.tech/klayout/python/pypreprocessor \
+    && git -C /pdk/ihp-sg13g2/libs.tech/klayout/python/pypreprocessor \
+        checkout -q "${PYPREPROCESSOR_REF}" \
+    && rm -rf /pdk/.git \
+        /pdk/ihp-sg13g2/libs.tech/klayout/python/pycell4klayout-api/.git \
+        /pdk/ihp-sg13g2/libs.tech/klayout/python/pypreprocessor/.git
+
+############################################################################
 FROM deps AS runtime
 
 # Links the ghcr package to the repo: access is then managed in one place
 # (people with ADK-Tools access get the image). Keep both private.
 LABEL org.opencontainers.image.source=https://github.com/IHP-GmbH/ADK-Tools \
       org.opencontainers.image.description="Heterogeneous integration flow: KiCad fork, Chiplet Studio, PDKs, assembly DRC -- pre-wired"
+
+# SG13G2 PCell runtime dep, installed here (not in deps) so the heavy
+# builder caches survive: the PDK's cni PCell API imports tkinter.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3-tk \
+    && rm -rf /var/lib/apt/lists/*
 
 # Ecosystem discovery roots (env is the first link of every tool's discovery
 # chain: env -> textvar -> sibling walk -> loud). PDK dirs carry their IHP
@@ -170,6 +213,7 @@ ENV ADK_TOOLS=/opt/adk-tools \
     INTERPOSER_PDK_ROOT=/opt/adk-tools/OpenIntM4TM2 \
     INTERCONNECT_PDK_ROOT=/opt/adk-tools/IHP-Interconnect-IntM4TM2 \
     GDS_TO_KICAD_ROOT=/opt/adk-tools/gds_to_kicad \
+    PDK_ROOT=/opt/adk-tools/IHP-Open-PDK \
     KICAD_CHIPLET_PYTHON=/opt/adk-tools/venv/bin/python3
 
 # KiCad fork (kicad, pcbnew, kicad-cli in /usr/bin; pcbnew python module in
@@ -201,6 +245,11 @@ COPY tools/OpenIntM4TM2 /opt/adk-tools/OpenIntM4TM2
 COPY tools/IHP-Interconnect-IntM4TM2 /opt/adk-tools/IHP-Interconnect-IntM4TM2
 COPY examples /opt/adk-tools/examples
 
+# SG13G2 base-PDK slice (PDK_ROOT): hyp_to_gds self-registers the SG13_dev
+# PCell library from here, so vias are real via_stack PCells instead of the
+# rectangle fallback.
+COPY --from=sg13g2-pdk /pdk /opt/adk-tools/IHP-Open-PDK
+
 # Worker venv. --system-site-packages on purpose: the venv python then also
 # sees pcbnew (kicad install) and wx (python3-wxgtk4.0), so one interpreter
 # can drive the whole pipeline.
@@ -210,6 +259,7 @@ RUN python3 -m venv --system-site-packages /opt/adk-tools/venv \
         "klayout==${KLAYOUT_PIP}" \
         "PyYAML>=6.0" \
         "PyQt6>=6.6" \
+        psutil \
         pytest
 
 # Plugin visible to the KiCad GUI for every user
