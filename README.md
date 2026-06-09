@@ -108,7 +108,11 @@ docker run --rm -it -v ~/git/.../chiplet_kicad_plugin:/opt/adk-tools/chiplet_kic
 ## Notes
 
 - GUIs need an X server; `run.sh` wires `DISPLAY`/Xauthority automatically
-  (local X, ThinLinc and WSLg all work).
+  (local X, ThinLinc and WSLg all work). Rendering is forced to Mesa's
+  software path (`llvmpipe`) so the GUIs stay stable over remote X without a
+  GPU -- otherwise KiCad's GL canvas crashes when the host can't provide a
+  DRI3 device. Pass a real GPU and `-e LIBGL_ALWAYS_SOFTWARE=0` for hardware
+  acceleration.
 - The image embeds private-repo code: keep it on the private registry.
 - KiCad ships the official v9 symbol/footprint libraries (pinned tag,
   `KICAD_LIBS_TAG` build arg). 3D model packages are not included.

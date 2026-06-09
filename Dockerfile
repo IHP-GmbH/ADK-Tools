@@ -216,6 +216,19 @@ ENV ADK_TOOLS=/opt/adk-tools \
     PDK_ROOT=/opt/adk-tools/IHP-Open-PDK \
     KICAD_CHIPLET_PYTHON=/opt/adk-tools/venv/bin/python3
 
+# Force Mesa's software renderer (llvmpipe) for every GUI. The container is run
+# without a GPU device (run.sh does not pass /dev/dri), and remote X servers
+# such as ThinLinc advertise GLX but cannot provide a DRI3 device. KiCad's GAL
+# then probes the hardware path, storms pixman with invalid rectangles and
+# segfaults the instant a GL canvas is built (the symbol-chooser preview is the
+# usual trigger). llvmpipe is always available here (libgl1-mesa-dri) and gives
+# every tool -- KiCad, Chiplet Studio, gds-to-kicad, KLayout -- a stable context.
+# Override with `-e LIBGL_ALWAYS_SOFTWARE=0` if you pass a real GPU. NO_AT_BRIDGE
+# silences the harmless at-spi accessibility-bus warning in headless sessions.
+ENV LIBGL_ALWAYS_SOFTWARE=1 \
+    GALLIUM_DRIVER=llvmpipe \
+    NO_AT_BRIDGE=1
+
 # KiCad fork (kicad, pcbnew, kicad-cli in /usr/bin; pcbnew python module in
 # /usr/lib/python3/dist-packages -> headless plugin pipeline works)
 COPY --from=kicad-builder /install/ /
