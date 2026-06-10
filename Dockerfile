@@ -216,6 +216,15 @@ ENV ADK_TOOLS=/opt/adk-tools \
     PDK_ROOT=/opt/adk-tools/IHP-Open-PDK \
     KICAD_CHIPLET_PYTHON=/opt/adk-tools/venv/bin/python3
 
+# Register the interposer KLayout technology (intm4tm2.lyt + .lyp under
+# tech/) so `klayout` opens generated interposer/assembly GDS with named,
+# colored layers. First path component = writable config home (run.sh sets
+# HOME=/tmp, so this matches KLayout's default location). The interposer
+# tree is safe on the path: its only macro is autorun=false. The sg13g2 PDK
+# slice deliberately stays OFF this path -- its pycell autorun would need
+# system-level psutil/tkinter and pops error dialogs in the GUI.
+ENV KLAYOUT_PATH=/tmp/.klayout:/opt/adk-tools/OpenIntM4TM2/libs.tech/klayout
+
 # Force Mesa's software renderer (llvmpipe) for every GUI. The container is run
 # without a GPU device (run.sh does not pass /dev/dri), and remote X servers
 # such as ThinLinc advertise GLX but cannot provide a DRI3 device. KiCad's GAL

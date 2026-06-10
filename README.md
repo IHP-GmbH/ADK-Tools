@@ -59,6 +59,11 @@ wire-bond demo lives in this repo under `examples/` (baked at
 build). Python worker venv: `/opt/adk-tools/venv`
 (`KICAD_CHIPLET_PYTHON` already points at it).
 
+The interposer KLayout technology is pre-registered (`KLAYOUT_PATH`
+includes the OpenIntM4TM2 tree), so exported interposer/assembly GDS
+files open with named, colored layers: `klayout -n intm4tm2 <file>.gds`,
+or pick `intm4tm2` in the technology selector.
+
 ## Updating an existing clone
 
 ```bash

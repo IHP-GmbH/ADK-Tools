@@ -8,6 +8,21 @@ set -euo pipefail
 OUT="$(mktemp -d /tmp/adk-smoke.XXXXXX)"
 trap 'rm -rf "$OUT"' EXIT
 
+echo "adk-smoke: checking the interposer technology is registered in klayout"
+cat > "$OUT/check_tech.py" <<'PY'
+import os
+import pya
+
+names = list(pya.Technology.technology_names())
+print("klayout technologies: %s" % ", ".join(sorted(names)))
+assert "intm4tm2" in names, \
+    "intm4tm2 technology not registered (KLAYOUT_PATH misses the interposer tree?)"
+lyp = pya.Technology.technology_by_name("intm4tm2").eff_layer_properties_file()
+assert lyp and os.path.isfile(lyp), "intm4tm2 layer properties not found: %r" % lyp
+print("intm4tm2 layer properties: %s" % lyp)
+PY
+klayout -b -r "$OUT/check_tech.py"
+
 echo "adk-smoke: exporting wire-bond demo to $OUT"
 python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.py \
     --require-drc \
