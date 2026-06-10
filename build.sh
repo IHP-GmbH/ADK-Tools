@@ -5,8 +5,9 @@
 #
 #   TAG            image tag (default: dev). Result: adk-tools:TAG
 #   JOBS           parallel compile jobs for the heavy stages (default: 16)
-#   --skip-verify  skip the verify stage (demo regen + studio ctest +
-#                  plugin pytest + adk-smoke). Only for quick iteration.
+#   --skip-verify  skip the verify stage (adk/gds_to_kicad/interposer pytest +
+#                  demo regen + studio ctest + plugin pytest + adk-smoke).
+#                  Only for quick iteration.
 #
 # The verify stage builds first so a broken submodule combination never
 # produces a tagged runtime image.

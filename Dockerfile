@@ -272,6 +272,7 @@ RUN python3 -m venv --system-site-packages /opt/adk-tools/venv \
         "klayout==${KLAYOUT_PIP}" \
         "PyYAML>=6.0" \
         "PyQt6>=6.6" \
+        jinja2 \
         psutil \
         pytest
 
@@ -299,7 +300,21 @@ FROM runtime AS verify
 # over the lean copy, same absolute paths as studio-builder.
 COPY --from=studio-builder /opt/adk-tools/chiplet-studio /opt/adk-tools/chiplet-studio
 
-# 1. Regenerate the wire-bond demo headless (pcbnew + worker venv + ADK DRC).
+# 1. ADK suite (boundary manifest validation, DRC regressions via the klayout
+#    CLI wrapper, DRU generator). Cheap and fail-fast, so it runs first.
+RUN cd /opt/adk-tools/adk \
+    && /opt/adk-tools/venv/bin/python3 -m pytest tests -q
+
+# 2. gds_to_kicad suite (footprint/symbol writers, blackbox chiplets, GUI
+#    pieces under the offscreen Qt platform).
+RUN cd /opt/adk-tools/gds_to_kicad \
+    && QT_QPA_PLATFORM=offscreen /opt/adk-tools/venv/bin/python3 -m pytest tests -q
+
+# 3. Interposer PDK suite (bump mirror PCell regressions).
+RUN cd /opt/adk-tools/OpenIntM4TM2/libs.tech/klayout \
+    && /opt/adk-tools/venv/bin/python3 -m pytest intm4tm2_tests -q
+
+# 4. Regenerate the wire-bond demo headless (pcbnew + worker venv + ADK DRC).
 #    Output lands inside the demo dir, exactly where the studio gated tests
 #    expect the sibling layout to provide it. --require-drc: a combo that
 #    breaks assembly DRC fails the image build.
@@ -308,7 +323,7 @@ RUN python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.p
         --board /opt/adk-tools/examples/interposer_wire_bonding_demo/interposer_wire_bonding_demo.kicad_pcb \
         --output-dir /opt/adk-tools/examples/interposer_wire_bonding_demo
 
-# 2. Chiplet Studio full suite (gated tests resolve the PDK/tool roots via the
+# 5. Chiplet Studio full suite (gated tests resolve the PDK/tool roots via the
 #    env baked in deps).
 RUN cd /opt/adk-tools/chiplet-studio/build \
     && QT_QPA_PLATFORM=offscreen \
@@ -316,9 +331,9 @@ RUN cd /opt/adk-tools/chiplet-studio/build \
        WIREBOND_DEMO_CHIPLET=/opt/adk-tools/examples/interposer_wire_bonding_demo/interposer_wire_bonding_demo.chiplet \
        ctest --output-on-failure
 
-# 3. Plugin suite (pcbnew available here, so the env-gated tests run too).
+# 6. Plugin suite (pcbnew available here, so the env-gated tests run too).
 RUN cd /opt/adk-tools/chiplet_kicad_plugin \
     && /opt/adk-tools/venv/bin/python3 -m pytest tests -q
 
-# 4. End-to-end smoke exactly as a user would run it.
+# 7. End-to-end smoke exactly as a user would run it.
 RUN adk-smoke
