@@ -121,3 +121,11 @@ docker run --rm -it -v ~/git/.../chiplet_kicad_plugin:/opt/adk-tools/chiplet_kic
 - The image embeds private-repo code: keep it on the private registry.
 - KiCad ships the official v9 symbol/footprint libraries (pinned tag,
   `KICAD_LIBS_TAG` build arg). 3D model packages are not included.
+
+## License & notices
+
+This repo's own glue (Dockerfile, scripts, docs) is **GPL-3.0-or-later** (`LICENSE`).
+The image is a **mere aggregation** of independently licensed tools — each keeps its
+own license, and the bundled set spans GPL, Apache-2.0 and CC-BY-SA-4.0. See
+[`NOTICE.md`](NOTICE.md) for the per-component licenses, source URLs, and the GPL
+corresponding-source obligation that applies when you redistribute the image.
