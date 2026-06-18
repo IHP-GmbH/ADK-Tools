@@ -12,8 +12,8 @@
 	branch = main
 [submodule "tools/gds_to_kicad"]
 	path = tools/gds_to_kicad
-	url = git@github.com:Mauricio-xx/gds-to-kicad.git
-	branch = master
+	url = git@github.com:IHP-GmbH/gds2kicad.git
+	branch = main
 [submodule "tools/adk"]
 	path = tools/adk
 	url = git@github.com:IHP-GmbH/ADK.git
