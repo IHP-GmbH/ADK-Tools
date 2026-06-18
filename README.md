@@ -14,7 +14,7 @@ Primary distribution channel: clone + local build (internal use).
 git clone --recurse-submodules git@github.com:IHP-GmbH/ADK-Tools.git
 cd ADK-Tools && ./build.sh
 
-# alternatively, best-effort registry copy (private; small org quota --
+# alternatively, best-effort registry copy (private; small org quota,
 # may lag behind main): docker pull ghcr.io/ihp-gmbh/adk-tools:latest
 
 # run (X11 passthrough for the GUIs; ~/adk-work mounted at /work)
@@ -51,7 +51,7 @@ Data roots baked in (and exported as env), named after their IHP
 repositories: `INTERPOSER_PDK_ROOT=/opt/adk-tools/OpenIntM4TM2`,
 `INTERCONNECT_PDK_ROOT=/opt/adk-tools/IHP-Interconnect-IntM4TM2`,
 `PDK_ROOT=/opt/adk-tools/IHP-Open-PDK` (SG13G2 KLayout slice: the
-SG13_dev PCell library + tech, pinned in the Dockerfile -- so
+SG13_dev PCell library + tech, pinned in the Dockerfile, so
 `hyp-to-gds` builds vias from real `via_stack` PCells, not the
 rectangle fallback), plus `ADK_ROOT` and `GDS_TO_KICAD_ROOT`. The
 wire-bond demo lives in this repo under `examples/` (baked at
@@ -113,10 +113,11 @@ docker run --rm -it -v ~/git/.../chiplet_kicad_plugin:/opt/adk-tools/chiplet_kic
 ## Notes
 
 - GUIs need an X server; `run.sh` wires `DISPLAY`/Xauthority automatically
-  (local X, ThinLinc and WSLg all work). Rendering is forced to Mesa's
-  software path (`llvmpipe`) so the GUIs stay stable over remote X without a
-  GPU -- otherwise KiCad's GL canvas crashes when the host can't provide a
-  DRI3 device. Pass a real GPU and `-e LIBGL_ALWAYS_SOFTWARE=0` for hardware
+  (local X, ThinLinc and WSLg all work). The image itself forces Mesa's
+  software path (`LIBGL_ALWAYS_SOFTWARE=1`, `GALLIUM_DRIVER=llvmpipe`, set in
+  the Dockerfile) so the GUIs stay stable over remote X without a GPU;
+  otherwise KiCad's GL canvas crashes when the host can't provide a DRI3
+  device. Pass a real GPU and `-e LIBGL_ALWAYS_SOFTWARE=0` for hardware
   acceleration.
 - The image embeds private-repo code: keep it on the private registry.
 - KiCad ships the official v9 symbol/footprint libraries (pinned tag,
@@ -125,7 +126,7 @@ docker run --rm -it -v ~/git/.../chiplet_kicad_plugin:/opt/adk-tools/chiplet_kic
 ## License & notices
 
 This repo's own glue (Dockerfile, scripts, docs) is **GPL-3.0-or-later** (`LICENSE`).
-The image is a **mere aggregation** of independently licensed tools — each keeps its
+The image is a **mere aggregation** of independently licensed tools; each keeps its
 own license, and the bundled set spans GPL, Apache-2.0 and CC-BY-SA-4.0. See
 [`NOTICE.md`](NOTICE.md) for the per-component licenses, source URLs, and the GPL
 corresponding-source obligation that applies when you redistribute the image.
