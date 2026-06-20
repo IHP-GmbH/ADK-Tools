@@ -282,6 +282,7 @@ RUN python3 -m venv --system-site-packages /opt/adk-tools/venv \
         "PyYAML>=6.0" \
         "PyQt6>=6.6" \
         jinja2 \
+        jsonschema \
         psutil \
         pytest
 
