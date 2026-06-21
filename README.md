@@ -19,21 +19,48 @@ cd ADK-Tools && ./build.sh
 
 # run (X11 passthrough for the GUIs; ~/adk-work mounted at /work)
 ./run.sh                              # interactive shell
-./run.sh kicad example/interposer_wire_bonding_demo.kicad_pro
-./run.sh chiplet-studio example/interposer_wire_bonding_demo.chiplet
+./run.sh kicad example/kicad/interposer_wire_bonding_demo.kicad_pro
+./run.sh chiplet-studio example/outputs/interposer_wire_bonding_demo.chiplet
 ./run.sh adk-smoke                    # end-to-end self test
 ```
 
 Inside the shell, `adk-tools` prints this table with the pinned versions of
 the running image.
 
-Work directory layout (`~/adk-work` on the host, `/work` in the container;
-override with `ADK_WORK=...`):
+## Working in the shared folder
+
+`run.sh` mounts a host directory (`~/adk-work`, override with `ADK_WORK=...`) at
+`/work` inside the container, so files written on either side are immediately
+visible on the other. This is the recommended place to keep your designs: edit
+with the bundled GUIs/editors in the container, keep the files (and your git
+history) on the host. Two subdirs are seeded on first start:
 
 ```
-/work/example              wire-bond demo, seeded on start (disposable)
-/work/heterogenic-designs  your persistent work area
+/work/example              wire-bond demo, copied here on start (disposable)
+/work/heterogenic-designs  your persistent designs (survives image rebuilds)
 ```
+
+Scaffold a new design instead of starting from a blank dir:
+
+```bash
+adk-new-project my_design          # -> /work/heterogenic-designs/my_design
+```
+
+It lays out the same structure as the bundled example, a clean split between
+source and generated artifacts:
+
+```
+my_design/
+  kicad/       KiCad source you author (schematic, PCB, .pretty, fp-lib-table)
+  outputs/     export products: <board>.chiplet + GDS + DRC sidecars
+```
+
+Author the board under `kicad/`, run the Chiplet Export plugin in pcbnew with
+its output directory set to the sibling `outputs/`, then open the result with
+`chiplet-studio outputs/<board>.chiplet`. The scaffolded `.gitignore` already
+keeps the heavy/scratch files (the full `_complete.gds`, the intermediate
+`.hyp`, the DRC working dir, logs and KiCad caches) out of git while tracking
+the light deliverables, so `git init` in the project is ready to use.
 
 ## Tools
 
@@ -56,7 +83,8 @@ SG13_dev PCell library + tech, pinned in the Dockerfile, so
 rectangle fallback), plus `ADK_ROOT` and `GDS_TO_KICAD_ROOT`. The
 wire-bond demo lives in this repo under `examples/` (baked at
 `/opt/adk-tools/examples`, regenerated and DRC-gated by every verify
-build). Python worker venv: `/opt/adk-tools/venv`
+build); it follows the same `kicad/` + `outputs/` template as a
+scaffolded project. Python worker venv: `/opt/adk-tools/venv`
 (`KICAD_CHIPLET_PYTHON` already points at it).
 
 The interposer KLayout technology is pre-registered (`KLAYOUT_PATH`

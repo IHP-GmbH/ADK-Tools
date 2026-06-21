@@ -1,0 +1,113 @@
+#!/bin/bash
+# Scaffold a new heterogeneous-design project from the adk-tools template.
+#
+# Usage: adk-new-project <name>
+#
+#   ADK_PROJECTS_DIR   base dir for new projects
+#                      (default: /work/heterogenic-designs, the persistent
+#                       host<->container area seeded by adk-entrypoint)
+#
+# Creates <base>/<name>/ with the same layout as the bundled example
+# (examples/interposer_wire_bonding_demo): a kicad/ source dir, an outputs/
+# deliverables dir, a project README and a project .gitignore. The structure is
+# what the rest of the flow expects, so the chiplet export and chiplet-studio
+# pick things up without extra wiring.
+set -euo pipefail
+
+PROG="$(basename "$0")"
+
+if [ "$#" -ne 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    echo "usage: $PROG <name>" >&2
+    echo "  scaffolds \${ADK_PROJECTS_DIR:-/work/heterogenic-designs}/<name>/" >&2
+    exit 2
+fi
+
+NAME="$1"
+# Keep names to a safe single path segment: letters, digits, dot, dash,
+# underscore. Rejects slashes, spaces and the . / .. traversal names.
+case "$NAME" in
+    */*|"")          echo "$PROG: invalid name '$NAME' (no slashes)" >&2; exit 1 ;;
+    .|..)            echo "$PROG: invalid name '$NAME'" >&2; exit 1 ;;
+esac
+if ! printf '%s' "$NAME" | grep -qE '^[A-Za-z0-9._-]+$'; then
+    echo "$PROG: invalid name '$NAME' (use letters, digits, . _ -)" >&2
+    exit 1
+fi
+
+BASE="${ADK_PROJECTS_DIR:-/work/heterogenic-designs}"
+DEST="$BASE/$NAME"
+
+if [ -e "$DEST" ] && [ -n "$(ls -A "$DEST" 2>/dev/null)" ]; then
+    echo "$PROG: '$DEST' already exists and is not empty; refusing to overwrite" >&2
+    exit 1
+fi
+
+mkdir -p "$DEST/kicad" "$DEST/outputs"
+# Keep both dirs present under version control even before they hold files.
+touch "$DEST/kicad/.gitkeep" "$DEST/outputs/.gitkeep"
+
+cat > "$DEST/.gitignore" <<'GITIGNORE'
+# Heavy / regenerated outputs: the chiplet export and the assembly DRC rebuild
+# these, so they stay out of git. The light deliverables next to them ARE
+# tracked (see the un-ignored list at the bottom) so a fresh clone opens the
+# design in chiplet-studio and keeps the DRC results without re-running the flow.
+outputs/*_complete.gds
+outputs/*.hyp
+outputs/assembly_drc/
+outputs/logs/
+
+# KiCad scratch (caches, autosaves, lock files, local prefs).
+*-backups/
+fp-info-cache
+*.kicad_prl
+_autosave-*
+*.lck
+
+# Tracked on purpose (NOT ignored, listed here only as documentation):
+#   outputs/*.chiplet                 chiplet-studio entry point
+#   outputs/*_interposer.gds          referenced by the .chiplet layout:
+#   outputs/*.boundaries.json         assembly-DRC die boundary manifest
+#   outputs/*.ixn_methods.json        interconnect method sidecar
+#   outputs/*_cupillar_drc.json       cu-pillar DRC summary
+#   outputs/*_assembly_drc.lyrdb      assembly DRC report
+GITIGNORE
+
+cat > "$DEST/README.md" <<README
+# $NAME
+
+Heterogeneous-design project, scaffolded by \`adk-new-project\` from the adk-tools
+template. Same layout as the bundled \`examples/interposer_wire_bonding_demo\`.
+
+## Layout
+
+\`\`\`
+$NAME/
+  kicad/       KiCad source you author: schematic, PCB, footprints (.pretty),
+               fp-lib-table. This is the human-edited input.
+  outputs/     Export products. .chiplet + _interposer.gds (+ the JSON/lyrdb
+               sidecars) are tracked; the heavy _complete.gds, the intermediate
+               .hyp, the DRC working dir and logs/ are git-ignored (.gitignore).
+\`\`\`
+
+## Workflow
+
+1. Author the board under \`kicad/\` (open it with \`kicad\`).
+2. In pcbnew, run the Chiplet Export plugin and point its output directory at
+   the sibling \`../outputs\` so every product lands in \`outputs/\`.
+3. Open the result in the 3D viewer: \`chiplet-studio outputs/<board>.chiplet\`.
+
+The data roots the export needs (interposer/interconnect PDKs, the SG13G2 PCell
+slice) are baked into the image and exported as env; run \`adk-tools\` for the
+list.
+README
+
+echo "Created project: $DEST"
+echo "  kicad/    author your KiCad project here"
+echo "  outputs/  chiplet export writes deliverables here"
+echo
+echo "Next:"
+echo "  1. kicad $DEST/kicad        # author the board"
+echo "  2. run the Chiplet Export plugin, output dir -> $DEST/outputs"
+echo "  3. chiplet-studio $DEST/outputs/<board>.chiplet"
+echo
+echo "  (optional) cd $DEST && git init   # the .gitignore is ready"

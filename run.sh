@@ -13,8 +13,8 @@
 #
 # Examples:
 #   ./run.sh                                  # shell; `adk-tools` lists tools
-#   ./run.sh kicad example/interposer_wire_bonding_demo.kicad_pro
-#   ./run.sh chiplet-studio example/interposer_wire_bonding_demo.chiplet
+#   ./run.sh kicad example/kicad/interposer_wire_bonding_demo.kicad_pro
+#   ./run.sh chiplet-studio example/outputs/interposer_wire_bonding_demo.chiplet
 #   ./run.sh adk-smoke
 set -euo pipefail
 

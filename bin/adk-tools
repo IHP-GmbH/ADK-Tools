@@ -14,6 +14,7 @@ COMMANDS = [
     ("adk-drc",        "adk",                  "ADK assembly DRC runner (CLI)"),
     ("klayout",        "chiplet-studio",       "KLayout, pinned by the studio submodule"),
     ("adk-smoke",      "-",                    "End-to-end smoke test (demo export + dual DRC)"),
+    ("adk-new-project","-",                    "Scaffold a new design under /work/heterogenic-designs"),
 ]
 
 # data-only roots, no command
@@ -48,8 +49,10 @@ def main():
         ref = tools.get(key, {}).get("describe") or tools.get(key, {}).get("ref", "")[:10] or "-"
         print(f"  {key:<16} {ref:<14} {desc}")
     print()
-    print("Your work area is /work (run.sh mounts ~/adk-work there; "
-          "the demo is seeded at /work/example).")
+    print("Work area: /work (run.sh mounts ~/adk-work there).")
+    print("  /work/example              wire-bond demo, seeded on start (disposable)")
+    print("  /work/heterogenic-designs  your persistent designs; "
+          "`adk-new-project <name>` scaffolds one")
     return 0
 
 

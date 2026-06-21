@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<report-database>
+ <description>ADK Assembly DRC Report</description>
+ <original-file/>
+ <generator>drc: script='/opt/adk-tools/adk/klayout/drc/adk_assembly.drc'</generator>
+ <top-cell>INTERPOSER</top-cell>
+ <tags>
+ </tags>
+ <categories>
+  <category>
+   <name>ASM.a</name>
+   <description>ASM.a : Chiplet boundaries must not overlap</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>ASM.b</name>
+   <description>ASM.b : Min. chiplet-to-chiplet spacing is 50.0 um</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>ASM.e</name>
+   <description>ASM.e : Min. chiplet area is 10000.0 um2</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>ASM.f</name>
+   <description>ASM.f : Chiplet-attachment geometry overlapping a chiplet must be fully inside it</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>IXN.b.cupillar_opt1</name>
+   <description>IXN.b.cupillar_opt1 : Min. attachment-point spacing for cupillar_opt1 is 40.0 um</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>IXN.e.cupillar_opt1</name>
+   <description>IXN.e.cupillar_opt1 : Min. attachment-point pitch for cupillar_opt1 is 75.0 um</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>IXN.b.vendorx_microbump</name>
+   <description>IXN.b.vendorx_microbump : Min. attachment-point spacing for vendorx_microbump is 15.0 um</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>IXN.e.vendorx_microbump</name>
+   <description>IXN.e.vendorx_microbump : Min. attachment-point pitch for vendorx_microbump is 50.0 um</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>IXN.x.cupillar_opt1.vendorx_microbump</name>
+   <description>IXN.x.cupillar_opt1.vendorx_microbump : Min. cross-method spacing (cupillar_opt1 vs vendorx_microbump) is 40.0 um</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>IXN.b.unclaimed</name>
+   <description>IXN.b.unclaimed : Min. attachment-point spacing is 15.0 um (pads outside every method region)</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>IXN.e.unclaimed</name>
+   <description>IXN.e.unclaimed : Min. attachment-point pitch is 50.0 um (pads outside every method region)</description>
+   <categories>
+   </categories>
+  </category>
+ </categories>
+ <cells>
+  <cell>
+   <name>INTERPOSER</name>
+   <variant/>
+   <layout-name/>
+   <references>
+   </references>
+  </cell>
+ </cells>
+ <items>
+ </items>
+</report-database>

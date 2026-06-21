@@ -439,8 +439,8 @@ components:
   layout: ${GDS_TO_KICAD_ROOT}/gds_files/for_thermal_eval/Metal_Test/Metal_Test.gds
   orientation: flip_chip
   dimensions:
-    width: 730.0
-    height: 2566.339
+    width: 801.189
+    height: 3359.628
     thickness: 0.0
   position:
     x: 5170.233999999997
@@ -457,8 +457,8 @@ components:
   layout: ${GDS_TO_KICAD_ROOT}/gds_files/for_thermal_eval/Metal_Test/Metal_Test.gds
   orientation: flip_chip
   dimensions:
-    width: 730.0
-    height: 2566.339
+    width: 801.189
+    height: 3359.628
     thickness: 0.0
   position:
     x: 1954.1210000000137
