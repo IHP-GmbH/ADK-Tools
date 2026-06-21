@@ -20,6 +20,7 @@ for arg in "$@"; do
     case "$arg" in
         --skip-verify) SKIP_VERIFY=1 ;;
         -*) echo "unknown option: $arg" >&2; exit 1 ;;
+        "") echo "empty TAG argument" >&2; exit 1 ;;
         *) TAG="$arg" ;;
     esac
 done

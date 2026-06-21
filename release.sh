@@ -15,6 +15,10 @@ IMAGE=ghcr.io/ihp-gmbh/adk-tools
 CAL_TAG="${1:-}"
 
 gh auth token | docker login ghcr.io -u "$(gh api user --jq .login)" --password-stdin
+# Guarantee the ghcr credential is dropped from ~/.docker/config.json on every
+# exit path, including a failed push (set -e would otherwise skip the logout and
+# leave the token persisted on a shared host).
+trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
 
 docker tag adk-tools:dev "$IMAGE:latest"
 docker push "$IMAGE:latest"
@@ -23,11 +27,14 @@ if [ -n "$CAL_TAG" ]; then
     docker push "$IMAGE:$CAL_TAG"
 fi
 
-docker logout ghcr.io
-
-# Prune untagged versions (superseded digests).
-for id in $(gh api orgs/IHP-GmbH/packages/container/adk-tools/versions \
-        --jq '.[] | select(.metadata.container.tags | length == 0) | .id'); do
+# Prune untagged versions (superseded digests). Capture the list in a variable
+# first: a command substitution consumed directly by `for` has its exit status
+# ignored, so a failed `gh api` (lost auth, transient 5xx, rate limit) would
+# silently iterate nothing and let superseded digests pile up against the small
+# package quota. A bare assignment IS checked by set -e, so this aborts loudly.
+untagged="$(gh api orgs/IHP-GmbH/packages/container/adk-tools/versions \
+        --jq '.[] | select(.metadata.container.tags | length == 0) | .id')"
+for id in $untagged; do
     echo "pruning untagged version $id"
     gh api -X DELETE "/orgs/IHP-GmbH/packages/container/adk-tools/versions/$id"
 done

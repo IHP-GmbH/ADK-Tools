@@ -24,9 +24,12 @@ ADK_WORK="${ADK_WORK:-$HOME/adk-work}"
 mkdir -p "$ADK_WORK"
 
 # Minimal passwd/group so the container user has a name (avoids
-# "I have no name!" prompts and user-lookup failures). Reused per uid.
-ETC_DIR="/tmp/adk-tools-etc-$(id -u)"
-mkdir -p "$ETC_DIR"
+# "I have no name!" prompts and user-lookup failures). A private mktemp dir
+# (0700, unguessable name) instead of a predictable /tmp/...-$(id -u) path that
+# a co-located user could pre-create to DoS the launch or, via a planted passwd
+# symlink, redirect our write; cleaned up after the container exits.
+ETC_DIR="$(mktemp -d "${TMPDIR:-/tmp}/adk-tools-etc.XXXXXX")"
+trap 'rm -rf "$ETC_DIR"' EXIT
 printf 'root:x:0:0:root:/root:/bin/bash\nadk:x:%s:%s:adk:/tmp:/bin/bash\n' \
     "$(id -u)" "$(id -g)" > "$ETC_DIR/passwd"
 printf 'root:x:0:\nadk:x:%s:\n' "$(id -g)" > "$ETC_DIR/group"
@@ -52,4 +55,7 @@ if [ -n "${DISPLAY:-}" ]; then
     fi
 fi
 
-exec docker run "${ARGS[@]}" "$IMAGE" "$@"
+# Not exec'd: the passwd/group bind-mounts must stay live for the container's
+# lifetime, so the EXIT trap can only clean up the private etc dir once docker
+# run returns. set -e propagates the container's exit code.
+docker run "${ARGS[@]}" "$IMAGE" "$@"
