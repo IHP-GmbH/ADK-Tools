@@ -198,10 +198,14 @@ FROM deps AS runtime
 LABEL org.opencontainers.image.source=https://github.com/IHP-GmbH/ADK-Tools \
       org.opencontainers.image.description="Heterogeneous integration flow: KiCad fork, Chiplet Studio, PDKs, assembly DRC -- pre-wired"
 
-# SG13G2 PCell runtime dep, installed here (not in deps) so the heavy
-# builder caches survive: the PDK's cni PCell API imports tkinter.
+# Runtime-only apt, kept out of `deps` so the heavy builder caches survive:
+#   python3-tk  the SG13G2 cni PCell API imports tkinter
+#   vim         terminal editor for quick edits inside the container
+#   featherpad  lightweight GUI text editor (Qt) for editing files under /work
+# Editors are a deliberate runtime convenience: /work is the host-shared area, so
+# users edit project files in-container without a second terminal on the host.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3-tk \
+    && apt-get install -y --no-install-recommends python3-tk vim featherpad \
     && rm -rf /var/lib/apt/lists/*
 
 # Ecosystem discovery roots (env is the first link of every tool's discovery

@@ -122,6 +122,9 @@ docker run --rm -it -v ~/git/.../chiplet_kicad_plugin:/opt/adk-tools/chiplet_kic
 - The image embeds private-repo code: keep it on the private registry.
 - KiCad ships the official v9 symbol/footprint libraries (pinned tag,
   `KICAD_LIBS_TAG` build arg). 3D model packages are not included.
+- Text editors are bundled for in-container edits to files under `/work`:
+  `vim` (terminal) and `featherpad` (a light Qt GUI editor; needs X, like the
+  other GUIs).
 
 ## License & notices
 
