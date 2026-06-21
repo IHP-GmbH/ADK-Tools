@@ -324,6 +324,11 @@ RUN cd /opt/adk-tools/gds_to_kicad \
 RUN cd /opt/adk-tools/OpenIntM4TM2/libs.tech/klayout \
     && /opt/adk-tools/venv/bin/python3 -m pytest intm4tm2_tests -q
 
+# 3b. Interconnect PDK suite (manifest contract, schema, 3D body generator).
+#     jsonschema is in the verify venv, so the schema check actually runs here.
+RUN cd /opt/adk-tools/IHP-Interconnect-IntM4TM2/libs.tech/klayout \
+    && /opt/adk-tools/venv/bin/python3 -m pytest interconnect_tests -q
+
 # 4. Regenerate the wire-bond demo headless (pcbnew + worker venv + ADK DRC).
 #    Output lands inside the demo dir, exactly where the studio gated tests
 #    expect the sibling layout to provide it. --require-drc: a combo that
