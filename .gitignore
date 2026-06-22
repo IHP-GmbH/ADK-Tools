@@ -14,10 +14,12 @@ manifest.json
 # .gitignore that `adk-new-project` scaffolds (same patterns, project-relative).
 #
 # outputs/ : ignore only the heavy GDS, the intermediate .hyp, the DRC working
-#            dir and the run logs.
+#            dir and the run logs. The DRC reports themselves
+#            (reports/*_assembly_drc.lyrdb, reports/*_cupillar_drc.json) and
+#            MANIFEST.md sit next to them and stay tracked.
 examples/**/outputs/*_complete.gds
 examples/**/outputs/*.hyp
-examples/**/outputs/assembly_drc/
+examples/**/outputs/reports/assembly_drc/
 examples/**/outputs/logs/
 # kicad/ : KiCad's own scratch (caches, autosaves, lock files, local prefs).
 examples/**/*-backups/

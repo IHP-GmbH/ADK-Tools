@@ -29,7 +29,7 @@ manifest.json
 # travel into the image).
 examples/**/outputs/*_complete.gds
 examples/**/outputs/*.hyp
-examples/**/outputs/assembly_drc
+examples/**/outputs/reports/assembly_drc
 examples/**/outputs/logs
 examples/**/*-backups
 examples/**/fp-info-cache

@@ -53,7 +53,7 @@ cat > "$DEST/.gitignore" <<'GITIGNORE'
 # design in chiplet-studio and keeps the DRC results without re-running the flow.
 outputs/*_complete.gds
 outputs/*.hyp
-outputs/assembly_drc/
+outputs/reports/assembly_drc/
 outputs/logs/
 
 # KiCad scratch (caches, autosaves, lock files, local prefs).
@@ -68,8 +68,9 @@ _autosave-*
 #   outputs/*_interposer.gds          referenced by the .chiplet layout:
 #   outputs/*.boundaries.json         assembly-DRC die boundary manifest
 #   outputs/*.ixn_methods.json        interconnect method sidecar
-#   outputs/*_cupillar_drc.json       cu-pillar DRC summary
-#   outputs/*_assembly_drc.lyrdb      assembly DRC report
+#   outputs/MANIFEST.md               index of the products + their roles
+#   outputs/reports/*_cupillar_drc.json   cu-pillar DRC summary
+#   outputs/reports/*_assembly_drc.lyrdb  assembly DRC report
 GITIGNORE
 
 cat > "$DEST/README.md" <<README
@@ -84,9 +85,10 @@ template. Same layout as the bundled \`examples/interposer_wire_bonding_demo\`.
 $NAME/
   kicad/       KiCad source you author: schematic, PCB, footprints (.pretty),
                fp-lib-table. This is the human-edited input.
-  outputs/     Export products. .chiplet + _interposer.gds (+ the JSON/lyrdb
-               sidecars) are tracked; the heavy _complete.gds, the intermediate
-               .hyp, the DRC working dir and logs/ are git-ignored (.gitignore).
+  outputs/     Export products. The .chiplet + _interposer.gds + JSON sidecars
+               + MANIFEST.md are tracked, DRC reports under reports/; the heavy
+               _complete.gds, the intermediate .hyp, the DRC scratch dir and
+               logs/ are git-ignored (.gitignore).
 \`\`\`
 
 ## Workflow

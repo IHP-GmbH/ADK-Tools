@@ -17,13 +17,17 @@ interposer_wire_bonding_demo/
   outputs/     export products written by the Chiplet Export plugin
     interposer_wire_bonding_demo.chiplet            chiplet-studio entry point
     interposer_wire_bonding_demo_interposer.gds     referenced by the .chiplet
-    (regenerated, git-ignored: _complete.gds, .hyp, assembly_drc/, logs/)
-    (also tracked when present: the *.json sidecars, *_assembly_drc.lyrdb)
+    *.boundaries.json / *.ixn_methods.json          assembly-DRC sidecars
+    MANIFEST.md                                     index of the products
+    reports/   DRC reports: *_assembly_drc.lyrdb, *_cupillar_drc.json
+    (regenerated, git-ignored: _complete.gds, .hyp, reports/assembly_drc/, logs/)
 ```
 
 The `.chiplet` references its interposer GDS by a bare relative name, and
-chiplet-studio auto-detects the `_complete.gds` from the same directory, so the
-two GDS files and the `.chiplet` deliberately live together in `outputs/`.
+chiplet-studio auto-detects the `_complete.gds` from the same directory, and the
+assembly DRC finds each `*.boundaries.json` next to its GDS, so the GDS cluster
+and the `.chiplet` deliberately live together flat in `outputs/`. Only the DRC
+reports (which nothing resolves by sibling lookup) are grouped under `reports/`.
 
 ## Open it
 

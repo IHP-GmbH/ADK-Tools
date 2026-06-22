@@ -6,10 +6,25 @@
 #
 # Skipped silently when /work is not writable (e.g. plain docker run without
 # the run.sh mount).
+SEED_SRC=/opt/adk-tools/examples/interposer_wire_bonding_demo
 if [ -d /work ] && [ -w /work ]; then
     mkdir -p /work/heterogenic-designs
     if [ ! -d /work/example ]; then
-        cp -r /opt/adk-tools/examples/interposer_wire_bonding_demo /work/example 2>/dev/null || true
+        cp -r "$SEED_SRC" /work/example 2>/dev/null || true
+    elif [ -f "$SEED_SRC/.seed-version" ]; then
+        # Refresh /work/example when a newer image ships a changed demo: the
+        # plain "seed only if absent" rule lets the first-ever seed shadow every
+        # later image. .seed-version is a content hash baked at build time; if it
+        # differs from the copy we seeded, re-seed. The old copy (with any user
+        # edits) is kept once at /work/example.prev; it is disposable.
+        baked="$(cat "$SEED_SRC/.seed-version" 2>/dev/null)"
+        seeded="$(cat /work/example/.seed-version 2>/dev/null || true)"
+        if [ -n "$baked" ] && [ "$baked" != "$seeded" ]; then
+            rm -rf /work/example.prev 2>/dev/null || true
+            mv /work/example /work/example.prev 2>/dev/null || true
+            cp -r "$SEED_SRC" /work/example 2>/dev/null || true
+            echo "adk: refreshed /work/example to the updated demo (previous copy at /work/example.prev)" >&2
+        fi
     fi
 fi
 

@@ -286,6 +286,16 @@ COPY tools/OpenIntM4TM2 /opt/adk-tools/OpenIntM4TM2
 COPY tools/IHP-Interconnect-IntM4TM2 /opt/adk-tools/IHP-Interconnect-IntM4TM2
 COPY examples /opt/adk-tools/examples
 
+# Version-stamp the seeded demo. adk-entrypoint compares this against the copy
+# in /work/example and refreshes it when a newer image ships a changed demo
+# (the plain "seed if absent" rule otherwise lets the first-ever seed shadow
+# every later image). Content hash over the committed tree: stable across
+# rebuilds, changes only when the demo actually changes.
+RUN find /opt/adk-tools/examples/interposer_wire_bonding_demo -type f \
+        -not -name .seed-version | LC_ALL=C sort \
+    | xargs -r sha256sum | sha256sum | cut -d' ' -f1 \
+    > /opt/adk-tools/examples/interposer_wire_bonding_demo/.seed-version
+
 # SG13G2 base-PDK slice (PDK_ROOT): hyp_to_gds self-registers the SG13_dev
 # PCell library from here, so vias are real via_stack PCells instead of the
 # rectangle fallback.
