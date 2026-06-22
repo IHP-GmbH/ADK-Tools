@@ -252,16 +252,23 @@ COPY --from=kicad-libs /libs/symbols/ /usr/share/kicad/symbols/
 COPY --from=kicad-libs /libs/footprints/ /usr/share/kicad/footprints/
 ENV KICAD9_SYMBOL_DIR=/usr/share/kicad/symbols \
     KICAD9_FOOTPRINT_DIR=/usr/share/kicad/footprints
-# Seed EMPTY global library tables. The chiplet/interposer flow resolves
-# footprints and symbols from each project's own ${KIPRJMOD} libraries, so the
-# stock 155 footprint + 223 symbol libraries only add a multi-minute startup
-# stall: KiCad enumerates every library (~15k footprints) on each launch, and
-# HOME=/tmp keeps no fp-info-cache between runs. The full libraries stay on disk
-# under /usr/share/kicad/{symbols,footprints} and can be re-added from
-# Preferences > Manage Symbol/Footprint Libraries.
+# Keep the full SYMBOL table; seed a small CURATED global FOOTPRINT table. The
+# startup stall was footprint enumeration: the stock 155 libraries hold ~15k
+# .kicad_mod re-read on every launch (HOME=/tmp keeps no fp-info-cache between
+# runs). Symbols are cheap (223 files, ~40ms) so all stock symbol libraries
+# (power: GND/VCC/VDD/..., Device, Connector, etc.) stay available. Footprints
+# get only a useful basic set (mechanical + SMD discretes + a common header,
+# ~1.5k footprints) so startup stays fast; the chiplet flow resolves interposer
+# footprints from each project's own ${KIPRJMOD} library, and the full footprint
+# libraries remain on disk under /usr/share/kicad/footprints (re-addable from
+# Preferences > Manage Footprint Libraries).
 RUN mkdir -p /usr/share/kicad/template \
-    && printf '(fp_lib_table\n  (version 7)\n)\n'  > /usr/share/kicad/template/fp-lib-table \
-    && printf '(sym_lib_table\n  (version 7)\n)\n' > /usr/share/kicad/template/sym-lib-table
+    && cp /usr/share/kicad/symbols/sym-lib-table /usr/share/kicad/template/ \
+    && { echo '(fp_lib_table'; echo '  (version 7)'; \
+         for lib in MountingHole TestPoint Fiducial Resistor_SMD Capacitor_SMD Inductor_SMD LED_SMD Diode_SMD Connector_PinHeader_2.54mm; do \
+           printf '  (lib (name "%s")(type "KiCad")(uri "${KICAD9_FOOTPRINT_DIR}/%s.pretty")(options "")(descr ""))\n' "$lib" "$lib"; \
+         done; \
+         echo ')'; } > /usr/share/kicad/template/fp-lib-table
 
 # Chiplet Studio: binary + configs + embedded-python module (PYTHON_MODULE_DIR
 # is baked as build/python) + the in-tree KLayout (libs + klayout CLI)
