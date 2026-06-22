@@ -252,8 +252,16 @@ COPY --from=kicad-libs /libs/symbols/ /usr/share/kicad/symbols/
 COPY --from=kicad-libs /libs/footprints/ /usr/share/kicad/footprints/
 ENV KICAD9_SYMBOL_DIR=/usr/share/kicad/symbols \
     KICAD9_FOOTPRINT_DIR=/usr/share/kicad/footprints
-RUN cp /usr/share/kicad/symbols/sym-lib-table /usr/share/kicad/template/ \
-    && cp /usr/share/kicad/footprints/fp-lib-table /usr/share/kicad/template/
+# Seed EMPTY global library tables. The chiplet/interposer flow resolves
+# footprints and symbols from each project's own ${KIPRJMOD} libraries, so the
+# stock 155 footprint + 223 symbol libraries only add a multi-minute startup
+# stall: KiCad enumerates every library (~15k footprints) on each launch, and
+# HOME=/tmp keeps no fp-info-cache between runs. The full libraries stay on disk
+# under /usr/share/kicad/{symbols,footprints} and can be re-added from
+# Preferences > Manage Symbol/Footprint Libraries.
+RUN mkdir -p /usr/share/kicad/template \
+    && printf '(fp_lib_table\n  (version 7)\n)\n'  > /usr/share/kicad/template/fp-lib-table \
+    && printf '(sym_lib_table\n  (version 7)\n)\n' > /usr/share/kicad/template/sym-lib-table
 
 # Chiplet Studio: binary + configs + embedded-python module (PYTHON_MODULE_DIR
 # is baked as build/python) + the in-tree KLayout (libs + klayout CLI)
