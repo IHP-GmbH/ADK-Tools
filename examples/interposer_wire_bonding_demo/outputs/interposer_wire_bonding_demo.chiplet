@@ -70,7 +70,7 @@ components:
   type: interposer
   anchor: bbox_center
   technology: intm4tm2
-  layout: interposer_wire_bonding_demo_interposer.gds
+  layout: layout/interposer_wire_bonding_demo_interposer.gds
   top_cell: INTERPOSER
   dimensions:
     width: 6492.312000000005

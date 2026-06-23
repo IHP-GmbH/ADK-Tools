@@ -52,8 +52,9 @@ source and generated artifacts:
 ```
 my_design/
   kicad/       KiCad source you author (schematic, PCB, .pretty, fp-lib-table)
-  outputs/     export products: <board>.chiplet + GDS + DRC sidecars +
-               MANIFEST.md; DRC reports grouped under outputs/reports/
+  outputs/     export products: <board>.chiplet + MANIFEST.md at the root; the
+               GDS layouts + DRC sidecars under outputs/layout/; the DRC
+               reports under outputs/reports/
 ```
 
 Author the board under `kicad/`, run the Chiplet Export plugin in pcbnew with

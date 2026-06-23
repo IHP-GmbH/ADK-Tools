@@ -5,19 +5,21 @@ manifest.json
 
 # Demo / project artifacts under examples/<project>/. The export and the verify
 # stage regenerate everything below; only the heavy and scratch files are
-# ignored. The light deliverables that sit next to them are tracked on purpose
-# (a fresh clone then opens the demo in chiplet-studio and carries the DRC
-# results without a rebuild): the .chiplet, the _interposer.gds, the *.json
-# sidecars and *_assembly_drc.lyrdb.
+# ignored. The light deliverables are tracked on purpose (a fresh clone then
+# opens the demo in chiplet-studio and carries the DRC results without a
+# rebuild): the .chiplet + MANIFEST.md at the outputs/ root, the _interposer.gds
+# and *.json sidecars under outputs/layout/, and the reports under
+# outputs/reports/.
 #
 # Keep this block in lockstep with .dockerignore, and with the per-project
 # .gitignore that `adk-new-project` scaffolds (same patterns, project-relative).
 #
-# outputs/ : ignore only the heavy GDS, the intermediate .hyp, the DRC working
-#            dir and the run logs. The DRC reports themselves
+# outputs/ : the GDS layouts and their sidecars live under layout/; ignore only
+#            the heavy layout/*_complete.gds, the intermediate .hyp, the DRC
+#            working dir and the run logs. The DRC reports
 #            (reports/*_assembly_drc.lyrdb, reports/*_cupillar_drc.json) and
-#            MANIFEST.md sit next to them and stay tracked.
-examples/**/outputs/*_complete.gds
+#            MANIFEST.md stay tracked.
+examples/**/outputs/layout/*_complete.gds
 examples/**/outputs/*.hyp
 examples/**/outputs/reports/assembly_drc/
 examples/**/outputs/logs/

@@ -51,7 +51,7 @@ cat > "$DEST/.gitignore" <<'GITIGNORE'
 # these, so they stay out of git. The light deliverables next to them ARE
 # tracked (see the un-ignored list at the bottom) so a fresh clone opens the
 # design in chiplet-studio and keeps the DRC results without re-running the flow.
-outputs/*_complete.gds
+outputs/layout/*_complete.gds
 outputs/*.hyp
 outputs/reports/assembly_drc/
 outputs/logs/
@@ -64,13 +64,13 @@ _autosave-*
 *.lck
 
 # Tracked on purpose (NOT ignored, listed here only as documentation):
-#   outputs/*.chiplet                 chiplet-studio entry point
-#   outputs/*_interposer.gds          referenced by the .chiplet layout:
-#   outputs/*.boundaries.json         assembly-DRC die boundary manifest
-#   outputs/*.ixn_methods.json        interconnect method sidecar
-#   outputs/MANIFEST.md               index of the products + their roles
-#   outputs/reports/*_cupillar_drc.json   cu-pillar DRC summary
-#   outputs/reports/*_assembly_drc.lyrdb  assembly DRC report
+#   outputs/*.chiplet                      chiplet-studio entry point
+#   outputs/MANIFEST.md                    index of the products + their roles
+#   outputs/layout/*_interposer.gds        referenced by the .chiplet layout:
+#   outputs/layout/*.boundaries.json       assembly-DRC die boundary manifest
+#   outputs/layout/*.ixn_methods.json      interconnect method sidecar
+#   outputs/reports/*_cupillar_drc.json    cu-pillar DRC summary
+#   outputs/reports/*_assembly_drc.lyrdb   assembly DRC report
 GITIGNORE
 
 cat > "$DEST/README.md" <<README
@@ -85,10 +85,12 @@ template. Same layout as the bundled \`examples/interposer_wire_bonding_demo\`.
 $NAME/
   kicad/       KiCad source you author: schematic, PCB, footprints (.pretty),
                fp-lib-table. This is the human-edited input.
-  outputs/     Export products. The .chiplet + _interposer.gds + JSON sidecars
-               + MANIFEST.md are tracked, DRC reports under reports/; the heavy
-               _complete.gds, the intermediate .hyp, the DRC scratch dir and
-               logs/ are git-ignored (.gitignore).
+  outputs/     Export products. The .chiplet + MANIFEST.md sit at the root; the
+               GDS layouts + their JSON sidecars are under layout/, the DRC
+               reports under reports/. Tracked: .chiplet, MANIFEST.md,
+               layout/_interposer.gds + sidecars, reports/. Git-ignored: the
+               heavy layout/_complete.gds, the intermediate .hyp, the DRC
+               scratch dir and logs/.
 \`\`\`
 
 ## Workflow

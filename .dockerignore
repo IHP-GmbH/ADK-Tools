@@ -24,10 +24,11 @@ manifest.json
 
 # Demo / project artifacts: never bake a developer's local heavy/scratch output
 # into the image. Mirrors .gitignore (the verify stage regenerates everything;
-# the tracked light deliverables -- .chiplet, _interposer.gds, the *.json
-# sidecars, *_assembly_drc.lyrdb -- are intentionally NOT matched here so they
+# the tracked light deliverables -- the .chiplet + MANIFEST.md at the outputs/
+# root, the _interposer.gds + *.json sidecars under outputs/layout/, and the
+# reports under outputs/reports/ -- are intentionally NOT matched here so they
 # travel into the image).
-examples/**/outputs/*_complete.gds
+examples/**/outputs/layout/*_complete.gds
 examples/**/outputs/*.hyp
 examples/**/outputs/reports/assembly_drc
 examples/**/outputs/logs
