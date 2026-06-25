@@ -29,7 +29,7 @@ CC-licensed components carry their own, lighter, attribution/notice obligations.
 |-----------|----------------|--------|
 | KiCad fork | `GPL-3.0-or-later` | https://github.com/IHP-GmbH/KiCad-ADK-MOD |
 | Chiplet Studio | `GPL-3.0-or-later` | https://github.com/IHP-GmbH/chiplet-studio |
-| Chiplets KiCad Plugin | `GPL-2.0-or-later` | https://github.com/IHP-GmbH/Chiplets-KiCad-Plugin |
+| Chiplets KiCad Plugin | `GPL-3.0-or-later` | https://github.com/IHP-GmbH/Chiplets-KiCad-Plugin |
 | gds-to-kicad | `GPL-3.0-or-later` | https://github.com/IHP-GmbH/gds2kicad |
 | ADK (tooling + assembly DRC) | `Apache-2.0` | https://github.com/IHP-GmbH/ADK |
 | OpenIntM4TM2 (interposer PDK) | `Apache-2.0` | https://github.com/IHP-GmbH/OpenIntM4TM2 |
