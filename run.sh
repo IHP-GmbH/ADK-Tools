@@ -23,6 +23,14 @@ IMAGE="${ADK_TOOLS_IMAGE:-adk-tools:dev}"
 ADK_WORK="${ADK_WORK:-$HOME/adk-work}"
 mkdir -p "$ADK_WORK"
 
+# Hard memory boundary: cap the container (and thus every process inside it,
+# collectively) so a runaway tool cannot exhaust host RAM and thrash swap.
+# --memory-swap set equal to --memory disables swap for the container: at the
+# limit the kernel OOM-kills a process inside the container instead of spilling
+# to host swap. Tune with ADK_MEM_LIMIT (e.g. 32g); the default protects out of
+# the box. cgroup v2 accounts swap, so the zero-swap cap is honored.
+ADK_MEM_LIMIT="${ADK_MEM_LIMIT:-20g}"
+
 # Minimal passwd/group so the container user has a name (avoids
 # "I have no name!" prompts and user-lookup failures). A private mktemp dir
 # (0700, unguessable name) instead of a predictable /tmp/...-$(id -u) path that
@@ -36,6 +44,8 @@ printf 'root:x:0:\nadk:x:%s:\n' "$(id -g)" > "$ETC_DIR/group"
 
 ARGS=(
     --rm
+    --memory "$ADK_MEM_LIMIT"
+    --memory-swap "$ADK_MEM_LIMIT"
     --user "$(id -u):$(id -g)"
     -e HOME=/tmp
     -v "$ETC_DIR/passwd:/etc/passwd:ro"
