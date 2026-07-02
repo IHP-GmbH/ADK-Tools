@@ -270,6 +270,26 @@ RUN mkdir -p /usr/share/kicad/template \
          done; \
          echo ')'; } > /usr/share/kicad/template/fp-lib-table
 
+# Also seed KiCad's common config so the "starting for the first time" setup
+# wizard never appears. HOME=/tmp keeps no config between --rm runs. The fork's
+# start wizard (common/startwizard) fires if ANY of three providers needs input:
+#   settings  -> satisfied once kicad_common.json exists;
+#   libraries -> needs the sym, fp AND design-block global tables to be valid;
+#   privacy   -> needs update_check_prompt + data_collection_prompt marked "seen".
+# kicad-cli writes a portable kicad_common.json + kicad.json; flip the two privacy
+# flags and add the (empty) design-block table, then bake all of it as templates
+# for the entrypoint to copy into the runtime HOME alongside the lib tables.
+RUN HOME=/tmp QT_QPA_PLATFORM=offscreen kicad-cli version >/dev/null 2>&1 \
+    && sed -i 's/"update_check_prompt": false/"update_check_prompt": true/; \
+               s/"data_collection_prompt": false/"data_collection_prompt": true/' \
+           /tmp/.config/kicad/9.99/kicad_common.json \
+    && cp /tmp/.config/kicad/9.99/kicad_common.json \
+          /tmp/.config/kicad/9.99/kicad.json \
+          /usr/share/kicad/template/ \
+    && printf '(design_block_lib_table\n  (version 7)\n)\n' \
+          > /usr/share/kicad/template/design-block-lib-table \
+    && rm -rf /tmp/.config /tmp/.local /tmp/.cache
+
 # Chiplet Studio: binary + configs + embedded-python module (PYTHON_MODULE_DIR
 # is baked as build/python) + the in-tree KLayout (libs + klayout CLI)
 COPY --from=studio-builder /opt/adk-tools/chiplet-studio/build/chiplet-studio /opt/adk-tools/chiplet-studio/build/chiplet-studio

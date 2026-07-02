@@ -28,14 +28,14 @@ if [ -d /work ] && [ -w /work ]; then
     fi
 fi
 
-# Pre-seed KiCad's global library tables (suppresses the first-run
-# "configure library table" dialog; the templates point at the shipped
-# /usr/share/kicad/{symbols,footprints}).
+# Pre-seed KiCad's global config so neither the "configure library table" dialog
+# nor the "starting for the first time" setup wizard appears. HOME=/tmp keeps no
+# config between --rm runs, so the lib tables AND kicad_common.json/kicad.json
+# (baked as templates under /usr/share/kicad/template) are copied in on each
+# start. Each file is copied only when absent, so a persisted config is left alone.
 kicad_cfg="${HOME:-/tmp}/.config/kicad/9.99"
-if [ ! -f "$kicad_cfg/sym-lib-table" ]; then
-    mkdir -p "$kicad_cfg" 2>/dev/null \
-        && cp -n /usr/share/kicad/template/sym-lib-table \
-                 /usr/share/kicad/template/fp-lib-table \
-                 "$kicad_cfg/" 2>/dev/null || true
-fi
+mkdir -p "$kicad_cfg" 2>/dev/null || true
+for f in sym-lib-table fp-lib-table design-block-lib-table kicad_common.json kicad.json; do
+    [ -f "$kicad_cfg/$f" ] || cp -n "/usr/share/kicad/template/$f" "$kicad_cfg/" 2>/dev/null || true
+done
 exec "$@"
