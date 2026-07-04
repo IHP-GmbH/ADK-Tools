@@ -1,0 +1,171 @@
+{
+  "version": 2,
+  "tool": "hyp_to_gds cu-pillar DRC",
+  "connection_type": "",
+  "die_connections": {
+    "U1": "cupillar_opt1",
+    "U2": "vendorx_microbump"
+  },
+  "methods": {
+    "cupillar_opt1": {
+      "body_diameter_um": 44,
+      "params": {
+        "Padc_a_diameter_um": 35,
+        "Padc_b_min_spacing_um": 40,
+        "Padc_c_min_enclosure_um": 7.5,
+        "Padc_d_min_edgeseal_um": 30.0,
+        "Padc_e_min_pitch_um": 75
+      }
+    },
+    "vendorx_microbump": {
+      "body_diameter_um": 40,
+      "params": {
+        "Padc_a_diameter_um": 40.0,
+        "Padc_b_min_spacing_um": 40.0,
+        "Padc_c_min_enclosure_um": 7.5,
+        "Padc_d_min_edgeseal_um": 30.0,
+        "Padc_e_min_pitch_um": 80.0
+      }
+    }
+  },
+  "summary": {
+    "error": 4,
+    "warning": 0,
+    "info": 8,
+    "total": 12,
+    "devices": 2,
+    "passed": false
+  },
+  "devices": {
+    "U1": {
+      "passed": true,
+      "params": {
+        "Padc_a_diameter_um": 35,
+        "Padc_b_min_spacing_um": 40,
+        "Padc_c_min_enclosure_um": 7.5,
+        "Padc_d_min_edgeseal_um": 30.0,
+        "Padc_e_min_pitch_um": 75
+      },
+      "results": [
+        {
+          "rule": "Padc.a",
+          "severity": "info",
+          "message": "Diameter matches tech: 35 um",
+          "details": {}
+        },
+        {
+          "rule": "Padc.b",
+          "severity": "info",
+          "message": "All edge-to-edge spacings >= 40 um",
+          "details": {}
+        },
+        {
+          "rule": "Padc.c",
+          "severity": "info",
+          "message": "Enclosure 7.5 um >= minimum 7.5 um",
+          "details": {}
+        },
+        {
+          "rule": "Padc.e",
+          "severity": "info",
+          "message": "All center-to-center pitches >= 75 um",
+          "details": {}
+        },
+        {
+          "rule": "Padc.f",
+          "severity": "info",
+          "message": "Circular shape: OK (256-point polygon approximation)",
+          "details": {}
+        }
+      ],
+      "summary": {
+        "error": 0,
+        "warning": 0,
+        "info": 5,
+        "total": 5
+      },
+      "connection": "cupillar_opt1"
+    },
+    "U2": {
+      "passed": false,
+      "params": {
+        "Padc_a_diameter_um": 40.0,
+        "Padc_b_min_spacing_um": 40.0,
+        "Padc_c_min_enclosure_um": 7.5,
+        "Padc_d_min_edgeseal_um": 30.0,
+        "Padc_e_min_pitch_um": 80.0
+      },
+      "results": [
+        {
+          "rule": "Padc.a",
+          "severity": "info",
+          "message": "Diameter matches tech: 40.0 um",
+          "details": {}
+        },
+        {
+          "rule": "Padc.b",
+          "severity": "error",
+          "message": "Edge spacing 39.93 um < 40.0 um between U2:GND and U2:sout",
+          "details": {
+            "bump1": "U2:GND",
+            "bump2": "U2:sout",
+            "edge_spacing_um": 39.928,
+            "min_spacing_um": 40.0
+          }
+        },
+        {
+          "rule": "Padc.b",
+          "severity": "error",
+          "message": "Edge spacing 39.93 um < 40.0 um between U2:sout and U2:GND",
+          "details": {
+            "bump1": "U2:sout",
+            "bump2": "U2:GND",
+            "edge_spacing_um": 39.928,
+            "min_spacing_um": 40.0
+          }
+        },
+        {
+          "rule": "Padc.c",
+          "severity": "info",
+          "message": "Enclosure 7.5 um >= minimum 7.5 um",
+          "details": {}
+        },
+        {
+          "rule": "Padc.e",
+          "severity": "error",
+          "message": "Pitch 79.93 um < 80.0 um between U2:GND and U2:sout",
+          "details": {
+            "bump1": "U2:GND",
+            "bump2": "U2:sout",
+            "pitch_um": 79.928,
+            "min_pitch_um": 80.0
+          }
+        },
+        {
+          "rule": "Padc.e",
+          "severity": "error",
+          "message": "Pitch 79.93 um < 80.0 um between U2:sout and U2:GND",
+          "details": {
+            "bump1": "U2:sout",
+            "bump2": "U2:GND",
+            "pitch_um": 79.928,
+            "min_pitch_um": 80.0
+          }
+        },
+        {
+          "rule": "Padc.f",
+          "severity": "info",
+          "message": "Circular shape: OK (256-point polygon approximation)",
+          "details": {}
+        }
+      ],
+      "summary": {
+        "error": 4,
+        "warning": 0,
+        "info": 3,
+        "total": 7
+      },
+      "connection": "vendorx_microbump"
+    }
+  }
+}

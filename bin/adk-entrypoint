@@ -1,12 +1,12 @@
 #!/bin/bash
 # Seed the /work structure on first run, then exec the requested command.
 #
-#   /work/example              wire-bond demo, copied here if absent (disposable)
+#   /work/example              two-die interposer demo, copied here if absent (disposable)
 #   /work/heterogenic-designs  persistent host<->container exchange dir
 #
 # Skipped silently when /work is not writable (e.g. plain docker run without
 # the run.sh mount).
-SEED_SRC=/opt/adk-tools/examples/interposer_wire_bonding_demo
+SEED_SRC=/opt/adk-tools/examples/two_die_interposer
 if [ -d /work ] && [ -w /work ]; then
     mkdir -p /work/heterogenic-designs
     if [ ! -d /work/example ]; then

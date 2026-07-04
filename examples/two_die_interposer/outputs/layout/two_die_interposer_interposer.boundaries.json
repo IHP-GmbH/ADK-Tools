@@ -1,0 +1,10 @@
+{
+  "schema": "adk-boundary-manifest",
+  "version": "1.0.0",
+  "generator": "hyp_to_gds.py",
+  "assembly_gds": "two_die_interposer_interposer.gds",
+  "dbu_um": 0.001,
+  "top_cell": "INTERPOSER",
+  "boundaries": [],
+  "assembly_gds_sha256": "86db21693f38d89e958e1e93f93cb50dc52ee8d9317061cc927536e784d9978e"
+}

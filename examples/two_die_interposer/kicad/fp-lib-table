@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "two_die_interposer")(type "KiCad")(uri "${KIPRJMOD}/two_die_interposer.pretty")(options "")(descr ""))
+)

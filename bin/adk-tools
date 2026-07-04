@@ -50,7 +50,7 @@ def main():
         print(f"  {key:<16} {ref:<14} {desc}")
     print()
     print("Work area: /work (run.sh mounts ~/adk-work there).")
-    print("  /work/example              wire-bond demo, seeded on start (disposable)")
+    print("  /work/example              two-die interposer demo, seeded on start (disposable)")
     print("  /work/heterogenic-designs  your persistent designs; "
           "`adk-new-project <name>` scaffolds one")
     return 0

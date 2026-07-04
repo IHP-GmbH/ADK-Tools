@@ -1,5 +1,5 @@
 #!/bin/bash
-# End-to-end smoke test: export the wire-bond demo headless through the full
+# End-to-end smoke test: export the two-die interposer demo headless through the full
 # pipeline (pcbnew -> hyperlynx writer -> hyp_to_gds worker -> ADK assembly
 # DRC) and fail unless the DRC passes. Verifies any running image in one
 # command; also the last gate of the verify build stage.
@@ -23,10 +23,10 @@ print("intm4tm2 layer properties: %s" % lyp)
 PY
 klayout -b -r "$OUT/check_tech.py"
 
-echo "adk-smoke: exporting wire-bond demo to $OUT"
+echo "adk-smoke: exporting two-die interposer demo to $OUT"
 python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.py \
     --require-drc \
-    --board /opt/adk-tools/examples/interposer_wire_bonding_demo/kicad/interposer_wire_bonding_demo.kicad_pcb \
+    --board /opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
     --output-dir "$OUT"
 
 echo

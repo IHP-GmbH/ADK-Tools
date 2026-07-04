@@ -311,10 +311,10 @@ COPY examples /opt/adk-tools/examples
 # (the plain "seed if absent" rule otherwise lets the first-ever seed shadow
 # every later image). Content hash over the committed tree: stable across
 # rebuilds, changes only when the demo actually changes.
-RUN find /opt/adk-tools/examples/interposer_wire_bonding_demo -type f \
+RUN find /opt/adk-tools/examples/two_die_interposer -type f \
         -not -name .seed-version | LC_ALL=C sort \
     | xargs -r sha256sum | sha256sum | cut -d' ' -f1 \
-    > /opt/adk-tools/examples/interposer_wire_bonding_demo/.seed-version
+    > /opt/adk-tools/examples/two_die_interposer/.seed-version
 
 # SG13G2 base-PDK slice (PDK_ROOT): hyp_to_gds self-registers the SG13_dev
 # PCell library from here, so vias are real via_stack PCells instead of the
@@ -386,6 +386,15 @@ RUN cd /opt/adk-tools/adk \
 RUN cd /opt/adk-tools/gds_to_kicad \
     && QT_QPA_PLATFORM=offscreen /opt/adk-tools/venv/bin/python3 -m pytest tests -q
 
+# 2b. gds2kicad "prior steps" of the two_die_interposer example: its footprints
+#     and symbols are produced from the shipped chiplet GDS + pin list, upstream
+#     of any board work. Rerun the reproducible steps and diff against the
+#     committed library (symbol + I/O pad reproduced, pin-list fidelity, converter
+#     liveness on the die GDS), so an upstream gds2kicad change that silently
+#     alters the demo artifacts fails here, before step 4 places them on the board.
+RUN QT_QPA_PLATFORM=offscreen /opt/adk-tools/venv/bin/python3 \
+        /usr/local/bin/adk-verify-chiplet-artifacts
+
 # 3. Interposer PDK suite (bump mirror PCell regressions).
 RUN cd /opt/adk-tools/OpenIntM4TM2/libs.tech/klayout \
     && /opt/adk-tools/venv/bin/python3 -m pytest intm4tm2_tests -q
@@ -395,22 +404,22 @@ RUN cd /opt/adk-tools/OpenIntM4TM2/libs.tech/klayout \
 RUN cd /opt/adk-tools/IHP-Interconnect-IntM4TM2/libs.tech/klayout \
     && /opt/adk-tools/venv/bin/python3 -m pytest interconnect_tests -q
 
-# 4. Regenerate the wire-bond demo headless (pcbnew + worker venv + ADK DRC).
-#    Source board lives under the project `kicad/` dir; all products land in the
-#    sibling `outputs/` dir, where the studio gated tests pick up the .chiplet +
-#    its co-located interposer/complete GDS. --require-drc: a combo that breaks
+# 4. Regenerate the two-die interposer demo headless (pcbnew + worker venv + ADK
+#    DRC). Source board lives under the project `kicad/` dir; all products land in
+#    the sibling `outputs/` dir, where the studio gated tests pick up the .chiplet
+#    + its co-located interposer/complete GDS. --require-drc: a combo that breaks
 #    assembly DRC fails the image build.
 RUN python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.py \
         --require-drc \
-        --board /opt/adk-tools/examples/interposer_wire_bonding_demo/kicad/interposer_wire_bonding_demo.kicad_pcb \
-        --output-dir /opt/adk-tools/examples/interposer_wire_bonding_demo/outputs
+        --board /opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
+        --output-dir /opt/adk-tools/examples/two_die_interposer/outputs
 
 # 5. Chiplet Studio full suite (gated tests resolve the PDK/tool roots via the
 #    env baked in deps).
 RUN cd /opt/adk-tools/chiplet-studio/build \
     && QT_QPA_PLATFORM=offscreen \
        LD_LIBRARY_PATH=/opt/adk-tools/chiplet-studio/extern/klayout/bin-release \
-       WIREBOND_DEMO_CHIPLET=/opt/adk-tools/examples/interposer_wire_bonding_demo/outputs/interposer_wire_bonding_demo.chiplet \
+       WIREBOND_DEMO_CHIPLET=/opt/adk-tools/examples/two_die_interposer/outputs/two_die_interposer.chiplet \
        ctest --output-on-failure
 
 # 6. Plugin suite (pcbnew available here, so the env-gated tests run too).
@@ -419,8 +428,8 @@ RUN cd /opt/adk-tools/chiplet-studio/build \
 #    at the board's new kicad/ location so the byte-exact regression tests run
 #    instead of self-skipping.
 RUN cd /opt/adk-tools/chiplet_kicad_plugin \
-    && CHIPLET_WRITER_BOARD=/opt/adk-tools/examples/interposer_wire_bonding_demo/kicad/interposer_wire_bonding_demo.kicad_pcb \
-       HYPERLYNX_WRITER_BOARD=/opt/adk-tools/examples/interposer_wire_bonding_demo/kicad/interposer_wire_bonding_demo.kicad_pcb \
+    && CHIPLET_WRITER_BOARD=/opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
+       HYPERLYNX_WRITER_BOARD=/opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
        /opt/adk-tools/venv/bin/python3 -m pytest tests -q
 
 # 7. End-to-end smoke exactly as a user would run it.

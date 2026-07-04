@@ -8,13 +8,13 @@
 #                     (default: ~/adk-work; created on first run)
 #
 # Container layout (seeded on start):
-#   /work/example              wire-bond demo, ready to open (disposable)
+#   /work/example              two-die interposer demo, ready to open (disposable)
 #   /work/heterogenic-designs  your persistent work area (host-backed)
 #
 # Examples:
 #   ./run.sh                                  # shell; `adk-tools` lists tools
-#   ./run.sh kicad example/kicad/interposer_wire_bonding_demo.kicad_pro
-#   ./run.sh chiplet-studio example/outputs/interposer_wire_bonding_demo.chiplet
+#   ./run.sh kicad example/kicad/two_die_interposer.kicad_pro
+#   ./run.sh chiplet-studio example/outputs/two_die_interposer.chiplet
 #   ./run.sh adk-smoke
 set -euo pipefail
 

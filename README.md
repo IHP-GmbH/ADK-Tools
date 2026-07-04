@@ -19,8 +19,8 @@ cd ADK-Tools && ./build.sh
 
 # run (X11 passthrough for the GUIs; ~/adk-work mounted at /work)
 ./run.sh                              # interactive shell
-./run.sh kicad example/kicad/interposer_wire_bonding_demo.kicad_pro
-./run.sh chiplet-studio example/outputs/interposer_wire_bonding_demo.chiplet
+./run.sh kicad example/kicad/two_die_interposer.kicad_pro
+./run.sh chiplet-studio example/outputs/two_die_interposer.chiplet
 ./run.sh adk-smoke                    # end-to-end self test
 ```
 
@@ -36,7 +36,7 @@ with the bundled GUIs/editors in the container, keep the files (and your git
 history) on the host. Two subdirs are seeded on first start:
 
 ```
-/work/example              wire-bond demo, copied here on start (disposable)
+/work/example              two-die interposer demo, copied here on start (disposable)
 /work/heterogenic-designs  your persistent designs (survives image rebuilds)
 ```
 
@@ -83,7 +83,7 @@ repositories: `INTERPOSER_PDK_ROOT=/opt/adk-tools/OpenIntM4TM2`,
 SG13_dev PCell library + tech, pinned in the Dockerfile, so
 `hyp-to-gds` builds vias from real `via_stack` PCells, not the
 rectangle fallback), plus `ADK_ROOT` and `GDS_TO_KICAD_ROOT`. The
-wire-bond demo lives in this repo under `examples/` (baked at
+two-die interposer demo lives in this repo under `examples/` (baked at
 `/opt/adk-tools/examples`, regenerated and DRC-gated by every verify
 build); it follows the same `kicad/` + `outputs/` template as a
 scaffolded project. Python worker venv: `/opt/adk-tools/venv`
@@ -128,7 +128,7 @@ cd tools/chiplet-studio && git fetch && git checkout feature/x && cd ../..
 ```
 
 `build.sh` always builds the `verify` stage first: it regenerates the
-wire-bond demo headless through the full pipeline (pcbnew -> writers ->
+two-die interposer demo headless through the full pipeline (pcbnew -> writers ->
 hyp_to_gds -> assembly DRC), runs the Chiplet Studio test suite and the
 plugin test suite inside the image. A broken combination does not produce a
 tagged image. `--skip-verify` exists for quick iteration only.

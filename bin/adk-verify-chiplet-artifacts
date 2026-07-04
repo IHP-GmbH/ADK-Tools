@@ -1,0 +1,273 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Verify the gds2kicad "prior steps" of the two_die_interposer example.
+
+The example's KiCad library (footprints + symbols) is produced from chiplet
+layouts with the gds2kicad tools. This gate reruns the reproducible steps on the
+shipped inputs and checks them against the committed library, so an upstream
+gds2kicad change that silently alters the demo artifacts fails the build:
+
+  1. metal_test symbol   : regenerate from chiplets/metal_test_chiplet.pins.json
+                           and diff the pin set against the committed .kicad_sym
+                           Metal_Test symbol.                          [STRICT]
+  2. io pad footprint     : regenerate interposer_bondpad via generate_io_pad and
+                           diff the pad geometry against the committed one. [STRICT]
+  3. pin-list fidelity    : re-extract the pin list from the committed footprint
+                           and diff it against the shipped pins.json.    [STRICT]
+  4. footprint liveness   : run the GDS->footprint converter on the shipped die
+                           GDS and require a valid, non-empty footprint. [SMOKE]
+
+The metal_test footprint itself is produced by the human-in-the-loop pad-review
+workflow (the die exposes ~474 shapes, only 58 are I/O pads), so it is gated by
+liveness + pin-list fidelity, not by a one-shot equality. See chiplets/README.md.
+"""
+import argparse
+import json
+import math
+import os
+import subprocess
+import sys
+import tempfile
+
+PY = sys.executable  # the venv python (has the klayout module)
+
+
+# ---------------------------------------------------------------------------
+# minimal S-expression parser (enough for .kicad_mod / .kicad_sym)
+# ---------------------------------------------------------------------------
+def sexpr_parse(text):
+    tokens, i, n = [], 0, len(text)
+    def read(i):
+        node = []
+        while i < n:
+            c = text[i]
+            if c == '(':
+                child, i = read(i + 1)
+                node.append(child)
+            elif c == ')':
+                return node, i + 1
+            elif c == '"':
+                j = i + 1
+                buf = []
+                while j < n:
+                    if text[j] == '\\':
+                        buf.append(text[j + 1]); j += 2; continue
+                    if text[j] == '"':
+                        break
+                    buf.append(text[j]); j += 1
+                node.append(('str', ''.join(buf))); i = j + 1
+            elif c.isspace():
+                i += 1
+            else:
+                j = i
+                while j < n and not text[j].isspace() and text[j] not in '()"':
+                    j += 1
+                node.append(('atom', text[i:j])); i = j
+        return node, i
+    # skip to first '('
+    while i < n and text[i] != '(':
+        i += 1
+    root, _ = read(i + 1)
+    return root
+
+
+def head(node):
+    """First element's atom/str value, or None."""
+    if isinstance(node, list) and node:
+        e = node[0]
+        if isinstance(e, tuple):
+            return e[1]
+    return None
+
+
+def val(node, idx):
+    if isinstance(node, list) and len(node) > idx and isinstance(node[idx], tuple):
+        return node[idx][1]
+    return None
+
+
+def walk(node):
+    """Yield every list node in the tree (pre-order)."""
+    if isinstance(node, list):
+        yield node
+        for e in node:
+            if isinstance(e, list):
+                yield from walk(e)
+
+
+def find_symbol(root, name):
+    for sub in walk(root):
+        if head(sub) == 'symbol' and val(sub, 1) == name:
+            return sub
+    return None
+
+
+def pin_names(node):
+    """All pin names under a subtree (KiCad pin: (pin <type> <style> ... (name "X" ...)))."""
+    names = []
+    for sub in walk(node):
+        if head(sub) == 'pin':
+            for child in sub:
+                if isinstance(child, list) and head(child) == 'name':
+                    names.append(val(child, 1))
+                    break
+    return names
+
+
+def pads(node):
+    """List of pad dicts: number, shape, at(x,y), size(w,h), layers."""
+    out = []
+    for sub in walk(node):
+        if head(sub) != 'pad':
+            continue
+        pad = {'number': val(sub, 1), 'shape': val(sub, 3), 'at': None,
+               'size': None, 'layers': []}
+        for child in sub:
+            if not isinstance(child, list):
+                continue
+            h = head(child)
+            if h == 'at':
+                pad['at'] = (round(float(val(child, 1)), 4), round(float(val(child, 2)), 4))
+            elif h == 'size':
+                pad['size'] = (round(float(val(child, 1)), 4), round(float(val(child, 2)), 4))
+            elif h == 'layers':
+                pad['layers'] = sorted(e[1] for e in child[1:] if isinstance(e, tuple))
+        out.append(pad)
+    return out
+
+
+def prop(node, key):
+    for sub in walk(node):
+        if head(sub) == 'property' and val(sub, 1) == key:
+            return val(sub, 2)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# checks
+# ---------------------------------------------------------------------------
+FAILS = []
+
+
+def check(ok, label, detail=''):
+    print(f"  [{'PASS' if ok else 'FAIL'}] {label}" + (f" - {detail}" if detail else ''))
+    if not ok:
+        FAILS.append(label)
+
+
+def run_tool(args, **kw):
+    return subprocess.run([PY] + args, capture_output=True, text=True, **kw)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('--example-dir', default='/opt/adk-tools/examples/two_die_interposer')
+    ap.add_argument('--g2k-root', default=os.environ.get('GDS_TO_KICAD_ROOT', '/opt/adk-tools/gds_to_kicad'))
+    a = ap.parse_args()
+
+    ex, g2k = a.example_dir, a.g2k_root
+    pretty = os.path.join(ex, 'kicad', 'two_die_interposer.pretty')
+    fp_metal = os.path.join(pretty, 'metal_test_chiplet.kicad_mod')
+    fp_iopad = os.path.join(pretty, 'interposer_bondpad.kicad_mod')
+    committed_sym = os.path.join(ex, 'kicad', 'two_die_interposer.kicad_sym')
+    pins_json = os.path.join(ex, 'chiplets', 'metal_test_chiplet.pins.json')
+    die_gds = os.path.join(ex, 'chiplets', 'Metal_Test.gds')
+    lyp = os.path.join(g2k, 'pdks', 'sg13g2.lyp')
+
+    for p in (fp_metal, fp_iopad, committed_sym, pins_json, die_gds, lyp):
+        if not os.path.exists(p):
+            print(f"  [FAIL] missing input: {p}")
+            FAILS.append('inputs')
+    if FAILS:
+        return fail()
+
+    tmp = tempfile.mkdtemp(prefix='adk-g2k-verify.')
+    shipped = json.load(open(pins_json))
+    shipped_names = [p['name'] for p in shipped['pins']]
+
+    print("gds2kicad prior-steps verification for two_die_interposer")
+    print(f"  example : {ex}")
+    print(f"  gds2kicad: {g2k}\n")
+
+    # 1. symbol from pin list, strict pin-set diff vs committed Metal_Test symbol
+    regen_sym = os.path.join(tmp, 'Metal_Test.kicad_sym')
+    r = run_tool([os.path.join(g2k, 'gds_to_kicad_symbol.py'),
+                  '--from-pin-list', pins_json, '-o', regen_sym])
+    if r.returncode != 0:
+        check(False, 'symbol regenerates from pin list', r.stderr.strip()[-200:])
+    else:
+        regen_names = pin_names(sexpr_parse(open(regen_sym).read()))
+        committed_metal = find_symbol(sexpr_parse(open(committed_sym).read()), 'Metal_Test')
+        committed_names = pin_names(committed_metal) if committed_metal else []
+        check(sorted(regen_names) == sorted(shipped_names),
+              'regenerated symbol pin set == pin list',
+              f"{len(regen_names)} vs {len(shipped_names)}")
+        check(sorted(committed_names) == sorted(shipped_names),
+              'committed Metal_Test symbol pin set == pin list',
+              f"{len(committed_names)} vs {len(shipped_names)}")
+
+    # 2. io pad footprint geometry vs committed interposer_bondpad
+    iodir = os.path.join(tmp, 'iopad')
+    r = run_tool([os.path.join(g2k, 'io_pads', 'generate_io_pad.py'),
+                  '--io-class', 'wire_bond', '--size', '100x100', '--out-dir', iodir])
+    gen_mod = os.path.join(iodir, 'kicad_footprints', 'IOPad_WireBond_100x100.kicad_mod')
+    if r.returncode != 0 or not os.path.exists(gen_mod):
+        check(False, 'io pad regenerates', r.stderr.strip()[-200:])
+    else:
+        gp = pads(sexpr_parse(open(gen_mod).read()))
+        cp = pads(sexpr_parse(open(fp_iopad).read()))
+        same = (len(gp) == len(cp) == 1 and gp[0]['shape'] == cp[0]['shape']
+                and gp[0]['size'] == cp[0]['size'] and gp[0]['at'] == cp[0]['at']
+                and gp[0]['layers'] == cp[0]['layers'])
+        check(same, 'io pad geometry == committed interposer_bondpad',
+              f"gen {gp[:1]} vs committed {cp[:1]}")
+        check(prop(sexpr_parse(open(fp_iopad).read()), 'IO_CLASS') == 'wire_bond',
+              'committed io pad IO_CLASS == wire_bond')
+
+    # 3. pin-list fidelity: re-extract from committed footprint, diff vs shipped
+    re_json = os.path.join(tmp, 're_pins.json')
+    r = run_tool([os.path.join(g2k, 'footprint_to_pinlist.py'), fp_metal,
+                  '-o', re_json, '--name', 'metal_test_chiplet'])
+    if r.returncode != 0:
+        check(False, 'pin list re-extracts from footprint', r.stderr.strip()[-200:])
+    else:
+        rep = json.load(open(re_json))
+        volatile = {'timestamp', 'source', 'source_type'}
+        def normp(pins):
+            norm = []
+            for p in sorted(pins, key=lambda d: (d['name'], d.get('pad_index', 0))):
+                norm.append({k: (round(v, 3) if isinstance(v, float) else v)
+                             for k, v in p.items()})
+            return norm
+        check(normp(rep['pins']) == normp(shipped['pins']),
+              'pin list fidelity (committed footprint == shipped pins.json)',
+              f"{len(rep['pins'])} vs {len(shipped['pins'])} pins")
+
+    # 4. footprint converter liveness on the shipped die GDS
+    live_mod = os.path.join(tmp, 'live.kicad_mod')
+    r = run_tool([os.path.join(g2k, 'gds_to_kicad.py'), die_gds,
+                  '--lyp-file', lyp, '--layer', 'TopMetal2.drawing',
+                  '--text-layer-number', '134/25', '--flip-chip', '-o', live_mod])
+    ok = r.returncode == 0 and os.path.exists(live_mod)
+    npads = 0
+    if ok:
+        txt = open(live_mod).read()
+        npads = txt.count('(pad ')
+        ok = npads > 0 and txt.count('(') == txt.count(')')
+    check(ok, 'GDS->footprint converter liveness on Metal_Test.gds',
+          f"{npads} pads" if ok else r.stderr.strip()[-200:])
+
+    return fail()
+
+
+def fail():
+    print()
+    if FAILS:
+        print(f"gds2kicad prior-steps verification FAILED: {', '.join(FAILS)}")
+        return 1
+    print("gds2kicad prior-steps verification: PASS")
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
