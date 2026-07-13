@@ -83,7 +83,8 @@ template. Same layout as the bundled \`examples/two_die_interposer\`.
 
 \`\`\`
 $NAME/
-  kicad/       KiCad source you author: schematic, PCB, footprints (.pretty),
+  kicad/       KiCad source you author: schematic, PCB, and the symbol/footprint
+               libraries (.kicad_sym / .pretty) registered via sym-lib-table /
                fp-lib-table. This is the human-edited input.
   outputs/     Export products. The .chiplet + MANIFEST.md sit at the root; the
                GDS layouts + their JSON sidecars are under layout/, the DRC
@@ -95,10 +96,14 @@ $NAME/
 
 ## Workflow
 
-1. Author the board under \`kicad/\` (open it with \`kicad\`).
-2. In pcbnew, run the Chiplet Export plugin and point its output directory at
+1. Generate each chiplet's symbol and footprint from its GDS with
+   \`gds-to-kicad\` (the unified GUI); save them as \`kicad/<project>.kicad_sym\`
+   and into \`kicad/<project>.pretty/\`, and register both with a \`sym-lib-table\`
+   / \`fp-lib-table\` (mirror the bundled example).
+2. Author the board under \`kicad/\` (open it with \`kicad\`).
+3. In pcbnew, run the Chiplet Export plugin and point its output directory at
    the sibling \`../outputs\` so every product lands in \`outputs/\`.
-3. Open the result in the 3D viewer: \`chiplet-studio outputs/<board>.chiplet\`.
+4. Open the result in the 3D viewer: \`chiplet-studio outputs/<board>.chiplet\`.
 
 The data roots the export needs (interposer/interconnect PDKs, the SG13G2 PCell
 slice) are baked into the image and exported as env; run \`adk-tools\` for the

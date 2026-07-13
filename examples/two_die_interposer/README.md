@@ -12,9 +12,9 @@ for any new design.
 two_die_interposer/
   kicad/       KiCad source (the human-authored input)
     two_die_interposer.kicad_pro / .kicad_sch / .kicad_pcb
-    two_die_interposer.kicad_sym
-    fp-lib-table
-    two_die_interposer.pretty/   (project footprints, produced by gds2kicad)
+    two_die_interposer.kicad_sym    (project symbols, produced by gds2kicad)
+    two_die_interposer.pretty/      (project footprints, produced by gds2kicad)
+    sym-lib-table / fp-lib-table    (register those two libraries with the project)
   chiplets/    gds2kicad prior-steps inputs (see chiplets/README.md)
     Metal_Test.gds                 die layout shared by both dies
     metal_test_chiplet.pins.json   curated 58-pad pin list

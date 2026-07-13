@@ -62,6 +62,11 @@ release.
   flow is reachable from the bundled command. The `adk-tools` listing and READMEs
   are reworded to match, and the example `Open it` section points the GUI at the
   demo die GDS.
+- Registered the example's symbol library with a project `sym-lib-table`
+  (mirroring the existing `fp-lib-table`), so `two_die_interposer.kicad_sym` is a
+  first-class, reusable project library like the footprints instead of only being
+  cached inside the schematic. `adk-new-project`'s scaffolded guidance now covers
+  symbols + `sym-lib-table` alongside footprints + `fp-lib-table`.
 - Removed the maintainer's absolute home path from tracked example KiCad files
   (`two_die_interposer.kicad_pcb`, `metal_test_chiplet.kicad_mod`); they now use
   the `${GDS_TO_KICAD_ROOT}` form, so no local path is baked into the image.
