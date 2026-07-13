@@ -52,6 +52,7 @@ source and generated artifacts:
 ```
 my_design/
   kicad/       KiCad source you author (schematic, PCB, .pretty, fp-lib-table)
+  chiplets/    die GDS inputs (+ pin lists) for the gds-to-kicad prior steps
   outputs/     export products: <board>.chiplet + MANIFEST.md at the root; the
                GDS layouts + DRC sidecars under outputs/layout/; the DRC
                reports under outputs/reports/
@@ -85,8 +86,8 @@ SG13_dev PCell library + tech, pinned in the Dockerfile, so
 rectangle fallback), plus `ADK_ROOT` and `GDS_TO_KICAD_ROOT`. The
 two-die interposer demo lives in this repo under `examples/` (baked at
 `/opt/adk-tools/examples`, regenerated and DRC-gated by every verify
-build); it follows the same `kicad/` + `outputs/` template as a
-scaffolded project. Python worker venv: `/opt/adk-tools/venv`
+build); it follows the same `kicad/` + `chiplets/` + `outputs/` template
+as a scaffolded project. Python worker venv: `/opt/adk-tools/venv`
 (`KICAD_CHIPLET_PYTHON` already points at it).
 
 The interposer KLayout technology is pre-registered (`KLAYOUT_PATH`

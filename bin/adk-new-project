@@ -8,9 +8,10 @@
 #                       host<->container area seeded by adk-entrypoint)
 #
 # Creates <base>/<name>/ with the same layout as the bundled example
-# (examples/two_die_interposer): a kicad/ source dir, an outputs/
-# deliverables dir, a project README and a project .gitignore. The structure is
-# what the rest of the flow expects, so the chiplet export and chiplet-studio
+# (examples/two_die_interposer): a kicad/ source dir, a chiplets/ dir for the
+# die GDS inputs, an outputs/ deliverables dir, a project .gitignore and a
+# minimal README (just the project title -- you fill in the rest). The structure
+# is what the rest of the flow expects, so the chiplet export and chiplet-studio
 # pick things up without extra wiring.
 set -euo pipefail
 
@@ -42,9 +43,9 @@ if [ -e "$DEST" ] && [ -n "$(ls -A "$DEST" 2>/dev/null)" ]; then
     exit 1
 fi
 
-mkdir -p "$DEST/kicad" "$DEST/outputs"
-# Keep both dirs present under version control even before they hold files.
-touch "$DEST/kicad/.gitkeep" "$DEST/outputs/.gitkeep"
+mkdir -p "$DEST/kicad" "$DEST/chiplets" "$DEST/outputs"
+# Keep the dirs present under version control even before they hold files.
+touch "$DEST/kicad/.gitkeep" "$DEST/chiplets/.gitkeep" "$DEST/outputs/.gitkeep"
 
 cat > "$DEST/.gitignore" <<'GITIGNORE'
 # Heavy / regenerated outputs: the chiplet export and the assembly DRC rebuild
@@ -73,45 +74,14 @@ _autosave-*
 #   outputs/reports/*_assembly_drc.lyrdb   assembly DRC report
 GITIGNORE
 
+# The README is intentionally just the project title -- you fill in the rest.
 cat > "$DEST/README.md" <<README
 # $NAME
-
-Heterogeneous-design project, scaffolded by \`adk-new-project\` from the adk-tools
-template. Same layout as the bundled \`examples/two_die_interposer\`.
-
-## Layout
-
-\`\`\`
-$NAME/
-  kicad/       KiCad source you author: schematic, PCB, and the symbol/footprint
-               libraries (.kicad_sym / .pretty) registered via sym-lib-table /
-               fp-lib-table. This is the human-edited input.
-  outputs/     Export products. The .chiplet + MANIFEST.md sit at the root; the
-               GDS layouts + their JSON sidecars are under layout/, the DRC
-               reports under reports/. Tracked: .chiplet, MANIFEST.md,
-               layout/_interposer.gds + sidecars, reports/. Git-ignored: the
-               heavy layout/_complete.gds, the intermediate .hyp, the DRC
-               scratch dir and logs/.
-\`\`\`
-
-## Workflow
-
-1. Generate each chiplet's symbol and footprint from its GDS with
-   \`gds-to-kicad\` (the unified GUI); save them as \`kicad/<project>.kicad_sym\`
-   and into \`kicad/<project>.pretty/\`, and register both with a \`sym-lib-table\`
-   / \`fp-lib-table\` (mirror the bundled example).
-2. Author the board under \`kicad/\` (open it with \`kicad\`).
-3. In pcbnew, run the Chiplet Export plugin and point its output directory at
-   the sibling \`../outputs\` so every product lands in \`outputs/\`.
-4. Open the result in the 3D viewer: \`chiplet-studio outputs/<board>.chiplet\`.
-
-The data roots the export needs (interposer/interconnect PDKs, the SG13G2 PCell
-slice) are baked into the image and exported as env; run \`adk-tools\` for the
-list.
 README
 
 echo "Created project: $DEST"
 echo "  kicad/    author your KiCad project here"
+echo "  chiplets/ put each die's GDS (+ pin list) here"
 echo "  outputs/  chiplet export writes deliverables here"
 echo
 echo "Next:"

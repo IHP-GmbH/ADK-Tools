@@ -14,6 +14,10 @@ _Development happens on `dev`; entries accumulate here until the next release._
 - `gds_to_kicad` pin advanced to `9acdb3e` — the unified GUI "Generate Stripped
   GDS" now uses a save dialog (user-chosen folder + file name) instead of a fixed
   path.
+- `adk-new-project` now scaffolds a minimal `README.md` (just the project title,
+  for the author to fill in) and creates a `chiplets/` input dir alongside
+  `kicad/` and `outputs/`, matching the bundled example's layout so a die GDS has
+  a home before the export runs.
 
 ### Fixed
 - Made the `two_die_interposer` example's die-GDS provenance self-contained: the
@@ -36,8 +40,7 @@ _Development happens on `dev`; entries accumulate here until the next release._
 - Registered the example's symbol library with a project `sym-lib-table`
   (mirroring the existing `fp-lib-table`), so `two_die_interposer.kicad_sym` is a
   first-class, reusable project library like the footprints instead of only being
-  cached inside the schematic. `adk-new-project`'s scaffolded guidance now covers
-  symbols + `sym-lib-table` alongside footprints + `fp-lib-table`.
+  cached inside the schematic.
 
 ## [v2026.07] - 2026-07-13
 
