@@ -10,6 +10,35 @@ bundled tools; the exact submodule pins for a tag are in that commit's
 
 _Development happens on `dev`; entries accumulate here until the next release._
 
+### Changed
+- `gds_to_kicad` pin advanced to `9acdb3e` — the unified GUI "Generate Stripped
+  GDS" now uses a save dialog (user-chosen folder + file name) instead of a fixed
+  path.
+
+### Fixed
+- Made the `two_die_interposer` example's die-GDS provenance self-contained: the
+  die footprint, its PCB instances (U1/U2), and the exported `.chiplet` now
+  reference the example-local `chiplets/Metal_Test.gds` board-relative
+  (`../chiplets/Metal_Test.gds`) instead of the gds2kicad tool-tree copy, so the
+  assembly export and chiplet-studio read the die geometry from the example
+  itself. This supersedes the v2026.07 `${GDS_TO_KICAD_ROOT}` die reference; the
+  `${GDS_TO_KICAD_ROOT}` form now remains only on the layer-properties `LYP_FILE`.
+  Enabled by a `chiplet_kicad_plugin` fix (`hyp_to_gds`) that resolves a
+  board-relative die `GDS_FILE` against the board directory (via the `.hyp`
+  `{BOARD ...}` header) instead of the process CWD; absolute and `${VAR}` paths
+  are unchanged, so the byte-exact writer parity is preserved.
+- `gds-to-kicad` now launches the unified GUI (symbol + footprint in one window:
+  Extract Pins -> Pin List Editor -> Symbol Designer -> Footprint Generator)
+  instead of the footprint-only front end, so the full gds->symbol / gds->footprint
+  flow is reachable from the bundled command. The `adk-tools` listing and READMEs
+  are reworded to match, and the example `Open it` section points the GUI at the
+  demo die GDS.
+- Registered the example's symbol library with a project `sym-lib-table`
+  (mirroring the existing `fp-lib-table`), so `two_die_interposer.kicad_sym` is a
+  first-class, reusable project library like the footprints instead of only being
+  cached inside the schematic. `adk-new-project`'s scaffolded guidance now covers
+  symbols + `sym-lib-table` alongside footprints + `fp-lib-table`.
+
 ## [v2026.07] - 2026-07-13
 
 Stable milestone and the first release cut under the `main` = stable / `dev` =
@@ -39,8 +68,6 @@ release.
   - chiplet-studio `5ffe784` — OpenROAD 3Dblox flow example.
   - IHP-Interconnect-IntM4TM2 `7863100` — per-method bump LEF generator;
     manifest reader hardening.
-  - gds_to_kicad `9acdb3e` — unified GUI "Generate Stripped GDS" now uses a save
-    dialog (user-chosen folder + file name) instead of a fixed path.
 - Earlier in the cycle, submodule pins also advanced through the Phase 1-6 code
   audits (chiplet-studio 2D + 3D overview navigators and pillar/via rendering;
   chiplet_kicad_plugin I/O pad handling and export logging; KiCad Hyperlynx
@@ -58,26 +85,6 @@ release.
   image self-reports its release lineage instead of a bare SHA.
 
 ### Fixed
-- Made the `two_die_interposer` example's die-GDS provenance self-contained: the
-  die footprint, its PCB instances (U1/U2), and the exported `.chiplet` now
-  reference the example-local `chiplets/Metal_Test.gds` board-relative
-  (`../chiplets/Metal_Test.gds`) instead of the gds2kicad tool-tree copy, so the
-  assembly export and chiplet-studio read the die geometry from the example
-  itself. Enabled by a `chiplet_kicad_plugin` fix (`hyp_to_gds`) that resolves a
-  board-relative die `GDS_FILE` against the board directory (via the `.hyp`
-  `{BOARD ...}` header) instead of the process CWD; absolute and `${VAR}` paths
-  are unchanged, so the byte-exact writer parity is preserved.
-- `gds-to-kicad` now launches the unified GUI (symbol + footprint in one window:
-  Extract Pins -> Pin List Editor -> Symbol Designer -> Footprint Generator)
-  instead of the footprint-only front end, so the full gds->symbol / gds->footprint
-  flow is reachable from the bundled command. The `adk-tools` listing and READMEs
-  are reworded to match, and the example `Open it` section points the GUI at the
-  demo die GDS.
-- Registered the example's symbol library with a project `sym-lib-table`
-  (mirroring the existing `fp-lib-table`), so `two_die_interposer.kicad_sym` is a
-  first-class, reusable project library like the footprints instead of only being
-  cached inside the schematic. `adk-new-project`'s scaffolded guidance now covers
-  symbols + `sym-lib-table` alongside footprints + `fp-lib-table`.
 - Removed the maintainer's absolute home path from tracked example KiCad files
   (`two_die_interposer.kicad_pcb`, `metal_test_chiplet.kicad_mod`); they now use
   the `${GDS_TO_KICAD_ROOT}` form, so no local path is baked into the image.
