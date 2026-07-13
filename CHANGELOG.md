@@ -39,6 +39,8 @@ release.
   - chiplet-studio `5ffe784` — OpenROAD 3Dblox flow example.
   - IHP-Interconnect-IntM4TM2 `7863100` — per-method bump LEF generator;
     manifest reader hardening.
+  - gds_to_kicad `9acdb3e` — unified GUI "Generate Stripped GDS" now uses a save
+    dialog (user-chosen folder + file name) instead of a fixed path.
 - Earlier in the cycle, submodule pins also advanced through the Phase 1-6 code
   audits (chiplet-studio 2D + 3D overview navigators and pillar/via rendering;
   chiplet_kicad_plugin I/O pad handling and export logging; KiCad Hyperlynx
