@@ -57,7 +57,7 @@ for line in git("submodule", "status").splitlines():
 print(json.dumps({
     "image": "adk-tools",
     "built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    "meta": git("describe", "--always", "--dirty"),
+    "meta": git("describe", "--tags", "--always", "--dirty"),
     "tools": tools,
 }, indent=2))
 PY

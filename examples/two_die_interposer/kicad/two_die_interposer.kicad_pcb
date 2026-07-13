@@ -3274,7 +3274,7 @@
 				)
 			)
 		)
-		(property "LYP_FILE" "${HOME}/git/heterogenic_chip_design_project/gds_to_kicad/pdks/sg13g2.lyp"
+		(property "LYP_FILE" "${GDS_TO_KICAD_ROOT}/pdks/sg13g2.lyp"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)

@@ -13,7 +13,11 @@ the top-level `LICENSE` of this repo does **not** apply to the bundled component
 
 The image contains **GPL-licensed programs**: the KiCad fork, Chiplet Studio, the
 KiCad plugin, gds-to-kicad, and KLayout (both the in-tree build and the `klayout`
-PyPI wheel in the worker venv), plus PyQt6 (GPLv3) in that venv. If you redistribute
+PyPI wheel in the worker venv), the SG13G2 `pycell4klayout-api` PCell API, plus
+PyQt6 (GPLv3) in the worker venv. The runtime image additionally apt-installs the
+`featherpad` (GPL-3.0) and `vim` editors from Ubuntu. This enumeration covers the
+primary bundled tools; OS-level packages installed from Ubuntu are also conveyed
+under Ubuntu's own distribution terms. If you redistribute
 the image, or any binary built from it, you must, for those components, also make
 their **corresponding source** available to recipients under the terms of their
 respective GPL licenses. Each component is pinned to a public upstream (tables below);
@@ -39,15 +43,17 @@ CC-licensed components carry their own, lighter, attribution/notice obligations.
 
 | Component | License (SPDX) | Source |
 |-----------|----------------|--------|
-| KLayout (built in-tree under Chiplet Studio) | `GPL-3.0-or-later` | https://github.com/KLayout/klayout |
+| KLayout (built in-tree under Chiplet Studio) | `GPL-2.0-or-later` | https://github.com/KLayout/klayout |
 | KiCad official symbol library (`kicad-symbols`, tag `9.0.9.1`) | `CC-BY-SA-4.0` with the KiCad library exception | https://gitlab.com/kicad/libraries/kicad-symbols |
 | KiCad official footprint library (`kicad-footprints`, tag `9.0.9.1`) | `CC-BY-SA-4.0` with the KiCad library exception | https://gitlab.com/kicad/libraries/kicad-footprints |
 | IHP-Open-PDK SG13G2 KLayout slice (`sg13g2_pycell_lib`, `.lyt`/`.lyp`/`.map`) | `Apache-2.0` | https://github.com/IHP-GmbH/IHP-Open-PDK |
-| pycell4klayout-api | see upstream repository | https://github.com/IHP-GmbH/pycell4klayout-api |
-| pypreprocessor | see upstream repository | https://github.com/IHP-GmbH/pypreprocessor |
-| KLayout Python module (`klayout` PyPI wheel, pinned `KLAYOUT_PIP`; worker venv) | `GPL-3.0-or-later` | https://github.com/KLayout/klayout |
+| pycell4klayout-api (SG13G2 PCell API; PDK slice) | `GPL-3.0-only` | https://github.com/IHP-GmbH/pycell4klayout-api |
+| pypreprocessor (SG13G2 PCell preprocessor; PDK slice) | `MIT` | https://github.com/IHP-GmbH/pypreprocessor |
+| KLayout Python module (`klayout` PyPI wheel, pinned `KLAYOUT_PIP`; worker venv) | `GPL-2.0-or-later` | https://github.com/KLayout/klayout |
 | PyQt6 (worker venv; gds-to-kicad GUI) | `GPL-3.0-only` or commercial | https://www.riverbankcomputing.com/software/pyqt/ |
 | PyYAML, Jinja2, jsonschema, psutil, pytest (worker venv) | permissive (MIT / BSD-3-Clause) | PyPI |
+| featherpad (GUI text editor; apt) | `GPL-3.0-or-later` | Ubuntu 24.04 package (https://github.com/tsujan/FeatherPad) |
+| vim (terminal editor; apt) | Vim license (GPL-compatible, charityware) | Ubuntu 24.04 package (https://www.vim.org) |
 | Base OS image | various (Ubuntu 24.04) | https://hub.docker.com/_/ubuntu |
 
 > The KiCad library exception lets the symbol/footprint libraries be used in your own

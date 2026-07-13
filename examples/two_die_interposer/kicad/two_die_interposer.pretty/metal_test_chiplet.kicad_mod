@@ -48,7 +48,7 @@
 			)
 		)
 	)
-	(property "GDS_FILE" "${HOME}/git/heterogenic_chip_design_project/gds_to_kicad/gds_files/for_thermal_eval/Metal_Test/Metal_Test.gds"
+	(property "GDS_FILE" "${GDS_TO_KICAD_ROOT}/gds_files/for_thermal_eval/Metal_Test/Metal_Test.gds"
 		(at 0 0 0)
 		(layer "F.Fab")
 		(hide yes)
@@ -59,7 +59,7 @@
 			)
 		)
 	)
-	(property "LYP_FILE" "${HOME}/git/heterogenic_chip_design_project/gds_to_kicad/pdks/sg13g2.lyp"
+	(property "LYP_FILE" "${GDS_TO_KICAD_ROOT}/pdks/sg13g2.lyp"
 		(at 0 0 0)
 		(layer "F.Fab")
 		(hide yes)
