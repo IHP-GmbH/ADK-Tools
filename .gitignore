@@ -3,6 +3,9 @@ manifest.json
 
 *.log
 
+# Local session-continuity tracking (not part of the project)
+SESSION_LOG.md
+
 # Demo / project artifacts under examples/<project>/. The export and the verify
 # stage regenerate everything below; only the heavy and scratch files are
 # ignored. The light deliverables are tracked on purpose (a fresh clone then
