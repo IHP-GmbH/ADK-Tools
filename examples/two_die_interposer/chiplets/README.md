@@ -11,6 +11,9 @@ build gates them.
 
 - `Metal_Test.gds` - the die layout used for both dies (IHP SG13G2; the I/O pads
   live on TopMetal2, GDS layer `134/0`, with pin names on the text layer `134/25`).
+  It is the canonical die layout: the footprint links to it board-relative
+  (`../chiplets/Metal_Test.gds`), so the assembly export and chiplet-studio read
+  the die geometry straight from here, not from any external tool tree.
 - `metal_test_chiplet.pins.json` - the curated 58-pad pin list (names + geometry)
   for the die. It is the captured result of the pad-review curation in step 1 and
   can be re-extracted from the committed footprint with `footprint_to_pinlist.py`.

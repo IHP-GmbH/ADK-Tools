@@ -58,6 +58,15 @@ release.
   image self-reports its release lineage instead of a bare SHA.
 
 ### Fixed
+- Made the `two_die_interposer` example's die-GDS provenance self-contained: the
+  die footprint, its PCB instances (U1/U2), and the exported `.chiplet` now
+  reference the example-local `chiplets/Metal_Test.gds` board-relative
+  (`../chiplets/Metal_Test.gds`) instead of the gds2kicad tool-tree copy, so the
+  assembly export and chiplet-studio read the die geometry from the example
+  itself. Enabled by a `chiplet_kicad_plugin` fix (`hyp_to_gds`) that resolves a
+  board-relative die `GDS_FILE` against the board directory (via the `.hyp`
+  `{BOARD ...}` header) instead of the process CWD; absolute and `${VAR}` paths
+  are unchanged, so the byte-exact writer parity is preserved.
 - `gds-to-kicad` now launches the unified GUI (symbol + footprint in one window:
   Extract Pins -> Pin List Editor -> Symbol Designer -> Footprint Generator)
   instead of the footprint-only front end, so the full gds->symbol / gds->footprint

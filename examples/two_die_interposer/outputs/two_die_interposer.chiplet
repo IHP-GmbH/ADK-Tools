@@ -436,7 +436,7 @@ components:
   anchor: gds_origin
   technology: sg13g2
   connection: vendorx_microbump
-  layout: ${GDS_TO_KICAD_ROOT}/gds_files/for_thermal_eval/Metal_Test/Metal_Test.gds
+  layout: ../chiplets/Metal_Test.gds
   orientation: flip_chip
   dimensions:
     width: 801.189
@@ -454,7 +454,7 @@ components:
   anchor: gds_origin
   technology: sg13g2
   connection: cupillar_opt1
-  layout: ${GDS_TO_KICAD_ROOT}/gds_files/for_thermal_eval/Metal_Test/Metal_Test.gds
+  layout: ../chiplets/Metal_Test.gds
   orientation: flip_chip
   dimensions:
     width: 801.189

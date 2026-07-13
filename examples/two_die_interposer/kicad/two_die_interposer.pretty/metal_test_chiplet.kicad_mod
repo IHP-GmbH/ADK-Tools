@@ -48,7 +48,7 @@
 			)
 		)
 	)
-	(property "GDS_FILE" "${GDS_TO_KICAD_ROOT}/gds_files/for_thermal_eval/Metal_Test/Metal_Test.gds"
+	(property "GDS_FILE" "../chiplets/Metal_Test.gds"
 		(at 0 0 0)
 		(layer "F.Fab")
 		(hide yes)

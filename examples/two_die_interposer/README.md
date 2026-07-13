@@ -34,9 +34,11 @@ auto-detects the `_complete.gds` from that same `layout/` dir, and the assembly
 DRC finds each `*.boundaries.json` next to its GDS. So the GDS layouts and their
 sidecars travel together under `layout/`, the DRC reports under `reports/`, and
 only the `.chiplet` + `MANIFEST.md` sit at the `outputs/` root. Each die's own
-layout is resolved through `${GDS_TO_KICAD_ROOT}` (the gds2kicad tool tree that
-ships `Metal_Test.gds`); `chiplets/Metal_Test.gds` is the same die, shipped here
-as the reproducible input for the prior steps below.
+layout is `chiplets/Metal_Test.gds`, shipped with the example: the footprint (and
+the `.chiplet` it produces) reference it board-relative as
+`../chiplets/Metal_Test.gds`, so the export and chiplet-studio resolve the die
+layout from the example itself, not from any external tool tree. This is the same
+die that seeds the reproducible prior steps below.
 
 ## Prior steps: chiplet footprints and symbols (gds2kicad)
 
