@@ -29,10 +29,20 @@ release.
   interposer/assembly GDS opens with named, colored layers.
 
 ### Changed
-- Submodule pins advanced across all tools (Phase 1-6 code audits; chiplet-studio
-  2D + 3D overview navigators and pillar/via rendering; chiplet_kicad_plugin I/O
-  pad handling and export logging; KiCad Hyperlynx export and micrometre PCB
-  units; IntM4TM2 metal DRC decks).
+- **All seven bundled tools pinned to their latest `main` tips**, integrated and
+  verified together as a single combination (studio ctest 578/578, plugin
+  pytest 211 passed, adk-smoke assembly DRC green). Final coordinated wave:
+  - adk `e88eff3` — `pads_vs_pillars` manifest-level alignment check;
+    `chiplet2dbx` (.chiplet -> 3Dblox exporter for OpenROAD); 0.2.0 alignment.
+  - chiplet_kicad_plugin `e527459` — `<gds>.pillars.json` pillar-manifest
+    sidecar; per-die physical thickness (`DIE_THICKNESS_UM`).
+  - chiplet-studio `5ffe784` — OpenROAD 3Dblox flow example.
+  - IHP-Interconnect-IntM4TM2 `7863100` — per-method bump LEF generator;
+    manifest reader hardening.
+- Earlier in the cycle, submodule pins also advanced through the Phase 1-6 code
+  audits (chiplet-studio 2D + 3D overview navigators and pillar/via rendering;
+  chiplet_kicad_plugin I/O pad handling and export logging; KiCad Hyperlynx
+  export and micrometre PCB units; IntM4TM2 metal DRC decks).
 - `gds_to_kicad` moved to the official `IHP-GmbH/gds2kicad` upstream.
 - Worker-venv dependencies exact-pinned; license texts shipped inside the image.
 - `run.sh` caps the container at 20 GiB RAM with swap disabled.
