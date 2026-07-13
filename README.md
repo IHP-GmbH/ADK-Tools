@@ -70,7 +70,7 @@ the light deliverables, so `git init` in the project is ready to use.
 |------------------|---------------------------------------|------|
 | `kicad`          | KiCad fork (+ `pcbnew`, `kicad-cli`, chiplet export plugin preloaded) | GUI |
 | `chiplet-studio` | 3D assembly viewer / `.chiplet` editor | GUI |
-| `gds-to-kicad`   | GDS -> KiCad footprint generator       | GUI |
+| `gds-to-kicad`   | GDS -> KiCad symbol + footprint generator (unified GUI) | GUI |
 | `hyp-to-gds`     | HyperLynx -> GDS converter             | CLI |
 | `adk-drc`        | ADK assembly DRC runner                | CLI |
 | `klayout`        | KLayout (version pinned by the studio submodule) | GUI/CLI |

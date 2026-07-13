@@ -1,3 +1,4 @@
 #!/bin/sh
-# GDS -> KiCad footprint generator (GUI)
-exec /opt/adk-tools/venv/bin/python3 /opt/adk-tools/gds_to_kicad/gds_to_kicad_gui.py "$@"
+# GDS -> KiCad unified GUI: symbol + footprint generation in one window
+# (Extract Pins -> Pin List Editor -> Symbol Designer -> Footprint Generator).
+exec /opt/adk-tools/venv/bin/python3 /opt/adk-tools/gds_to_kicad/unified_gui.py "$@"

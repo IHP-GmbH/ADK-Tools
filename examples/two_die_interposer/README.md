@@ -54,6 +54,7 @@ against the committed footprint, and the footprint converter is run on
 ```bash
 chiplet-studio example/outputs/two_die_interposer.chiplet
 kicad          example/kicad/two_die_interposer.kicad_pro
+gds-to-kicad   # unified symbol + footprint GUI; load chiplets/Metal_Test.gds to reproduce the die library
 ```
 
 ## Regenerate (outputs)

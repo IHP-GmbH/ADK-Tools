@@ -9,7 +9,7 @@ MANIFEST = "/opt/adk-tools/manifest.json"
 COMMANDS = [
     ("kicad",          "kicad",                "KiCad fork (GUI; pcbnew/kicad-cli also installed)"),
     ("chiplet-studio", "chiplet-studio",       "3D assembly viewer / .chiplet editor (GUI)"),
-    ("gds-to-kicad",   "gds_to_kicad",         "GDS -> KiCad footprint generator (GUI)"),
+    ("gds-to-kicad",   "gds_to_kicad",         "GDS -> KiCad symbol + footprint generator (unified GUI)"),
     ("hyp-to-gds",     "chiplet_kicad_plugin", "HyperLynx -> GDS converter (CLI)"),
     ("adk-drc",        "adk",                  "ADK assembly DRC runner (CLI)"),
     ("klayout",        "chiplet-studio",       "KLayout, pinned by the studio submodule"),

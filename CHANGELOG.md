@@ -56,6 +56,12 @@ release.
   image self-reports its release lineage instead of a bare SHA.
 
 ### Fixed
+- `gds-to-kicad` now launches the unified GUI (symbol + footprint in one window:
+  Extract Pins -> Pin List Editor -> Symbol Designer -> Footprint Generator)
+  instead of the footprint-only front end, so the full gds->symbol / gds->footprint
+  flow is reachable from the bundled command. The `adk-tools` listing and READMEs
+  are reworded to match, and the example `Open it` section points the GUI at the
+  demo die GDS.
 - Removed the maintainer's absolute home path from tracked example KiCad files
   (`two_die_interposer.kicad_pcb`, `metal_test_chiplet.kicad_mod`); they now use
   the `${GDS_TO_KICAD_ROOT}` form, so no local path is baked into the image.
