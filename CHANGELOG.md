@@ -11,13 +11,17 @@ bundled tools; the exact submodule pins for a tag are in that commit's
 _Development happens on `dev`; entries accumulate here until the next release._
 
 ### Changed
-- `gds_to_kicad` pin advanced to `66463c3` — unified-GUI usability: the "Generate
+- `gds_to_kicad` pin advanced to `8a24f81` — unified-GUI usability: the "Generate
   Stripped GDS" and "Extract Pin List" steps now save through a dialog
   (user-chosen folder + file name); a whole session (input GDS/LYP/stripped-GDS
   paths, the layer selections and the edited pin list) can be saved and reopened
-  as a `.g2kproj` project file; and the output folder is created lazily on first
+  as a `.g2kproj` project file; the output folder is created lazily on first
   save instead of at launch, so merely opening the GUI no longer creates
-  `generated_kicad_symbol_files/`. The CLI writers/converters are unchanged.
+  `generated_kicad_symbol_files/`; the pin list / `.kicad_sym` / `.kicad_mod`
+  export dialogs now default to the folder the tool was launched from instead of
+  an internal output dir, and the footprint button is renamed for consistent
+  "Export" naming. The `.g2kproj` format and the CLI writers/converters are
+  unchanged.
 - `adk-new-project` now scaffolds a minimal `README.md` (just the project title,
   for the author to fill in) and creates a `chiplets/` input dir alongside
   `kicad/` and `outputs/`, matching the bundled example's layout so a die GDS has
