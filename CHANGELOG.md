@@ -24,6 +24,25 @@ _Development happens on `dev`; entries accumulate here until the next release._
   a home before the export runs.
 
 ### Fixed
+- Made the `two_die_interposer` example's gds2kicad prior steps reproducible
+  end-to-end from shipped inputs. Added `chiplets/Metal_Test_stripped.gds` -- the
+  curated die layout (only the 58 I/O pads on `134/0`, names on `134/25`), the
+  frozen result of the human-in-the-loop pad review -- so `metal_test_chiplet`'s
+  footprint regenerates one-shot from it with no manual KLayout step. The verify
+  gate now asserts that the footprint regenerated from the stripped GDS equals the
+  committed one exactly (name + geometry, strict), upgrading the former full-GDS
+  liveness smoke. Also aligned the two power pads to the die's real `134/25` label
+  `VCC` (they were `Vcc`) across the footprint, symbol, pin list, board and
+  schematic, so the committed library matches its own source die. Connectivity is
+  unchanged (net codes keep their pad bindings; the user net stays `vcc`), and the
+  assembly GDS/`.chiplet` and DRC are byte-identical since pad names do not reach
+  the assembly outputs; only the two auto-generated placeholder net names for
+  U2's now-renamed no-connect pads track the rename (`...PadVcc` -> `...PadVCC`).
+  Also shipped `chiplets/metal_test_chiplet.g2kproj`, a saved gds-to-kicad GUI
+  session (input + stripped GDS, LYP, layer selections and the embedded pin list),
+  so `gds-to-kicad` -> File -> Open Project lands at the exact state that produces
+  the footprint + symbol; the verify gate checks its format, layer selections and
+  that its embedded pin list matches the shipped `metal_test_chiplet.pins.json`.
 - Made the `two_die_interposer` example's die-GDS provenance self-contained: the
   die footprint, its PCB instances (U1/U2), and the exported `.chiplet` now
   reference the example-local `chiplets/Metal_Test.gds` board-relative

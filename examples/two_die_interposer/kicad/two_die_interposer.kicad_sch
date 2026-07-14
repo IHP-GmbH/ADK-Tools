@@ -109,14 +109,14 @@
 				(pin power_in line
 					(at 27.94 30.48 270)
 					(length 2.54)
-					(name "Vcc"
+					(name "VCC"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "Vcc"
+					(number "VCC"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -1009,14 +1009,14 @@
 				(pin power_in line
 					(at 22.86 30.48 270)
 					(length 2.54)
-					(name "Vcc"
+					(name "VCC"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "Vcc"
+					(number "VCC"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2243,14 +2243,14 @@
 				(pin power_in line
 					(at 22.86 30.48 270)
 					(length 2.54)
-					(name "Vcc"
+					(name "VCC"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "Vcc"
+					(number "VCC"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2261,14 +2261,14 @@
 				(pin power_in line
 					(at 27.94 30.48 270)
 					(length 2.54)
-					(name "Vcc"
+					(name "VCC"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "Vcc"
+					(number "VCC"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -5873,7 +5873,7 @@
 		(pin "PA_Vcc4"
 			(uuid "c7bbad49-7219-4f79-a3d8-7920bfcb874a")
 		)
-		(pin "Vcc"
+		(pin "VCC"
 			(uuid "3e7ac519-f213-4d34-8f8e-20b5717ff6ea")
 		)
 		(pin "NC"
@@ -6011,7 +6011,7 @@
 		(pin "NC"
 			(uuid "a4a1bb30-eadf-445c-8436-a169f8046c0b")
 		)
-		(pin "Vcc"
+		(pin "VCC"
 			(uuid "58a9ea5a-8fa5-4297-9642-346d71e6be7e")
 		)
 		(pin "NC"
@@ -6379,7 +6379,7 @@
 		(pin "PA_Vcc4"
 			(uuid "43765862-57c5-4653-8e3e-9cd199619a26")
 		)
-		(pin "Vcc"
+		(pin "VCC"
 			(uuid "82ee26da-257b-4b93-9dae-c4514bb8c5fe")
 		)
 		(pin "NC"
@@ -6517,7 +6517,7 @@
 		(pin "NC"
 			(uuid "e997ab0b-5271-47d2-b40d-8f0ff9d56a9b")
 		)
-		(pin "Vcc"
+		(pin "VCC"
 			(uuid "ef8ce828-0709-45b7-952b-249ef9e0b898")
 		)
 		(pin "NC"

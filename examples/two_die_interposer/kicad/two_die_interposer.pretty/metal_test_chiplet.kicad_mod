@@ -675,7 +675,7 @@
 		)
 		(uuid "d56280f8-374b-4bb4-9f5a-43cd8e1b565b")
 	)
-	(pad "Vcc" smd rect
+	(pad "VCC" smd rect
 		(at -0.3 0.109798)
 		(size 0.08 0.08)
 		(layers "F.Cu" "F.Mask" "F.Paste")
@@ -685,7 +685,7 @@
 		)
 		(uuid "20de6757-14f2-4698-ba8f-e8b60f805352")
 	)
-	(pad "Vcc" smd rect
+	(pad "VCC" smd rect
 		(at 0.3 0.109798)
 		(size 0.08 0.08)
 		(layers "F.Cu" "F.Mask" "F.Paste")

@@ -547,7 +547,7 @@
       "height_dbu": 80000.0
     },
     {
-      "name": "Vcc",
+      "name": "VCC",
       "type": "passive",
       "side": "left",
       "pad_index": 54,
@@ -557,7 +557,7 @@
       "height_dbu": 80000.0
     },
     {
-      "name": "Vcc",
+      "name": "VCC",
       "type": "passive",
       "side": "left",
       "pad_index": 55,

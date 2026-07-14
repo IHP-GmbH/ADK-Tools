@@ -14,12 +14,25 @@ gds2kicad change that silently alters the demo artifacts fails the build:
                            diff the pad geometry against the committed one. [STRICT]
   3. pin-list fidelity    : re-extract the pin list from the committed footprint
                            and diff it against the shipped pins.json.    [STRICT]
-  4. footprint liveness   : run the GDS->footprint converter on the shipped die
-                           GDS and require a valid, non-empty footprint. [SMOKE]
+  4. footprint from strip : run the GDS->footprint converter on the shipped,
+                           curated Metal_Test_stripped.gds (only the 58 I/O pads
+                           on 134/0, names on 134/25) and require the pad set --
+                           name + shape + position + size + layers + custom-pad
+                           copper outline -- to equal the committed footprint
+                           exactly.                                      [STRICT]
+  5. converter liveness   : run the converter on the full die GDS (474 raw shapes)
+                           and require a valid, non-empty footprint.     [SMOKE]
+  6. g2kproj session      : the shipped metal_test_chiplet.g2kproj (a GUI "Open
+                           Project" session) has the right format + version, its
+                           layer selections point at the die's pad/text layers,
+                           and its embedded pin list matches the shipped
+                           pins.json (no drift).                          [STRICT]
 
-The metal_test footprint itself is produced by the human-in-the-loop pad-review
-workflow (the die exposes ~474 shapes, only 58 are I/O pads), so it is gated by
-liveness + pin-list fidelity, not by a one-shot equality. See chiplets/README.md.
+The 58-pad curation (which of the die's ~474 TopMetal2 shapes are real I/O pads)
+is human-in-the-loop, but its result is shipped as chiplets/Metal_Test_stripped.gds,
+so the footprint is reproducible one-shot from that input and gated by strict
+equality in step 4 -- no manual step is needed to reproduce it. See
+chiplets/README.md.
 """
 import argparse
 import json
@@ -115,13 +128,18 @@ def pin_names(node):
 
 
 def pads(node):
-    """List of pad dicts: number, shape, at(x,y), size(w,h), layers."""
+    """List of pad dicts: number, shape, at(x,y), size(w,h), layers, poly.
+
+    `poly` is the normalized (sorted, rounded) set of every (xy ...) vertex under
+    the pad's `(primitives ...)` -- the real copper outline of an `smd custom`
+    pad, which its bounding-box `(size ...)` does not capture.
+    """
     out = []
     for sub in walk(node):
         if head(sub) != 'pad':
             continue
         pad = {'number': val(sub, 1), 'shape': val(sub, 3), 'at': None,
-               'size': None, 'layers': []}
+               'size': None, 'layers': [], 'poly': ()}
         for child in sub:
             if not isinstance(child, list):
                 continue
@@ -132,6 +150,10 @@ def pads(node):
                 pad['size'] = (round(float(val(child, 1)), 4), round(float(val(child, 2)), 4))
             elif h == 'layers':
                 pad['layers'] = sorted(e[1] for e in child[1:] if isinstance(e, tuple))
+            elif h == 'primitives':
+                pts = [(round(float(val(p, 1)), 4), round(float(val(p, 2)), 4))
+                       for p in walk(child) if head(p) == 'xy']
+                pad['poly'] = tuple(sorted(pts))
         out.append(pad)
     return out
 
@@ -172,9 +194,12 @@ def main():
     committed_sym = os.path.join(ex, 'kicad', 'two_die_interposer.kicad_sym')
     pins_json = os.path.join(ex, 'chiplets', 'metal_test_chiplet.pins.json')
     die_gds = os.path.join(ex, 'chiplets', 'Metal_Test.gds')
+    stripped_gds = os.path.join(ex, 'chiplets', 'Metal_Test_stripped.gds')
+    g2kproj = os.path.join(ex, 'chiplets', 'metal_test_chiplet.g2kproj')
     lyp = os.path.join(g2k, 'pdks', 'sg13g2.lyp')
 
-    for p in (fp_metal, fp_iopad, committed_sym, pins_json, die_gds, lyp):
+    for p in (fp_metal, fp_iopad, committed_sym, pins_json, die_gds, stripped_gds,
+              g2kproj, lyp):
         if not os.path.exists(p):
             print(f"  [FAIL] missing input: {p}")
             FAILS.append('inputs')
@@ -243,7 +268,35 @@ def main():
               'pin list fidelity (committed footprint == shipped pins.json)',
               f"{len(rep['pins'])} vs {len(shipped['pins'])} pins")
 
-    # 4. footprint converter liveness on the shipped die GDS
+    # 4. reproduce the committed footprint straight from the shipped stripped GDS
+    #    (pad shapes on 134/0, names on 134/25). Strict: the regenerated pad set
+    #    -- name + shape + position + size + layers + custom-pad copper outline --
+    #    must equal the committed footprint, so the one human-in-the-loop artifact
+    #    is reproducible one-shot from a shipped input. The `poly` term matters:
+    #    3 pads (DIV_OUTn/DIV_OUTp/sout) are `smd custom` octagons whose real
+    #    copper is a gr_poly the bounding-box `size` does not capture, so a
+    #    regression that flattened them to a same-bbox rect would slip a
+    #    name+size-only check. UUIDs/float formatting are ignored.
+    strip_mod = os.path.join(tmp, 'from_stripped.kicad_mod')
+    r = run_tool([os.path.join(g2k, 'gds_to_kicad.py'), stripped_gds,
+                  '--lyp-file', lyp, '--layer', 'TopMetal2.drawing',
+                  '--text-layer-number', '134/25', '--flip-chip', '-o', strip_mod])
+    if r.returncode != 0 or not os.path.exists(strip_mod):
+        check(False, 'footprint regenerates from shipped stripped GDS',
+              r.stderr.strip()[-200:])
+    else:
+        def padset(path):
+            return sorted((p['number'], p['shape'], p['at'], p['size'],
+                           tuple(p['layers']), p['poly'])
+                          for p in pads(sexpr_parse(open(path).read())))
+        gen, com = padset(strip_mod), padset(fp_metal)
+        check(gen == com,
+              'stripped-GDS footprint == committed metal_test footprint '
+              '(name+shape+geometry+layers+custom-pad outline)',
+              f"{len(gen)} vs {len(com)} pads"
+              + ('' if gen == com else f"; first diff {next((a,b) for a,b in zip(gen,com) if a!=b)}"))
+
+    # 5. converter liveness on the full die GDS (474 raw shapes, text auto-assoc).
     live_mod = os.path.join(tmp, 'live.kicad_mod')
     r = run_tool([os.path.join(g2k, 'gds_to_kicad.py'), die_gds,
                   '--lyp-file', lyp, '--layer', 'TopMetal2.drawing',
@@ -256,6 +309,22 @@ def main():
         ok = npads > 0 and txt.count('(') == txt.count(')')
     check(ok, 'GDS->footprint converter liveness on Metal_Test.gds',
           f"{npads} pads" if ok else r.stderr.strip()[-200:])
+
+    # 6. the shipped .g2kproj GUI session must stay consistent with the library:
+    #    right format/version, its layer selections point at the die's pad (134/0)
+    #    and text (134/25) layers, and its embedded pin list matches the committed
+    #    pins.json -- so "File -> Open Project" reproduces the same footprint/symbol
+    #    and the session cannot silently drift from the shipped pin list.
+    proj = json.load(open(g2kproj))
+    check(proj.get('format') == 'gds-to-kicad-project' and proj.get('version') == 1,
+          '.g2kproj format/version', f"{proj.get('format')!r} v{proj.get('version')}")
+    check('(134/0)' in proj.get('pad_layer', '') and '(134/25)' in proj.get('text_layer', ''),
+          '.g2kproj pad/text layer selections',
+          f"pad={proj.get('pad_layer')!r} text={proj.get('text_layer')!r}")
+    proj_names = sorted(p['name'] for p in (proj.get('pin_list') or {}).get('pins', []))
+    check(proj_names == sorted(shipped_names),
+          '.g2kproj embedded pin list == shipped pins.json',
+          f"{len(proj_names)} vs {len(shipped_names)} pins")
 
     return fail()
 
