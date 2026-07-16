@@ -20,7 +20,11 @@ _Development happens on `dev`; entries accumulate here until the next release._
   guard. The `4683815` merge also lands the board-relative die `GDS_FILE`
   resolution (`hyp_to_gds` resolves a relative device GDS against the `.hyp`
   `{BOARD ...}` directory) already relied on by the self-contained
-  `two_die_interposer` example.
+  `two_die_interposer` example. The example's committed interposer output
+  (`outputs/layout/two_die_interposer_interposer.gds`) was regenerated so its
+  board outline lands on the new `prBoundary 235/0` (it had been produced before
+  the migration and still carried the outline on `189/0`); geometry is otherwise
+  unchanged.
 - `gds_to_kicad` pin advanced to `8a24f81` — unified-GUI usability: the "Generate
   Stripped GDS" and "Extract Pin List" steps now save through a dialog
   (user-chosen folder + file name); a whole session (input GDS/LYP/stripped-GDS
