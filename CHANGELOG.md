@@ -11,6 +11,16 @@ bundled tools; the exact submodule pins for a tag are in that commit's
 _Development happens on `dev`; entries accumulate here until the next release._
 
 ### Changed
+- Coordinated the interposer BEOL layer-map parity migration across two pins:
+  `OpenIntM4TM2` advanced to `2b80d07` (158-entry layer map with `prBoundary`
+  moved `189/0` -> `235/0`, `MEMVia`/`RFMEM` removed, plus the ported SG13G2 BEOL
+  DRC decks with unit testcases), and `chiplet_kicad_plugin` advanced to
+  `4683815` (merged to the plugin's `main`) which emits the die board outline on
+  the new `prBoundary 235/0` while keeping `189/0` in the boundary-viz collision
+  guard. The `4683815` merge also lands the board-relative die `GDS_FILE`
+  resolution (`hyp_to_gds` resolves a relative device GDS against the `.hyp`
+  `{BOARD ...}` directory) already relied on by the self-contained
+  `two_die_interposer` example.
 - `gds_to_kicad` pin advanced to `8a24f81` — unified-GUI usability: the "Generate
   Stripped GDS" and "Extract Pin List" steps now save through a dialog
   (user-chosen folder + file name); a whole session (input GDS/LYP/stripped-GDS
