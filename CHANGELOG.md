@@ -28,6 +28,20 @@ _Development happens on `dev`; entries accumulate here until the next release._
   a home before the export runs.
 
 ### Fixed
+- Made the `two_die_interposer` example's symbol reproducible from the shipped
+  pin list. `chiplets/metal_test_chiplet.pins.json` (and the copy embedded in
+  `metal_test_chiplet.g2kproj`) had been derived from the committed footprint,
+  which carries no symbol-layout semantics, so every pin defaulted to
+  `side=left`/`type=passive`; regenerating the symbol -- on the CLI or via the
+  GUI's "generate symbol from pin list" (both call the same layout code) --
+  produced a degenerate single-column symbol instead of the committed
+  multi-side one. The pin list now carries the reviewed `side`/`type` per pin
+  (recovered from the committed symbol), so `gds_to_kicad_symbol.py
+  --from-pin-list` and "File -> Open Project" both rebuild the committed symbol
+  exactly. The verify gate's symbol step was upgraded from a pin-name-set diff
+  to a full-layout diff (name + type + position), its footprint-fidelity step
+  now compares only the footprint-derivable fields (name + geometry; `side`/
+  `type` excluded), and the `.g2kproj` check now compares name + side + type.
 - Made the `two_die_interposer` example's gds2kicad prior steps reproducible
   end-to-end from shipped inputs. Added `chiplets/Metal_Test_stripped.gds` -- the
   curated die layout (only the 58 I/O pads on `134/0`, names on `134/25`), the

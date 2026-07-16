@@ -21,9 +21,14 @@ with no manual work, and the verify build gates the reproduction.
   the human-in-the-loop pad review (the full die exposes ~474 TopMetal2 shapes;
   only 58 are I/O pads). Shipping it turns the footprint -- otherwise the one
   hand-curated artifact -- into a one-shot reproducible convert (step 1).
-- `metal_test_chiplet.pins.json` - the 58-pad pin list (names + geometry) for the
-  die, used to build the symbol (step 2). It can also be re-extracted from the
-  committed footprint with `footprint_to_pinlist.py`.
+- `metal_test_chiplet.pins.json` - the 58-pad pin list for the die, used to build
+  the symbol (step 2). It carries, per pin, the pad name + geometry *and* the
+  reviewed symbol-layout fields `side` (left/right/top/bottom) and `type`
+  (passive / power_in) -- the human decision of how the pins are arranged on the
+  symbol. The name + geometry can be re-extracted from the committed footprint
+  with `footprint_to_pinlist.py`, but `side`/`type` cannot (a footprint has no
+  such semantics; re-extraction defaults them to left/passive), so the reviewed
+  layout lives only in this file.
 - `metal_test_chiplet.g2kproj` - a saved gds-to-kicad GUI session bundling the
   above: the input + stripped GDS, the LYP, the pad/text layer selections and the
   embedded pin list. Open it with `gds-to-kicad` -> File -> Open Project to land
@@ -73,6 +78,11 @@ gds_to_kicad_symbol.py --from-pin-list metal_test_chiplet.pins.json \
     -o Metal_Test.kicad_sym
 ```
 
+Because the pin list carries the reviewed `side`/`type`, this rebuilds the
+committed symbol's full layout (each pin's side and position), not just its pin
+names -- and the GUI's "generate symbol from pin list" button (same code path)
+shows that same symbol. The verify build asserts that equality (see below).
+
 ## 3. interposer_bondpad footprint + IOPad_WireBond_100x100 symbol - parametric
 
 ```bash
@@ -91,10 +101,15 @@ committed library:
 
 - step 1's convert on the shipped `Metal_Test_stripped.gds` must reproduce the
   committed footprint's pad set exactly (names + geometry) -- **strict**;
-- step 2's symbol regenerates from `metal_test_chiplet.pins.json`, diffed against
-  the committed `.kicad_sym` -- strict;
+- step 2's symbol regenerates from `metal_test_chiplet.pins.json` and must equal
+  the committed `.kicad_sym` Metal_Test symbol in full -- each pin's name, type
+  and position (side) -- so the reviewed layout is reproduced, not just the pin
+  set -- strict;
 - step 3's io pad regenerates via `generate_io_pad`, geometry diffed -- strict;
-- `metal_test_chiplet.pins.json` still matches the committed footprint -- strict;
+- `metal_test_chiplet.pins.json` still matches the committed footprint on the
+  footprint-derivable fields (name + geometry; `side`/`type` are excluded, since
+  a footprint has none) -- strict;
 - the converter still runs on the full `Metal_Test.gds` (474 raw shapes) -- smoke;
 - `metal_test_chiplet.g2kproj` has the right format + layer selections and an
-  embedded pin list matching `metal_test_chiplet.pins.json` -- strict.
+  embedded pin list matching `metal_test_chiplet.pins.json` in name + side + type
+  -- strict.

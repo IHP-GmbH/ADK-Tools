@@ -8,8 +8,10 @@ shipped inputs and checks them against the committed library, so an upstream
 gds2kicad change that silently alters the demo artifacts fails the build:
 
   1. metal_test symbol   : regenerate from chiplets/metal_test_chiplet.pins.json
-                           and diff the pin set against the committed .kicad_sym
-                           Metal_Test symbol.                          [STRICT]
+                           and require the full layout -- each pin's name, type
+                           and position (which side it lands on) -- to equal the
+                           committed .kicad_sym Metal_Test symbol; this gates that
+                           the pin list carries the reviewed side/type.  [STRICT]
   2. io pad footprint     : regenerate interposer_bondpad via generate_io_pad and
                            diff the pad geometry against the committed one. [STRICT]
   3. pin-list fidelity    : re-extract the pin list from the committed footprint
@@ -127,6 +129,31 @@ def pin_names(node):
     return names
 
 
+def pin_geometry(node):
+    """Multiset-friendly list of (name, elec_type, x, y, angle) for every pin
+    under a subtree. Captures the full symbol layout -- which side each pin sits
+    on and its position -- not just the set of names, so a reproduced symbol can
+    be compared for real equality. Pin form: (pin <elec_type> <style>
+    (at x y ang) ... (name "X" ...))."""
+    out = []
+    for sub in walk(node):
+        if head(sub) == 'pin':
+            etype = val(sub, 1)
+            name = None
+            at = (None, None, None)
+            for child in sub:
+                if not isinstance(child, list):
+                    continue
+                if head(child) == 'name' and name is None:
+                    name = val(child, 1)
+                elif head(child) == 'at':
+                    at = (round(float(val(child, 1)), 3),
+                          round(float(val(child, 2)), 3),
+                          int(float(val(child, 3))))
+            out.append((name, etype, at[0], at[1], at[2]))
+    return out
+
+
 def pads(node):
     """List of pad dicts: number, shape, at(x,y), size(w,h), layers, poly.
 
@@ -214,22 +241,27 @@ def main():
     print(f"  example : {ex}")
     print(f"  gds2kicad: {g2k}\n")
 
-    # 1. symbol from pin list, strict pin-set diff vs committed Metal_Test symbol
+    # 1. symbol from pin list must reproduce the committed Metal_Test symbol
+    #    exactly -- not just the same pin names, but the full layout (each pin's
+    #    electrical type and its position, i.e. which side it lands on). This is
+    #    the guarantee that the shipped pin list carries the reviewed side/type,
+    #    so `gds_to_kicad_symbol.py --from-pin-list` (and the GUI's "generate
+    #    symbol from pin list", same code path) rebuilds the committed symbol.
     regen_sym = os.path.join(tmp, 'Metal_Test.kicad_sym')
     r = run_tool([os.path.join(g2k, 'gds_to_kicad_symbol.py'),
                   '--from-pin-list', pins_json, '-o', regen_sym])
     if r.returncode != 0:
         check(False, 'symbol regenerates from pin list', r.stderr.strip()[-200:])
     else:
-        regen_names = pin_names(sexpr_parse(open(regen_sym).read()))
+        regen_geo = pin_geometry(sexpr_parse(open(regen_sym).read()))
         committed_metal = find_symbol(sexpr_parse(open(committed_sym).read()), 'Metal_Test')
-        committed_names = pin_names(committed_metal) if committed_metal else []
-        check(sorted(regen_names) == sorted(shipped_names),
+        committed_geo = pin_geometry(committed_metal) if committed_metal else []
+        check(sorted(g[0] for g in regen_geo) == sorted(shipped_names),
               'regenerated symbol pin set == pin list',
-              f"{len(regen_names)} vs {len(shipped_names)}")
-        check(sorted(committed_names) == sorted(shipped_names),
-              'committed Metal_Test symbol pin set == pin list',
-              f"{len(committed_names)} vs {len(shipped_names)}")
+              f"{len(regen_geo)} vs {len(shipped_names)}")
+        check(len(regen_geo) == 58 and sorted(regen_geo) == sorted(committed_geo),
+              'symbol from pin list == committed Metal_Test (name+type+position)',
+              f"{len(regen_geo)} regen vs {len(committed_geo)} committed pins")
 
     # 2. io pad footprint geometry vs committed interposer_bondpad
     iodir = os.path.join(tmp, 'iopad')
@@ -257,15 +289,19 @@ def main():
         check(False, 'pin list re-extracts from footprint', r.stderr.strip()[-200:])
     else:
         rep = json.load(open(re_json))
-        volatile = {'timestamp', 'source', 'source_type'}
+        # side/type are the reviewed symbol-layout fields the shipped pin list
+        # carries; a footprint has no such semantics (footprint_to_pinlist emits
+        # left/passive), so the fidelity check compares only the footprint-derivable
+        # fields: name + pad geometry. The side/type layer is gated in step 1.
+        authored = {'side', 'type'}
         def normp(pins):
             norm = []
             for p in sorted(pins, key=lambda d: (d['name'], d.get('pad_index', 0))):
                 norm.append({k: (round(v, 3) if isinstance(v, float) else v)
-                             for k, v in p.items()})
+                             for k, v in p.items() if k not in authored})
             return norm
         check(normp(rep['pins']) == normp(shipped['pins']),
-              'pin list fidelity (committed footprint == shipped pins.json)',
+              'pin list fidelity (committed footprint == shipped pins.json, name+geometry)',
               f"{len(rep['pins'])} vs {len(shipped['pins'])} pins")
 
     # 4. reproduce the committed footprint straight from the shipped stripped GDS
@@ -321,10 +357,15 @@ def main():
     check('(134/0)' in proj.get('pad_layer', '') and '(134/25)' in proj.get('text_layer', ''),
           '.g2kproj pad/text layer selections',
           f"pad={proj.get('pad_layer')!r} text={proj.get('text_layer')!r}")
-    proj_names = sorted(p['name'] for p in (proj.get('pin_list') or {}).get('pins', []))
-    check(proj_names == sorted(shipped_names),
-          '.g2kproj embedded pin list == shipped pins.json',
-          f"{len(proj_names)} vs {len(shipped_names)} pins")
+    # compare the full reviewed pin list -- name + side + type -- not just names,
+    # so the embedded session reproduces the exact symbol layout (step 1), not
+    # merely the same pin set.
+    def keyset(pins):
+        return sorted((p['name'], p.get('side'), p.get('type')) for p in pins)
+    proj_pins = (proj.get('pin_list') or {}).get('pins', [])
+    check(keyset(proj_pins) == keyset(shipped['pins']),
+          '.g2kproj embedded pin list == shipped pins.json (name+side+type)',
+          f"{len(proj_pins)} vs {len(shipped['pins'])} pins")
 
     return fail()
 

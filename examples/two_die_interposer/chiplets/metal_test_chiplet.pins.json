@@ -19,7 +19,7 @@
     {
       "name": "DIV_OUTp",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 1,
       "center_x_dbu": -0.0,
       "center_y_dbu": -1209798.0,
@@ -29,7 +29,7 @@
     {
       "name": "DIV_Vcc",
       "type": "passive",
-      "side": "left",
+      "side": "top",
       "pad_index": 2,
       "center_x_dbu": -300000.0,
       "center_y_dbu": -1009798.0,
@@ -39,7 +39,7 @@
     {
       "name": "FD_Vbb",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 3,
       "center_x_dbu": 300000.0,
       "center_y_dbu": 990202.0,
@@ -49,7 +49,7 @@
     {
       "name": "FD_Vcc",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 4,
       "center_x_dbu": -300000.0,
       "center_y_dbu": 1090202.0,
@@ -59,7 +59,7 @@
     {
       "name": "FQ_Vcc",
       "type": "passive",
-      "side": "left",
+      "side": "top",
       "pad_index": 5,
       "center_x_dbu": -300000.0,
       "center_y_dbu": 90202.0,
@@ -68,8 +68,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 6,
       "center_x_dbu": 300000.0,
       "center_y_dbu": 1090202.0,
@@ -78,8 +78,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 7,
       "center_x_dbu": 300000.0,
       "center_y_dbu": 890202.0,
@@ -88,8 +88,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 8,
       "center_x_dbu": 300000.0,
       "center_y_dbu": 290202.0,
@@ -98,8 +98,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 9,
       "center_x_dbu": 300000.0,
       "center_y_dbu": 190202.0,
@@ -108,8 +108,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 10,
       "center_x_dbu": 300000.0,
       "center_y_dbu": 90202.0,
@@ -118,8 +118,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 11,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -9798.0,
@@ -128,8 +128,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 12,
       "center_x_dbu": 69996.00000000001,
       "center_y_dbu": 1226536.0,
@@ -138,8 +138,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 13,
       "center_x_dbu": -70003.99999999999,
       "center_y_dbu": 1226536.0,
@@ -148,8 +148,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 14,
       "center_x_dbu": -300000.0,
       "center_y_dbu": 990202.0,
@@ -158,8 +158,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 15,
       "center_x_dbu": -300000.0,
       "center_y_dbu": 890202.0,
@@ -168,8 +168,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 16,
       "center_x_dbu": -300000.0,
       "center_y_dbu": 290202.0,
@@ -178,8 +178,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 17,
       "center_x_dbu": -300000.0,
       "center_y_dbu": 190202.0,
@@ -188,8 +188,8 @@
     },
     {
       "name": "GND",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 18,
       "center_x_dbu": -300000.0,
       "center_y_dbu": -9798.0,
@@ -199,7 +199,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "top",
       "pad_index": 19,
       "center_x_dbu": 300000.0,
       "center_y_dbu": 1190202.0,
@@ -209,7 +209,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "top",
       "pad_index": 20,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -209798.0,
@@ -219,7 +219,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "top",
       "pad_index": 21,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -309798.0,
@@ -229,7 +229,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "top",
       "pad_index": 22,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -409798.0,
@@ -239,7 +239,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "top",
       "pad_index": 23,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -509798.0,
@@ -249,7 +249,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "top",
       "pad_index": 24,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -609798.0,
@@ -259,7 +259,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "top",
       "pad_index": 25,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -709798.0,
@@ -269,7 +269,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 26,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -809798.0,
@@ -279,7 +279,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 27,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -909798.0,
@@ -289,7 +289,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 28,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -1009798.0,
@@ -299,7 +299,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 29,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -1109798.0,
@@ -309,7 +309,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 30,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -1209798.0,
@@ -319,7 +319,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 31,
       "center_x_dbu": 200000.0,
       "center_y_dbu": -1209798.0,
@@ -329,7 +329,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 32,
       "center_x_dbu": 100000.0,
       "center_y_dbu": -1209798.0,
@@ -339,7 +339,7 @@
     {
       "name": "NC",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 33,
       "center_x_dbu": -300000.0,
       "center_y_dbu": 1190202.0,
@@ -429,7 +429,7 @@
     {
       "name": "PA_Vbb2",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 42,
       "center_x_dbu": 300000.0,
       "center_y_dbu": 490202.0,
@@ -439,7 +439,7 @@
     {
       "name": "PA_Vbb3",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 43,
       "center_x_dbu": 300000.0,
       "center_y_dbu": 590202.0,
@@ -449,7 +449,7 @@
     {
       "name": "PA_Vbb4",
       "type": "passive",
-      "side": "left",
+      "side": "top",
       "pad_index": 44,
       "center_x_dbu": 300000.0,
       "center_y_dbu": 690202.0,
@@ -469,7 +469,7 @@
     {
       "name": "PA_Vcc1",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 46,
       "center_x_dbu": -300000.0,
       "center_y_dbu": 390202.0,
@@ -499,7 +499,7 @@
     {
       "name": "PA_Vcc4",
       "type": "passive",
-      "side": "left",
+      "side": "top",
       "pad_index": 49,
       "center_x_dbu": -300000.0,
       "center_y_dbu": 690202.0,
@@ -509,7 +509,7 @@
     {
       "name": "PA_Vcc5",
       "type": "passive",
-      "side": "left",
+      "side": "right",
       "pad_index": 50,
       "center_x_dbu": -300000.0,
       "center_y_dbu": 790202.0,
@@ -539,7 +539,7 @@
     {
       "name": "VCO_Vtn",
       "type": "passive",
-      "side": "left",
+      "side": "top",
       "pad_index": 53,
       "center_x_dbu": -300000.0,
       "center_y_dbu": -409798.0,
@@ -548,8 +548,8 @@
     },
     {
       "name": "VCC",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "top",
       "pad_index": 54,
       "center_x_dbu": 300000.0,
       "center_y_dbu": -109798.0,
@@ -558,8 +558,8 @@
     },
     {
       "name": "VCC",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "top",
       "pad_index": 55,
       "center_x_dbu": -300000.0,
       "center_y_dbu": -109798.0,
@@ -578,8 +578,8 @@
     },
     {
       "name": "vss",
-      "type": "passive",
-      "side": "left",
+      "type": "power_in",
+      "side": "bottom",
       "pad_index": 57,
       "center_x_dbu": -100000.0,
       "center_y_dbu": -1209798.0,
