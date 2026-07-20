@@ -11,16 +11,26 @@ bundled tools; the exact submodule pins for a tag are in that commit's
 _Development happens on `dev`; entries accumulate here until the next release._
 
 ### Changed
-- Coordinated the interposer BEOL layer-map parity migration across two pins:
-  `OpenIntM4TM2` advanced to `2b80d07` (158-entry layer map with `prBoundary`
-  moved `189/0` -> `235/0`, `MEMVia`/`RFMEM` removed, plus the ported SG13G2 BEOL
-  DRC decks with unit testcases), and `chiplet_kicad_plugin` advanced to
-  `4683815` (merged to the plugin's `main`) which emits the die board outline on
-  the new `prBoundary 235/0` while keeping `189/0` in the boundary-viz collision
-  guard. The `4683815` merge also lands the board-relative die `GDS_FILE`
-  resolution (`hyp_to_gds` resolves a relative device GDS against the `.hyp`
-  `{BOARD ...}` directory) already relied on by the self-contained
-  `two_die_interposer` example. The example's committed interposer output
+- Coordinated the interposer PDK + plugin advance across two pins.
+  `OpenIntM4TM2` advanced to `50bb458`: the 158-entry layer-map parity migration
+  (`prBoundary` moved `189/0` -> `235/0`, `MEMVia`/`RFMEM` removed, plus the
+  ported SG13G2 BEOL DRC decks with unit testcases), and on top of it the new
+  IntM4TM2 PCell library (`CuPillarPad`) and the `cmim` MIM-cap device stack
+  (PCell, ngspice model, LVS extraction, MIM DRC table, xschem symbol). The
+  image's verify stage runs the PDK's `intm4tm2_tests`, which stay green in the
+  image's `KLAYOUT_PATH`-registered environment with no image-side shim: the PDK
+  isolated its Cu-pillar PCell parity test from a preloaded technology and ported
+  `run_lvs.py` to stdlib `argparse` (no `docopt` dependency).
+  `chiplet_kicad_plugin` advanced to `b69de14`: it emits the die board outline on
+  the new `prBoundary 235/0` (keeping `189/0` in the boundary-viz collision
+  guard), resolves a board-relative die `GDS_FILE` against the `.hyp`
+  `{BOARD ...}` directory (relied on by the self-contained `two_die_interposer`
+  example), and now merges the generated Cu-pillar cells by iterating
+  `Layout.each_cell()` instead of `range(cells())`. The new PCell-based Cu-pillar
+  generator flattens its variant and prunes the leftover proxy cell, leaving a
+  freed cell-index slot that the old `cell(ci)` loop hit with "Not a valid cell
+  index", aborting the assembly export; `each_cell()` skips the gap. The
+  example's committed interposer output
   (`outputs/layout/two_die_interposer_interposer.gds`) was regenerated so its
   board outline lands on the new `prBoundary 235/0` (it had been produced before
   the migration and still carried the outline on `189/0`); geometry is otherwise
