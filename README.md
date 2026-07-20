@@ -4,6 +4,11 @@ Single Docker image for the heterogeneous integration flow: every tool of the
 ecosystem, pre-wired, callable by name. The pinned submodules under `tools/`
 are the version lockfile; one commit of this repo = one tested combination.
 
+## Status
+
+> [!WARNING]
+> adk-tools is currently a preview release only!
+
 ## Quickstart
 
 Primary distribution channel: clone + local build (internal use).

@@ -11,6 +11,13 @@ bundled tools; the exact submodule pins for a tag are in that commit's
 _Development happens on `dev`; entries accumulate here until the next release._
 
 ### Changed
+- Added a preview-release status disclaimer -- a `## Status` GitHub Warning
+  callout stating the project is currently a preview release only -- to the
+  `adk-tools` README and each of the six bundled tools' READMEs
+  (`chiplet-studio`, `chiplet_kicad_plugin`, `gds_to_kicad`, `adk`,
+  `OpenIntM4TM2`, `IHP-Interconnect-IntM4TM2`). Docs-only: each tool pin advanced
+  by exactly one README commit over its prior pin. The `kicad` upstream fork is
+  intentionally excluded.
 - Coordinated the interposer PDK + plugin advance across two pins.
   `OpenIntM4TM2` advanced to `50bb458`: the 158-entry layer-map parity migration
   (`prBoundary` moved `189/0` -> `235/0`, `MEMVia`/`RFMEM` removed, plus the
