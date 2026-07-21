@@ -641,21 +641,19 @@
       "device_ref": "U2",
       "pin_name": "GND",
       "method": "vendorx_microbump",
-      "x_um": 5090.38108,
-      "y_um": 3646.812391,
+      "x_um": 5100.238,
+      "y_um": 3646.807,
       "diameter_um": 40,
-      "moved_by_auto_resolve": true,
-      "auto_resolve_shift_um": 9.856922
+      "moved_by_auto_resolve": false
     },
     {
       "device_ref": "U2",
       "pin_name": "GND",
       "method": "vendorx_microbump",
-      "x_um": 5250.237998,
-      "y_um": 3646.812865,
+      "x_um": 5240.238,
+      "y_um": 3646.807,
       "diameter_um": 40,
-      "moved_by_auto_resolve": true,
-      "auto_resolve_shift_um": 10.0
+      "moved_by_auto_resolve": false
     },
     {
       "device_ref": "U2",
@@ -1039,11 +1037,10 @@
       "device_ref": "U2",
       "pin_name": "sout",
       "method": "vendorx_microbump",
-      "x_um": 5170.309539,
-      "y_um": 3646.760719,
+      "x_um": 5170.238,
+      "y_um": 3646.772,
       "diameter_um": 40,
-      "moved_by_auto_resolve": true,
-      "auto_resolve_shift_um": 0.072423
+      "moved_by_auto_resolve": false
     },
     {
       "device_ref": "U2",
