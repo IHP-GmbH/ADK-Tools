@@ -11,6 +11,17 @@ bundled tools; the exact submodule pins for a tag are in that commit's
 _Development happens on `dev`; entries accumulate here until the next release._
 
 ### Changed
+- Release tooling hardening (no image-behavior change). `release.sh` now requires
+  an immutable `vYYYY.MM` tag, refuses to overwrite an already-published tag,
+  never prunes published digests by default (opt-in `PRUNE_UNTAGGED=1` for the
+  private-package quota), and gates the push on a clean tree built from the
+  tagged commit (working tree + submodule pins + `HEAD == tag` + the baked
+  manifest `meta` matching the tag). `.dockerignore` stops baking git-ignored
+  `gds_to_kicad/tests/test_*.gds` scratch and `SESSION_LOG.md` into the image.
+  Docs (`RELEASE_CHECKLIST.md`, `MAINTAINING.md`) align the publish command to
+  `vYYYY.MM`, check off the `release.sh` redesign, and record the pre-public
+  git-history scrub as a decided step to run immediately before the first public
+  push.
 - Completed the `attachment_surface_z` rollout and re-synced the three tools that
   advanced past the previous pins: `chiplet-studio` -> `e124c0f`,
   `chiplet_kicad_plugin` -> `24d2622`, `OpenIntM4TM2` -> `5e58cde`. The

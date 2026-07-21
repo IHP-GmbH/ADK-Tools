@@ -18,9 +18,15 @@ tools/chiplet-studio/extern/klayout/bin-debug
 **/.venv
 **/.pytest_cache
 
+# Test scratch: gds_to_kicad writes these under tests/ at runtime (git-ignored in
+# that submodule, so the superproject .dockerignore must catch them explicitly);
+# no tracked fixture lives at tests/*.gds, so this bakes nothing intended.
+tools/gds_to_kicad/tests/test_*.gds
+
 # Generated at build time / local files
 manifest.json
 *.log
+SESSION_LOG.md
 
 # Demo / project artifacts: never bake a developer's local heavy/scratch output
 # into the image. Mirrors .gitignore (the verify stage regenerates everything;

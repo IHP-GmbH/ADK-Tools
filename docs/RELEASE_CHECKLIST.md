@@ -29,7 +29,7 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
 - [ ] Annotated tag on `main`: `git tag -a vYYYY.MM -m "..."` (add `-s` to sign
       if a GPG key is configured).
 - [ ] Push: `git push origin main && git push origin vYYYY.MM`.
-- [ ] Publish the image from the tagged build: `./release.sh YYYY.MM`
+- [ ] Publish the image from the tagged build: `./release.sh vYYYY.MM`
       (**read part B first** if this is going to a public registry).
 - [ ] Update `CHANGELOG.md`.
 - [ ] Merge any post-release fixes back into `dev`.
@@ -80,13 +80,13 @@ every **[blocker]** is cleared.
       / "embeds private-repo code" language (README quickstart and the ~line-152
       note; the `Dockerfile` `LABEL` comment "Keep both private."). Make the
       public image with immutable version tags a first-class channel.
-- [ ] **Redesign `release.sh`** — the current script keeps exactly ONE image
-      version and prunes all untagged digests, and the calendar tag is optional.
-      For public, immutable, reproducible releases:
-      - require a version tag on every publish (do not make it optional);
-      - stop pruning by default (a released digest must never be deleted);
-      - gate the push on a clean tree built from the tagged commit, and reject a
-        dirty/untagged HEAD.
+- [x] **Redesign `release.sh`** — DONE. The script now requires an immutable
+      `vYYYY.MM` tag (validated, and refused if already published), never prunes
+      by default (opt-in `PRUNE_UNTAGGED=1` only, for the private quota), and
+      gates the push on a clean tree + dirty/unpinned-submodule check + HEAD
+      exactly at the tag + the baked manifest `meta` matching the tag (rejects a
+      dirty/untagged image). This item is release-workflow code only and is
+      independent of the go-public admin actions below.
 
 ### Reproducibility hardening (recommended for public)
 
@@ -101,10 +101,14 @@ every **[blocker]** is cleared.
 
 - [ ] The maintainer home path that was in tracked example files
       (`examples/two_die_interposer/kicad/...`) is fixed in the working tree
-      from `v2026.07` on, but **still present in older git history**. If a clean
-      public history is required, scrub it (e.g. `git filter-repo`) **before the
-      first public push** — this rewrites shared history on the IHP-GmbH remote
-      and must be coordinated. Otherwise, accept the historical path and move on.
+      from `v2026.07` on, but **still present in older git history** (introduced
+      `ebe26e5`, removed `831ed0b`; the affected commits also carry a maintainer
+      author email). **DECISION: scrub before the first public push.** Rewrite
+      with `git filter-repo` to strip the `${HOME}/...` paths, then
+      force-push the rewritten history to the IHP-GmbH remote. This rewrites
+      shared history and MUST be coordinated with everyone holding a clone (they
+      re-clone or reset), so it runs as a deliberate step immediately before the
+      first public push, NOT during routine internal work.
 
 ### Image content sanity (run before any public push)
 

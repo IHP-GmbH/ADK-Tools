@@ -225,7 +225,7 @@ at `v2026.06`.
 5. Publish the image (see the caveats in `RELEASE_CHECKLIST.md` before running
    this against a public registry):
    ```bash
-   ./release.sh YYYY.MM
+   ./release.sh vYYYY.MM
    ```
 6. Add the release to `CHANGELOG.md` and merge any post-release fixes back into
    `dev`.
@@ -237,7 +237,7 @@ Three identifiers name the same release; keep them consistent:
 | Identifier      | Where                          | Set by                                    |
 |-----------------|--------------------------------|-------------------------------------------|
 | git tag         | `vYYYY.MM` on `main`           | `git tag -a` (step 4)                     |
-| image tag       | `adk-tools:YYYY.MM` on ghcr    | `release.sh YYYY.MM` (step 5)             |
+| image tag       | `adk-tools:vYYYY.MM` on ghcr   | `release.sh vYYYY.MM` (step 5)            |
 | manifest `meta` | baked in the image, shown by `adk-tools` | `build.sh` via `git describe --tags` |
 
 Because `build.sh` now derives `meta` from `git describe --tags`, an image
