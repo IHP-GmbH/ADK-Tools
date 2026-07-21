@@ -3322,6 +3322,18 @@
 				)
 			)
 		)
+		(property "DIE_THICKNESS_UM" "750"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "47b8251a-8ad1-4ef9-b4f7-aac2fe967a8d")
+			(effects
+				(font
+					(size 0.2 0.2)
+					(thickness 0.05)
+				)
+			)
+		)
 		(path "/b7dcf61e-cd6b-4c22-8093-4d0bd666afe4")
 		(sheetname "/")
 		(sheetfile "two_die_interposer.kicad_sch")
@@ -4472,6 +4484,18 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "ad394da8-a914-4a90-b557-baf9d3f2c4ef")
+			(effects
+				(font
+					(size 0.2 0.2)
+					(thickness 0.05)
+				)
+			)
+		)
+		(property "DIE_THICKNESS_UM" "750"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "733960fa-4069-4e64-9d7d-25ebac416cae")
 			(effects
 				(font
 					(size 0.2 0.2)

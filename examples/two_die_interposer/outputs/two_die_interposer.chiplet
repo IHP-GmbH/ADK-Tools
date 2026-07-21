@@ -440,9 +440,9 @@ components:
   layout: ../chiplets/Metal_Test.gds
   orientation: flip_chip
   dimensions:
-    width: 801.189
-    height: 3359.628
-    thickness: 0.0
+    width: 770.0
+    height: 2606.339
+    thickness: 750.0
   position:
     x: 5170.233999999997
     y: 2420.2709999999934
@@ -458,9 +458,9 @@ components:
   layout: ../chiplets/Metal_Test.gds
   orientation: flip_chip
   dimensions:
-    width: 801.189
-    height: 3359.628
-    thickness: 0.0
+    width: 770.0
+    height: 2606.339
+    thickness: 750.0
   position:
     x: 1954.1210000000137
     y: 2332.4830000000075

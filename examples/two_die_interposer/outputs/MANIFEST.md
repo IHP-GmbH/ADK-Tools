@@ -12,7 +12,7 @@ The .chiplet references the interposer GDS by a `layout/<file>` path, resolved a
 
 - [x] `layout/two_die_interposer_interposer.gds` - interposer layout (referenced by the .chiplet)
 - [x] `layout/two_die_interposer_interposer.boundaries.json` - chiplet-boundary manifest for the interposer GDS
-- [ ] `layout/two_die_interposer_complete.gds` - full assembly layout (interposer + dies)
+- [x] `layout/two_die_interposer_complete.gds` - full assembly layout (interposer + dies)
 - [x] `layout/two_die_interposer_complete.boundaries.json` - chiplet-boundary manifest for the complete GDS
 - [x] `layout/two_die_interposer_complete.ixn_methods.json` - per-method interconnect scoping sidecar for the assembly DRC
 
