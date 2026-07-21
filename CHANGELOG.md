@@ -11,6 +11,26 @@ bundled tools; the exact submodule pins for a tag are in that commit's
 _Development happens on `dev`; entries accumulate here until the next release._
 
 ### Changed
+- Coordinated a frame-contract hardening across the ADK, Chiplet Studio and the
+  KiCad plugin, closing findings reported against the die coordinate frame
+  (`chiplet-spec/coord_frame_contract.md`). `adk` -> `16c9557`: the two `.chiplet`
+  consumers (`checks/pads_vs_pillars.py`, `openroad/chiplet2dbx.py`) now validate
+  each die's `anchor:` -- only `gds_origin` is supported; `bbox_center`, an
+  unknown value, or an absent `anchor:` is a hard error instead of a silent
+  ~82 um bbox-corner misplacement that could flip a matched net to open (absent
+  is rejected because the contract defaults it to `bbox_center`, which these
+  tools cannot consume). `pads_vs_pillars` also guards its `rotation.z` parse and
+  runs its whole pipeline inside one exit-code guard, so a malformed input can no
+  longer leak to exit 1 and collide with the findings tier. `chiplet-studio` ->
+  `206df2e`: the reader stops silently aliasing `face_down` and silently dropping
+  unknown orientation tokens to an un-mirrored `face_up`; it now warns (a lenient
+  viewer, never silent), geometry unchanged. `chiplet_kicad_plugin` -> `cd43520`:
+  both the `.chiplet` writer and `hyp_to_gds` reject a non-canonical `ORIENTATION`
+  token (a typo or `face_down`) rather than emit an un-mirrored die; also picks
+  up an unrelated export-dialog usability commit already on the plugin's main.
+  The frame contract itself gained a section defining the orientation vocabulary
+  as only `face_up`/`flip_chip` (chiplet-spec, separate repo). All three tools
+  reject the non-canonical `face_down` token pointing at `flip_chip`.
 - `OpenIntM4TM2` pin advanced to `967b351` (past its disclaimer README commit),
   adding PDK-internal device libraries with no change to the assembly path. Two
   additions: the interposer bondpad/probepad PCell (`bondpad_code.py`, registered
