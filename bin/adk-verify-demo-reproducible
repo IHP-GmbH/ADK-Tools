@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Fail the build when the shipped two_die_interposer demo deliverables no longer
+match a fresh headless regeneration.
+
+The runtime image bakes the *tracked* `examples/.../outputs/` deliverables (a
+`COPY`, not a regeneration). The verify stage regenerates the demo into the same
+tree, but that fresh product is discarded -- so a tracked set that has drifted
+from what the current board + toolchain produce can still ship on a green build.
+That is exactly how a stale .chiplet (old die geometry) and a missing pillar
+manifest reached a release candidate once. This gate closes that hole.
+
+Usage:
+    adk-verify-demo-reproducible <tracked-snapshot-dir> <fresh-regen-dir>
+
+It compares the two output trees over the *baked* deliverable set and exits
+non-zero on any semantic difference:
+
+  * SET equality -- every baked deliverable a fresh regen emits must be committed,
+    and vice versa (catches a new sidecar like *.pillars.json silently absent).
+  * `.chiplet`, `*.pillars.json`, `*.ixn_methods.json`, `MANIFEST.md`, and the
+    `reports/` files (all deterministic) are compared byte-for-byte -- this is
+    what catches die-geometry / thickness drift in the .chiplet.
+  * `*.boundaries.json` is compared with `assembly_gds_sha256` dropped: that
+    field only fingerprints the GDS, whose header carries a build timestamp, so
+    it changes every run while the boundary geometry does not.
+  * `*.gds` byte content is skipped (GDSII header timestamps make it differ every
+    run); its geometry is already gated through the `.boundaries.json` polygons.
+
+Per-run and non-baked artifacts are ignored: `logs/`, `reports/assembly_drc/`,
+`*_complete.gds`, and `*.hyp` (kept in step with `.dockerignore`).
+"""
+
+import json
+import sys
+from pathlib import Path
+
+
+def _is_ignored(rel):
+    parts = rel.split("/")
+    if "logs" in parts:
+        return True
+    if "assembly_drc" in parts:
+        return True
+    if rel.endswith("_complete.gds"):
+        return True
+    if rel.endswith(".hyp"):
+        return True
+    return False
+
+
+def _rel_files(root):
+    root = Path(root)
+    out = set()
+    for p in root.rglob("*"):
+        if p.is_file():
+            rel = str(p.relative_to(root))
+            if not _is_ignored(rel):
+                out.add(rel)
+    return out
+
+
+def _boundaries_geometry(text):
+    """JSON with the volatile GDS fingerprint removed, canonically serialized."""
+    def strip(obj):
+        if isinstance(obj, dict):
+            obj.pop("assembly_gds_sha256", None)
+            for v in obj.values():
+                strip(v)
+        elif isinstance(obj, list):
+            for v in obj:
+                strip(v)
+    data = json.loads(text)
+    strip(data)
+    return json.dumps(data, sort_keys=True)
+
+
+def compare(tracked, fresh):
+    tracked, fresh = Path(tracked), Path(fresh)
+    diffs = []
+
+    ft = _rel_files(tracked)
+    ff = _rel_files(fresh)
+    for rel in sorted(ft - ff):
+        diffs.append("committed deliverable is not reproduced by a fresh "
+                     "regen (stale/removed): %s" % rel)
+    for rel in sorted(ff - ft):
+        diffs.append("fresh regen emits a deliverable that is not committed "
+                     "(missing from the shipped set): %s" % rel)
+
+    for rel in sorted(ft & ff):
+        tp, fp = tracked / rel, fresh / rel
+        if rel.endswith(".boundaries.json"):
+            if _boundaries_geometry(tp.read_text()) != _boundaries_geometry(fp.read_text()):
+                diffs.append("boundary geometry differs: %s" % rel)
+        elif rel.endswith(".gds"):
+            continue  # GDSII header timestamp only; geometry gated via boundaries
+        else:
+            if tp.read_bytes() != fp.read_bytes():
+                diffs.append("content differs from a fresh regen: %s" % rel)
+    return diffs
+
+
+def main(argv):
+    if len(argv) != 3:
+        print(__doc__)
+        print("error: expected exactly two directory arguments", file=sys.stderr)
+        return 2
+    tracked, fresh = argv[1], argv[2]
+    for d in (tracked, fresh):
+        if not Path(d).is_dir():
+            print("error: not a directory: %s" % d, file=sys.stderr)
+            return 2
+
+    diffs = compare(tracked, fresh)
+    if diffs:
+        print("FAIL: shipped demo outputs are not reproducible from the current "
+              "board + toolchain. The tracked examples/two_die_interposer/outputs/"
+              " tree must be regenerated and committed.", file=sys.stderr)
+        for d in diffs:
+            print("  - %s" % d, file=sys.stderr)
+        return 1
+
+    print("OK: shipped two_die_interposer demo outputs match a fresh headless "
+          "regeneration (die geometry, pillar manifests, boundaries, reports).")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -404,6 +404,12 @@ RUN cd /opt/adk-tools/OpenIntM4TM2/libs.tech/klayout \
 RUN cd /opt/adk-tools/IHP-Interconnect-IntM4TM2/libs.tech/klayout \
     && /opt/adk-tools/venv/bin/python3 -m pytest interconnect_tests -q
 
+# 4a. Snapshot the tracked (COPY'd) demo outputs -- the exact set the runtime
+#     image ships -- before the regeneration below overwrites them, so 4b can
+#     prove that shipped set is what the current board + toolchain reproduce.
+RUN cp -a /opt/adk-tools/examples/two_die_interposer/outputs \
+        /opt/adk-tools/.demo-tracked-snapshot
+
 # 4. Regenerate the two-die interposer demo headless (pcbnew + worker venv + ADK
 #    DRC). Source board lives under the project `kicad/` dir; all products land in
 #    the sibling `outputs/` dir, where the studio gated tests pick up the .chiplet
@@ -413,6 +419,18 @@ RUN python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.p
         --require-drc \
         --board /opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
         --output-dir /opt/adk-tools/examples/two_die_interposer/outputs
+
+# 4b. Reproducibility gate: the shipped (COPY'd) demo deliverables must equal a
+#     fresh headless regen -- same die geometry, pillar manifests and boundary
+#     geometry. The runtime image bakes the tracked tree, not this regen, so
+#     without this a drifted/stale demo (old die bbox, missing *.pillars.json)
+#     ships on a green build. Guards the GUI-vs-headless courtyard determinism
+#     too: the tracked set is committed from a headless regen, so a headless
+#     mismatch here means the writer's die geometry has gone context-dependent
+#     again.
+RUN adk-verify-demo-reproducible \
+        /opt/adk-tools/.demo-tracked-snapshot \
+        /opt/adk-tools/examples/two_die_interposer/outputs
 
 # 5. Chiplet Studio full suite (gated tests resolve the PDK/tool roots via the
 #    env baked in deps).
