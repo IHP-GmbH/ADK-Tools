@@ -405,10 +405,18 @@ RUN cd /opt/adk-tools/IHP-Interconnect-IntM4TM2/libs.tech/klayout \
     && /opt/adk-tools/venv/bin/python3 -m pytest interconnect_tests -q
 
 # 4a. Snapshot the tracked (COPY'd) demo outputs -- the exact set the runtime
-#     image ships -- before the regeneration below overwrites them, so 4b can
-#     prove that shipped set is what the current board + toolchain reproduce.
+#     image ships -- then CLEAR the tree so step 4 regenerates into an empty
+#     dir. Without the clear, step 4 overwrites in place and any tracked file a
+#     fresh regen no longer emits survives untouched, so 4b's staleness check
+#     (a committed deliverable the regen does not reproduce) can never fire.
+#     The `../chiplets/` die-GDS sibling lives outside outputs/, so it survives
+#     the clear; the recorded `../chiplets/Metal_Test.gds` layout still resolves
+#     from the emptied output dir, so the die GDS is not bundled and the
+#     regenerated .chiplet stays byte-identical to the tracked one for 4b.
 RUN cp -a /opt/adk-tools/examples/two_die_interposer/outputs \
-        /opt/adk-tools/.demo-tracked-snapshot
+        /opt/adk-tools/.demo-tracked-snapshot \
+    && find /opt/adk-tools/examples/two_die_interposer/outputs \
+        -mindepth 1 -delete
 
 # 4. Regenerate the two-die interposer demo headless (pcbnew + worker venv + ADK
 #    DRC). Source board lives under the project `kicad/` dir; all products land in

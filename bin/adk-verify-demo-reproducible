@@ -24,13 +24,19 @@ non-zero on any semantic difference:
   * `*.boundaries.json` is compared with `assembly_gds_sha256` dropped: that
     field only fingerprints the GDS, whose header carries a build timestamp, so
     it changes every run while the boundary geometry does not.
-  * `*.gds` byte content is skipped (GDSII header timestamps make it differ every
-    run); its geometry is already gated through the `.boundaries.json` polygons.
+  * `*.gds` is compared by a geometry digest: the stream is hashed with the
+    BGNLIB/BGNSTR timestamps zeroed, so a real geometry / layer / cell change is
+    caught while klayout's per-run header timestamp is not. (The
+    `.boundaries.json` polygons only fingerprint die placement, not the
+    interposer routing, so the GDS itself must be gated too.)
 
 Per-run and non-baked artifacts are ignored: `logs/`, `reports/assembly_drc/`,
-`*_complete.gds`, and `*.hyp` (kept in step with `.dockerignore`).
+`*.lyrdb` (klayout DRC results DB -- embeds an absolute run path and a run
+timestamp; the DRC pass/fail is already enforced by --require-drc at regen
+time), `*_complete.gds`, and `*.hyp` (kept in step with `.dockerignore`).
 """
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -42,11 +48,52 @@ def _is_ignored(rel):
         return True
     if "assembly_drc" in parts:
         return True
+    if rel.endswith(".lyrdb"):
+        return True
     if rel.endswith("_complete.gds"):
         return True
     if rel.endswith(".hyp"):
         return True
     return False
+
+
+# GDSII record types that carry modification/access timestamps (12 int16
+# words each). klayout rewrites them with the current wall-clock time on every
+# write, so they churn run-to-run while the geometry does not.
+_GDS_BGNLIB = 0x01
+_GDS_BGNSTR = 0x05
+_GDS_ENDLIB = 0x04
+
+
+def _gds_geometry_digest(path):
+    """SHA-256 of a GDSII stream with the BGNLIB/BGNSTR timestamps zeroed.
+
+    GDSII is a stream of records: a 2-byte big-endian length (header included),
+    a 1-byte record type, a 1-byte data type, then the data. Only BGNLIB and
+    BGNSTR carry wall-clock timestamps, so zeroing just those data bytes yields
+    a digest that is stable across regenerations yet still flips on any real
+    geometry / layer / cell change. Returns None on a malformed or truncated
+    stream so the caller can fall back to a raw byte compare rather than
+    silently declaring a match.
+    """
+    data = Path(path).read_bytes()
+    h = hashlib.sha256()
+    i, n = 0, len(data)
+    while i + 4 <= n:
+        rec_len = (data[i] << 8) | data[i + 1]
+        if rec_len < 4 or i + rec_len > n:
+            return None  # malformed / truncated
+        rectype = data[i + 2]
+        h.update(data[i:i + 4])  # length + record type + data type
+        payload = data[i + 4:i + rec_len]
+        if rectype in (_GDS_BGNLIB, _GDS_BGNSTR):
+            h.update(b"\x00" * len(payload))
+        else:
+            h.update(payload)
+        i += rec_len
+        if rectype == _GDS_ENDLIB:
+            break  # ignore any block padding written after ENDLIB
+    return h.hexdigest()
 
 
 def _rel_files(root):
@@ -94,7 +141,16 @@ def compare(tracked, fresh):
             if _boundaries_geometry(tp.read_text()) != _boundaries_geometry(fp.read_text()):
                 diffs.append("boundary geometry differs: %s" % rel)
         elif rel.endswith(".gds"):
-            continue  # GDSII header timestamp only; geometry gated via boundaries
+            dt, df = _gds_geometry_digest(tp), _gds_geometry_digest(fp)
+            if dt is None or df is None:
+                # unparseable stream -- fall back to a raw byte compare so a
+                # real difference is never silently passed as reproducible
+                if tp.read_bytes() != fp.read_bytes():
+                    diffs.append("GDS content differs (unparseable stream, "
+                                 "byte compare): %s" % rel)
+            elif dt != df:
+                diffs.append("GDS geometry differs from a fresh regen "
+                             "(timestamp-normalized digest): %s" % rel)
         else:
             if tp.read_bytes() != fp.read_bytes():
                 diffs.append("content differs from a fresh regen: %s" % rel)
