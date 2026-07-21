@@ -11,6 +11,26 @@ bundled tools; the exact submodule pins for a tag are in that commit's
 _Development happens on `dev`; entries accumulate here until the next release._
 
 ### Changed
+- Completed the `attachment_surface_z` rollout and re-synced the three tools that
+  advanced past the previous pins: `chiplet-studio` -> `e124c0f`,
+  `chiplet_kicad_plugin` -> `24d2622`, `OpenIntM4TM2` -> `5e58cde`. The
+  interposer's die-attachment surface is now carried as the component-level
+  `attachment_surface_z` (13.83 um, emitted by the plugin's `hyp_to_gds` update
+  pass and read by the ADK exporter and Chiplet Studio), decoupled from
+  `dimensions.thickness`, which is now the interposer physical body. This
+  required the paired demo fix that had been missing when the feature first
+  landed: the `two_die_interposer` example board's physical thickness dropped
+  from the KiCad default 1.56 mm to a self-consistent 300 um stackup (coppers
+  15 um, prepregs 50 um, core 140 um; `general` == stackup sum == 0.300 mm), so
+  the regenerated demo `.chiplet` reports `dimensions.thickness = 300` and
+  satisfies Chiplet Studio's `CoordFrameContractWirebondDemo` contract test (the
+  flip-chip dies are unaffected -- they mount on `attachment_surface_z`).
+  `OpenIntM4TM2` also adds IntM4TM2 EM/extraction technology stackups
+  (openEMS/palace/parasitics workflows) and an LVS testing harness, runs all four
+  via4 enclosure DRC rules on the seal-excluded layers, and migrated its
+  Cu-pillar/LVS harnesses into the `testing/` convention; its `intm4tm2_tests`
+  gate stays green (201 passed, 13 skipped). All ten image gates green: studio
+  ctest 583/583, plugin 238 passed, adk-smoke PASS.
 - Coordinated a frame-contract hardening across the ADK, Chiplet Studio and the
   KiCad plugin, closing findings reported against the die coordinate frame
   (`chiplet-spec/coord_frame_contract.md`). `adk` -> `16c9557`: the two `.chiplet`
