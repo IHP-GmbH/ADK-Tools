@@ -75,7 +75,7 @@ components:
   dimensions:
     width: 6492.312000000005
     height: 5602.001000000004
-    thickness: 13.83
+    thickness: 300.0
   position:
     x: 3246.1560000000027
     y: 2801.000500000002
@@ -431,6 +431,7 @@ components:
       x: 100.0
       y: 100.0
     layer: TopMetal2
+  attachment_surface_z: 13.83
 - id: U2
   type: die
   anchor: gds_origin
