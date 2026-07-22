@@ -10,7 +10,29 @@ bundled tools; the exact submodule pins for a tag are in that commit's
 
 _Development happens on `dev`; entries accumulate here until the next release._
 
+## [v2026.07] - 2026-07-22
+
+First public-candidate release. Re-cut of the unpublished 2026-07-13 internal
+v2026.07 snapshot (folded in below) to add the demo-reproducibility,
+DRC-correctness and die-GDS portability work that landed on `dev` since. This is
+the tag the first public repos + registry publish from; see
+`docs/RELEASE_CHECKLIST.md` part B for the remaining go-public steps.
+
 ### Changed
+- Chiplet export GUI: the per-die silicon-body thickness field moved out of the
+  interconnect-method row into a collapsed **3D / advanced** pane. It is a
+  3D-only quantity (`dimensions.thickness`, for the 3Dblox export and the
+  render) with no effect on the 2D GDS, the footprint, the placement or the DRC,
+  so next to the method dropdown it misread as "the thickness of that
+  connection"; it is still pre-filled from the board's `DIE_THICKNESS_UM` field.
+  The export `MANIFEST.md` now also lists the cu-pillar `*.pillars.json`
+  sidecars.
+- New reproducibility verify gate. `adk-verify-demo-reproducible` regenerates
+  the `two_die_interposer` demo headless during the build and fails if the
+  shipped `outputs/` no longer matches a fresh regen -- die geometry, pillar
+  manifests, boundary geometry, and the interposer GDS (compared by a
+  GDSII-timestamp-normalized geometry digest rather than skipped). Closes the
+  hole that let a stale or GUI-divergent demo ship on a green build.
 - Release tooling hardening (no image-behavior change). `release.sh` now requires
   an immutable `vYYYY.MM` tag, refuses to overwrite an already-published tag,
   never prunes published digests by default (opt-in `PRUNE_UNTAGGED=1` for the
@@ -121,6 +143,29 @@ _Development happens on `dev`; entries accumulate here until the next release._
   a home before the export runs.
 
 ### Fixed
+- Made the shipped `two_die_interposer` demo reproducible and DRC-clean, and
+  fixed the die layout not rendering in the viewer -- three independent causes.
+  (1) Die width/height was non-deterministic between the KiCad GUI and a
+  headless export: the writer read a lazily-built courtyard cache the GUI keeps
+  warm but a headless `LoadBoard` leaves empty, silently falling back to a
+  text-inflated bounding box (801x3359 um vs the real courtyard 770x2606 um).
+  `chiplet_writer` now builds the courtyard caches before reading them (and
+  warns instead of swallowing a build failure); a determinism test locks
+  cold==warm. The die's physical thickness is taken from a board
+  `DIE_THICKNESS_UM` field (750 um on U1/U2) so it no longer depends on GUI
+  input. (2) The cu-pillar DRC checked `vendorx_microbump` (body 40 um, absent
+  from the IHP Table 6.1 map) against the Option-2 default 80 um pitch instead
+  of the vendor's declared 50 um, turning the die's clean native 70 um bump
+  pitch into a phantom 72 nm violation (auto-resolve spread it toward 80 and
+  fell short); `hyp_to_gds` now takes pitch/spacing from the method's manifest
+  `pitch_rules`, so U2 is DRC-clean and the cu-pillar and assembly DRC agree on
+  the same geometry (a no-op for the in-table cupillar methods). (3) The
+  exported `.chiplet` referenced the die GDS by a board-relative path that
+  dangled when the export landed outside the example, leaving an empty die box
+  in the viewer; the die GDS is now bundled next to the output when that path is
+  unreachable and left untouched when it already resolves. The demo `outputs/`
+  were regenerated end-to-end (die 770x2606x750, both `*.pillars.json`,
+  cu-pillar DRC clean).
 - Made the `two_die_interposer` example's symbol reproducible from the shipped
   pin list. `chiplets/metal_test_chiplet.pins.json` (and the copy embedded in
   `metal_test_chiplet.g2kproj`) had been derived from the committed footprint,
@@ -176,12 +221,12 @@ _Development happens on `dev`; entries accumulate here until the next release._
   first-class, reusable project library like the footprints instead of only being
   cached inside the schematic.
 
-## [v2026.07] - 2026-07-13
+## v2026.07 — 2026-07-13 internal snapshot (unpublished; folded into the release above)
 
-Stable milestone and the first release cut under the `main` = stable / `dev` =
-development model. Internal distribution (private repos and registry); see
-`docs/RELEASE_CHECKLIST.md` part B for the work required before a public
-release.
+The first cut under the `main` = stable / `dev` = development model. Tagged
+locally only and never published to the registry; its `v2026.07` tag was re-cut
+at the 2026-07-22 commit above, which supersedes this snapshot. Notes retained
+for history:
 
 ### Added
 - Governance and maintainer documentation: `CONTRIBUTING.md`,
