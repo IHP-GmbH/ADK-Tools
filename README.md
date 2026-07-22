@@ -11,16 +11,14 @@ are the version lockfile; one commit of this repo = one tested combination.
 
 ## Quickstart
 
-Two ways to get it: clone and build locally, or pull a published image.
+Clone and build locally — there is no pre-built image; `build.sh` compiles the
+pinned toolchain into one Docker image:
 
 ```bash
 # build locally (~1 h first time, cached afterwards; JOBS=N overrides
 # the default 8 parallel compile jobs)
 git clone --recurse-submodules https://github.com/IHP-GmbH/ADK-Tools.git
 cd ADK-Tools && ./build.sh
-
-# alternatively, pull a pre-built image (immutable version tags; `latest`
-# tracks the newest release): docker pull ghcr.io/ihp-gmbh/adk-tools:latest
 
 # run (X11 passthrough for the GUIs; ~/adk-work mounted at /work)
 ./run.sh                              # interactive shell

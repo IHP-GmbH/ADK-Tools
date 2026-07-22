@@ -193,8 +193,8 @@ RUN apt-get update \
 ############################################################################
 FROM deps AS runtime
 
-# Links the ghcr package to its source repo so the image and its code are
-# discoverable together (org.opencontainers.image.source).
+# Point the built image at its source repo (org.opencontainers.image.source) so
+# a locally-built image links back to the code it was built from.
 LABEL org.opencontainers.image.source=https://github.com/IHP-GmbH/ADK-Tools \
       org.opencontainers.image.description="Heterogeneous integration flow: KiCad fork, Chiplet Studio, PDKs, assembly DRC -- pre-wired"
 
