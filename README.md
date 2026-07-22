@@ -2,7 +2,7 @@
 
 Single Docker image for the heterogeneous integration flow: every tool of the
 ecosystem, pre-wired, callable by name. The pinned submodules under `tools/`
-are the version lockfile; one commit of this repo = one tested combination.
+are the version lockfile.
 
 ## Status
 
