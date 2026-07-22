@@ -11,16 +11,16 @@ are the version lockfile; one commit of this repo = one tested combination.
 
 ## Quickstart
 
-Primary distribution channel: clone + local build (internal use).
+Two ways to get it: clone and build locally, or pull a published image.
 
 ```bash
 # build locally (~1 h first time, cached afterwards; JOBS=N overrides
 # the default 8 parallel compile jobs)
-git clone --recurse-submodules git@github.com:IHP-GmbH/ADK-Tools.git
+git clone --recurse-submodules https://github.com/IHP-GmbH/ADK-Tools.git
 cd ADK-Tools && ./build.sh
 
-# alternatively, best-effort registry copy (private; small org quota,
-# may lag behind main): docker pull ghcr.io/ihp-gmbh/adk-tools:latest
+# alternatively, pull a pre-built image (immutable version tags; `latest`
+# tracks the newest release): docker pull ghcr.io/ihp-gmbh/adk-tools:latest
 
 # run (X11 passthrough for the GUIs; ~/adk-work mounted at /work)
 ./run.sh                              # interactive shell
@@ -155,7 +155,8 @@ docker run --rm -it -v ~/git/.../chiplet_kicad_plugin:/opt/adk-tools/chiplet_kic
   otherwise KiCad's GL canvas crashes when the host can't provide a DRI3
   device. Pass a real GPU and `-e LIBGL_ALWAYS_SOFTWARE=0` for hardware
   acceleration.
-- The image embeds private-repo code: keep it on the private registry.
+- The image bundles GPL-licensed tools; their corresponding source is the
+  pinned submodules under `tools/`, public in the IHP-GmbH org.
 - KiCad ships the official v9 symbol/footprint libraries (pinned tag,
   `KICAD_LIBS_TAG` build arg). 3D model packages are not included.
 - Text editors are bundled for in-container edits to files under `/work`:

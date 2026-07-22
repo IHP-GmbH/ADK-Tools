@@ -1,28 +1,28 @@
 [submodule "tools/kicad"]
 	path = tools/kicad
-	url = git@github.com:IHP-GmbH/KiCad-ADK-MOD.git
+	url = https://github.com/IHP-GmbH/KiCad-ADK-MOD.git
 	branch = main
 [submodule "tools/chiplet-studio"]
 	path = tools/chiplet-studio
-	url = git@github.com:IHP-GmbH/chiplet-studio.git
+	url = https://github.com/IHP-GmbH/chiplet-studio.git
 	branch = main
 [submodule "tools/chiplet_kicad_plugin"]
 	path = tools/chiplet_kicad_plugin
-	url = git@github.com:IHP-GmbH/Chiplets-KiCad-Plugin.git
+	url = https://github.com/IHP-GmbH/Chiplets-KiCad-Plugin.git
 	branch = main
 [submodule "tools/gds_to_kicad"]
 	path = tools/gds_to_kicad
-	url = git@github.com:IHP-GmbH/gds2kicad.git
+	url = https://github.com/IHP-GmbH/gds2kicad.git
 	branch = main
 [submodule "tools/adk"]
 	path = tools/adk
-	url = git@github.com:IHP-GmbH/ADK.git
+	url = https://github.com/IHP-GmbH/ADK.git
 	branch = main
 [submodule "tools/interposer"]
 	path = tools/OpenIntM4TM2
-	url = git@github.com:IHP-GmbH/OpenIntM4TM2.git
+	url = https://github.com/IHP-GmbH/OpenIntM4TM2.git
 	branch = main
 [submodule "tools/interconnect_pdk"]
 	path = tools/IHP-Interconnect-IntM4TM2
-	url = git@github.com:IHP-GmbH/IHP-Interconnect-IntM4TM2.git
+	url = https://github.com/IHP-GmbH/IHP-Interconnect-IntM4TM2.git
 	branch = main
