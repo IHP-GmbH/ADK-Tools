@@ -10,6 +10,20 @@ bundled tools; the exact submodule pins for a tag are in that commit's
 
 _Development happens on `dev`; entries accumulate here until the next release._
 
+### Changed
+- `OpenIntM4TM2` pin advanced to `a119512`: the CMIM (MIM-cap) KiCad symbol and
+  footprint family get a readable +/- polarity presentation without touching the
+  copper. The symbol (`cap_cmim.kicad_sym`) hides the overlapping pin names and
+  the w/l/m/Capacitance detail fields and adds a `-` marker mirroring the `+`, so
+  polarity reads from the graphic (+ top / - bottom) while the Value still shows
+  the capacitance. The nine regenerated `.kicad_mod` footprints annotate the
+  device square as a top PLUS (`+ TopMetal1`, `In1.Cu`) / bottom MINUS
+  (`- Metal5`, `In2.Cu`) zone on silk plus a fab legend; the concentric copper
+  plates are unchanged, so the footprints still match the layout PCell plate
+  bounding boxes. New regression tests lock the hidden fields, the +/- markers
+  and the per-footprint polarity/layer labels; the image's `intm4tm2_tests` gate
+  stays green (213 passed, 13 skipped).
+
 ## [v2026.07] - 2026-07-22
 
 First public-candidate release. Re-cut of the unpublished 2026-07-13 internal
