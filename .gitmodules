@@ -16,7 +16,7 @@
 	branch = main
 [submodule "tools/adk"]
 	path = tools/adk
-	url = https://github.com/IHP-GmbH/ADK.git
+	url = https://github.com/IHP-GmbH/IHP-Open-ADK.git
 	branch = main
 [submodule "tools/interposer"]
 	path = tools/OpenIntM4TM2
