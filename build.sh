@@ -32,9 +32,16 @@ done
 # already covered, so an image built here does not silently differ from one
 # built from a clean clone. Keep the pattern list in step with .dockerignore.
 CONTEXT_EXCLUDED='(__pycache__|\.pytest_cache|\.venv|/build(-release|-debug)?/|/bin-(release|debug)/|SESSION_LOG\.md|/docs/$|tests/test_.*\.gds)'
-strays="$(git submodule --quiet foreach \
-    'git status --porcelain --ignored 2>/dev/null | cut -c4- | sed "s|^|$sm_path/|"' \
-    2>/dev/null | grep -Ev "$CONTEXT_EXCLUDED" || true)"
+strays="$( {
+    # inside each registered submodule
+    git submodule --quiet foreach \
+        'git status --porcelain --ignored 2>/dev/null | cut -c4- | sed "s|^|$sm_path/|"' \
+        2>/dev/null
+    # and directly under tools/: a deregistered submodule leaves its whole working
+    # tree behind (git cannot rmdir a non-empty one), which then enters the context
+    # as an untracked directory nothing pins.
+    git status --porcelain --ignored -- tools/ 2>/dev/null | cut -c4-
+} | grep -Ev "$CONTEXT_EXCLUDED" || true )"
 if [ -n "$strays" ]; then
     echo "warning: untracked/ignored files under tools/ will enter the build context:" >&2
     printf '  %s\n' $strays >&2
