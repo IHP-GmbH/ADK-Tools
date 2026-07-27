@@ -11,7 +11,7 @@ are the version lockfile.
 
 ## Quickstart
 
-Clone and build locally — there is no pre-built image; `build.sh` compiles the
+Clone and build locally -- there is no pre-built image; `build.sh` compiles the
 pinned toolchain into one Docker image:
 
 ```bash

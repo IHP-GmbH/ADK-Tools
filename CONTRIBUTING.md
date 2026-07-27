@@ -6,12 +6,12 @@ repo pins one exact, verified combination of every tool.
 
 ## Branching model
 
-- **`main`** — stable. Every commit is release-quality and passed the verify
+- **`main`** -- stable. Every commit is release-quality and passed the verify
   gate. Release tags (`vYYYY.MM`) live here. Do not push tool bumps here
   directly.
-- **`dev`** — integration. Submodule bumps and new tools land here first and get
+- **`dev`** -- integration. Submodule bumps and new tools land here first and get
   verified, then promote to `main` at a release.
-- **`feature/*`** — short-lived branches cut from `dev`, merged back into `dev`.
+- **`feature/*`** -- short-lived branches cut from `dev`, merged back into `dev`.
 
 ## The verify gate
 
@@ -22,13 +22,13 @@ iteration only.
 
 ## Where to look
 
-- **`docs/MAINTAINING.md`** — how to bump a tool, add a new tool as a submodule,
+- **`docs/MAINTAINING.md`** -- how to bump a tool, add a new tool as a submodule,
   remove one, and cut a release. Read it before touching submodules or the
   `Dockerfile`.
-- **`docs/RELEASE_CHECKLIST.md`** — the ordered release checklist, including the
-  work still required before a public release.
-- **`CHANGELOG.md`** — release history.
-- **`NOTICE.md`** — per-component licenses and the GPL corresponding-source
+- **`docs/RELEASE_CHECKLIST.md`** -- the ordered release checklist, and the
+  record of the one-time work done for the first public release.
+- **`CHANGELOG.md`** -- release history.
+- **`NOTICE.md`** -- per-component licenses and the GPL corresponding-source
   obligation. Update it whenever you add or change a bundled component.
 
 ## Commit conventions

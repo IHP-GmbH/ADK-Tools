@@ -60,8 +60,9 @@ CC-licensed components carry their own, lighter, attribution/notice obligations.
 > designs without your design output inheriting CC-BY-SA-4.0; the libraries themselves
 > remain CC-BY-SA-4.0.
 
-> Note: `gds-to-kicad` moved to `IHP-GmbH/gds2kicad`; the old `Mauricio-xx/gds-to-kicad`
-> repository is archived. The submodule and this notice point at the live source.
+> Note: `gds-to-kicad` moved to `IHP-GmbH/gds2kicad`; the old
+> `Mauricio-xx/gds-to-kicad` repository is no longer reachable. The submodule and
+> this notice point at the live source.
 
 For the authoritative, version-exact license texts, see each component's own
 `LICENSE`/`COPYING` file at the pinned commit. Chiplet Studio additionally ships a

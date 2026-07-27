@@ -59,11 +59,14 @@ _Development happens on `dev`; entries accumulate here until the next release._
 
 ## [v2026.07] - 2026-07-22
 
-First public-candidate release. Re-cut of the unpublished 2026-07-13 internal
+**First public release.** Re-cut of the unpublished 2026-07-13 internal
 v2026.07 snapshot (folded in below) to add the demo-reproducibility,
-DRC-correctness and die-GDS portability work that landed on `dev` since. This is
-the tag the first public repos + registry publish from; see
-`docs/RELEASE_CHECKLIST.md` part B for the remaining go-public steps.
+DRC-correctness and die-GDS portability work that landed on `dev` since.
+
+This repository and the seven pinned source repositories became anonymously
+clonable with this tag. The distribution channel is the **source**: clone and
+run `./build.sh`. No image is published. See `docs/RELEASE_CHECKLIST.md` part B
+for the record of the one-time go-public work.
 
 ### Changed
 - Chiplet export GUI: the per-die silicon-body thickness field moved out of the
@@ -92,8 +95,10 @@ the tag the first public repos + registry publish from; see
   git-history scrub as a decided step to run immediately before the first public
   push.
 - Completed the `attachment_surface_z` rollout and re-synced the three tools that
-  advanced past the previous pins: `chiplet-studio` -> `e124c0f`,
-  `chiplet_kicad_plugin` -> `24d2622`, `OpenIntM4TM2` -> `5e58cde`. The
+  advanced past the previous pins: `chiplet-studio` -> `fefb253`,
+  `chiplet_kicad_plugin` -> `b183205`, `OpenIntM4TM2` -> `5e58cde` (the two
+  first-named were re-pinned again at the end of the cycle, after their own
+  history rewrites; these are the pins the tag actually carries). The
   interposer's die-attachment surface is now carried as the component-level
   `attachment_surface_z` (13.83 um, emitted by the plugin's `hyp_to_gds` update
   pass and read by the ADK exporter and Chiplet Studio), decoupled from
@@ -173,7 +178,7 @@ the tag the first public repos + registry publish from; see
   board outline lands on the new `prBoundary 235/0` (it had been produced before
   the migration and still carried the outline on `189/0`); geometry is otherwise
   unchanged.
-- `gds_to_kicad` pin advanced to `8a24f81` — unified-GUI usability: the "Generate
+- `gds_to_kicad` pin advanced to `8a24f81` -- unified-GUI usability: the "Generate
   Stripped GDS" and "Extract Pin List" steps now save through a dialog
   (user-chosen folder + file name); a whole session (input GDS/LYP/stripped-GDS
   paths, the layer selections and the edited pin list) can be saved and reopened
@@ -268,7 +273,7 @@ the tag the first public repos + registry publish from; see
   first-class, reusable project library like the footprints instead of only being
   cached inside the schematic.
 
-## v2026.07 — 2026-07-13 internal snapshot (unpublished; folded into the release above)
+## v2026.07 -- 2026-07-13 internal snapshot (unpublished; folded into the release above)
 
 The first cut under the `main` = stable / `dev` = development model. Tagged
 locally only and never published to the registry; its `v2026.07` tag was re-cut
@@ -290,12 +295,12 @@ for history:
 - **All seven bundled tools pinned to their latest `main` tips**, integrated and
   verified together as a single combination (studio ctest 578/578, plugin
   pytest 211 passed, adk-smoke assembly DRC green). Final coordinated wave:
-  - adk `e88eff3` — `pads_vs_pillars` manifest-level alignment check;
+  - adk `e88eff3` -- `pads_vs_pillars` manifest-level alignment check;
     `chiplet2dbx` (.chiplet -> 3Dblox exporter for OpenROAD); 0.2.0 alignment.
-  - chiplet_kicad_plugin `e527459` — `<gds>.pillars.json` pillar-manifest
+  - chiplet_kicad_plugin `e527459` -- `<gds>.pillars.json` pillar-manifest
     sidecar; per-die physical thickness (`DIE_THICKNESS_UM`).
-  - chiplet-studio `5ffe784` — OpenROAD 3Dblox flow example.
-  - IHP-Interconnect-IntM4TM2 `7863100` — per-method bump LEF generator;
+  - chiplet-studio `5ffe784` -- OpenROAD 3Dblox flow example.
+  - IHP-Interconnect-IntM4TM2 `7863100` -- per-method bump LEF generator;
     manifest reader hardening.
 - Earlier in the cycle, submodule pins also advanced through the Phase 1-6 code
   audits (chiplet-studio 2D + 3D overview navigators and pillar/via rendering;
@@ -321,5 +326,6 @@ for history:
 
 ## [v2026.06]
 
-Prior calendar release. See the git history up to the `v2026.06` tag for the
-tool combination it pinned.
+Prior calendar release, cut while the project was internal. Its tag was not
+carried over to the public repository, so there is nothing to compare against
+here; `v2026.07` is the first tag a public reader can check out.

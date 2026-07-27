@@ -46,12 +46,50 @@ Rules:
   `main` only through a `dev -> main` promotion at release time.
 - `main` moves only at releases (and for genuine hotfixes, which are then
   merged back into `dev`).
-- Pre-existing `feature/*` branches created before this model was adopted may
-  be based on `main`; rebase them onto `dev` when you next touch them.
-
 Historically (before `v2026.07`) bumps landed straight on `main`; the git log
 before that tag reflects the old flow. From `v2026.07` on, follow the table
 above.
+
+### Branches older than `v2026.07`: never bare-rebase them
+
+The history was rewritten with `git filter-repo` immediately before the first
+public push (it stripped a maintainer home path from tracked example files; no
+commit and no path was dropped). Every branch cut before that rewrite therefore
+sits on a **disjoint** commit graph: it shares no merge base with `main` or
+`dev`, and `git merge`/`git rebase` cannot line the two sides up.
+
+The failure mode is quiet and it is the one that matters: a bare
+`git rebase dev <old-branch>` does not replay just your work. Patch-id dedup
+fails on exactly the commits the rewrite touched, so it replays the whole
+pre-rewrite history and re-stages the very blobs the scrub removed. The same
+happens with a `git cherry-pick` conflict resolved as "keep both sides", and
+with `patch -p1`, which applies the old hunk with fuzz and no conflict at all.
+
+Take the payload only, never the history:
+
+```bash
+# Either: replay just this branch's own commits onto dev.
+git rebase --onto dev <fork-point-before-the-rewrite> <old-branch>
+
+# Or: pick the individual commits that carry the work.
+git cherry-pick <sha>...
+```
+
+Then, before committing, prove the scrub still holds:
+
+```bash
+git grep -nI "/home/" -- . ':(exclude)tools/*' ':(exclude)docs/*'   # must be empty
+```
+
+For a branch that adds a submodule, check `.gitmodules` by hand: a URL pointing
+at a local checkout is the usual carrier, and `build.sh` copies submodule URLs
+straight into the baked `manifest.json`. If the branch is old enough that
+re-applying it is mostly conflict resolution, re-author it as a fresh commit on
+`dev` and keep the old branch only as a reference diff.
+
+The `backup-pre-scrub-*` branches preserve the pre-rewrite graph for
+archaeology. They are local-only and must stay that way; never
+`git push --all` or `git push --mirror` from this repo.
 
 ---
 
@@ -62,7 +100,8 @@ The common case: a tool released a new version and you want it in the image.
 ```bash
 git switch dev
 
-# Option A: follow the branch tracked in .gitmodules (usually main)
+# Option A: follow the branch tracked in .gitmodules for THIS branch
+# (`dev` pins each tool's dev branch, `main` pins each tool's main)
 git submodule update --remote tools/<name>
 
 # Option B: pin an exact ref (a tag or reviewed commit)
@@ -95,16 +134,28 @@ A new tool is a new submodule plus its wiring into the image. Do all of this on
 
 ```bash
 git switch dev
-git submodule add -b main git@github.com:IHP-GmbH/<Repo>.git tools/<name>
+git submodule add -b <branch> https://github.com/IHP-GmbH/<Repo>.git tools/<name>
 ```
 
-This appends a section to `.gitmodules` and stages the gitlink. Keep the
-`branch = main` field accurate; it is what `git submodule update --remote`
-follows.
+This appends a section to `.gitmodules` and stages the gitlink.
+
+- **Use the HTTPS URL, always.** An SSH (`git@github.com:`) URL breaks anonymous
+  `git clone --recurse-submodules`, and `build.sh` copies the URL into the baked
+  `manifest.json`, so a wrong one ships inside the image. Maintainers who push
+  over SSH rewrite it locally instead of editing the tracked file:
+  `git config --global url."git@github.com:".insteadOf https://github.com/`.
+- Keep the `branch = ...` field accurate **per track**: on `dev` it names the
+  tool's `dev` branch if it has one, on `main` it names the tool's `main`. That
+  field is what `git submodule update --remote` follows, and the two tracks are
+  expected to differ, so the release fold conflicts on `.gitmodules` by design
+  (see section 6).
+- A tool whose repository is not published yet cannot be added here: the URL
+  would not resolve for anyone else and `NOTICE.md` would cite a dead link. Keep
+  that work on a local branch until the repository exists.
 
 ### 4.2 Bake it into the image (`Dockerfile`, `runtime` stage)
 
-- **Python / data tool** — copy the tree next to its siblings under
+- **Python / data tool** -- copy the tree next to its siblings under
   `/opt/adk-tools` (see the `COPY tools/...` block, around
   `COPY tools/gds_to_kicad /opt/adk-tools/gds_to_kicad`):
 
@@ -112,7 +163,7 @@ follows.
   COPY tools/<name> /opt/adk-tools/<name>
   ```
 
-- **Compiled tool** — add a dedicated builder stage (mirror `kicad-builder` /
+- **Compiled tool** -- add a dedicated builder stage (mirror `kicad-builder` /
   `studio-builder`), then copy only the install artifacts into `runtime`:
 
   ```dockerfile
@@ -153,7 +204,7 @@ For a compiled GUI that needs the in-tree KLayout libs, export
 ### 4.5 Python dependencies
 
 If the tool needs packages in the worker venv, add a pinned `ARG <PKG>_PIP=...`
-and a line to the `pip install` in the venv block. **Pin exact versions** — the
+and a line to the `pip install` in the venv block. **Pin exact versions** -- the
 comment there explains why (an unpinned dep can silently flip a verify suite on
 a cache-cold rebuild). Bump a pin in its own deliberate commit.
 
@@ -165,11 +216,11 @@ bump fails the build. Follow the existing pattern (run under the worker venv,
 
 ### 4.7 Docs & notices (mandatory, not optional)
 
-- `NOTICE.md` — add the component to the right table with its **SPDX license**
+- `NOTICE.md` -- add the component to the right table with its **SPDX license**
   and **source URL**. If it is GPL, also add it to the corresponding-source
   obligation paragraph. Verify the license from the tool's own `LICENSE` /
   source headers; do not guess (`-only` vs `-or-later` matters).
-- `README.md` — add the command to the Tools table; mention any new data root.
+- `README.md` -- add the command to the Tools table; mention any new data root.
 
 ### 4.8 Build, verify, commit
 
@@ -212,23 +263,37 @@ at `v2026.06`.
    ```bash
    git switch main && git merge --ff-only dev   # or a reviewed merge commit
    ```
-3. Build the release commit so the baked manifest matches the tag context:
+3. **Put `main` back on the main track.** This step is easy to forget and the
+   fold does not do it for you: `dev` pins each tool's `dev` branch, so a plain
+   fast-forward silently carries `branch = dev` and the dev-side gitlinks onto
+   `main`. For every tool that has a `dev` branch, reset the `.gitmodules`
+   `branch` field to `main` and move the gitlink to that tool's `main` tip:
+   ```bash
+   git submodule update --remote tools/<name>    # after fixing branch = main
+   ```
+   From the second release on, expect the fold itself to conflict on
+   `.gitmodules`; resolve it in favour of the main-track values.
+4. Build the release commit so the baked manifest matches the tag context, and
+   confirm the manifest is clean:
    ```bash
    ./build.sh                                    # tags adk-tools:dev locally
+   docker run --rm adk-tools:dev cat /opt/adk-tools/manifest.json
    ```
-4. Create an **annotated** tag on `main` (signed if a GPG key is set up):
+   Every tool URL must be an `https://github.com/` one; no filesystem path.
+5. Create an **annotated** tag on `main` (signed if a GPG key is set up):
    ```bash
    git tag -a vYYYY.MM -m "adk-tools vYYYY.MM: <headline>"
    git push origin main
    git push origin vYYYY.MM
    ```
-5. Publish the image (see the caveats in `RELEASE_CHECKLIST.md` before running
-   this against a public registry):
-   ```bash
-   ./release.sh vYYYY.MM
-   ```
 6. Add the release to `CHANGELOG.md` and merge any post-release fixes back into
    `dev`.
+
+**No image is published.** The distribution channel is the source: users clone
+and run `./build.sh`. `release.sh` implements the registry path (immutable tag,
+provenance gate) and is kept working, but publishing is not part of the release
+flow today; the `ghcr.io/ihp-gmbh/adk-tools` package stays private. Do not add a
+"pull the image" instruction to the docs while that holds.
 
 ### Version identifiers must agree
 
@@ -236,9 +301,9 @@ Three identifiers name the same release; keep them consistent:
 
 | Identifier      | Where                          | Set by                                    |
 |-----------------|--------------------------------|-------------------------------------------|
-| git tag         | `vYYYY.MM` on `main`           | `git tag -a` (step 4)                     |
-| image tag       | `adk-tools:vYYYY.MM` on ghcr   | `release.sh vYYYY.MM` (step 5)            |
+| git tag         | `vYYYY.MM` on `main`           | `git tag -a` (step 5)                     |
 | manifest `meta` | baked in the image, shown by `adk-tools` | `build.sh` via `git describe --tags` |
+| image tag       | `adk-tools:vYYYY.MM`, only if the registry path is ever used | `release.sh vYYYY.MM` |
 
 Because `build.sh` now derives `meta` from `git describe --tags`, an image
 built from the tagged commit self-reports `vYYYY.MM`; one built a few commits
@@ -264,9 +329,9 @@ Always build the image from the tagged commit for a clean release.
 
 ## 8. See also
 
-- `README.md` — user-facing quickstart and tool table.
-- `RELEASE_CHECKLIST.md` — the ordered pre-release checklist, including the work
-  still required before a **public** release.
-- `CHANGELOG.md` — release history.
-- `NOTICE.md` — per-component licenses and the GPL corresponding-source
+- `README.md` -- user-facing quickstart and tool table.
+- `RELEASE_CHECKLIST.md` -- the ordered pre-release checklist, and the record of
+  the one-time work done for the first public release.
+- `CHANGELOG.md` -- release history.
+- `NOTICE.md` -- per-component licenses and the GPL corresponding-source
   obligation.
