@@ -25,6 +25,23 @@ for arg in "$@"; do
     esac
 done
 
+# The build context is the WORKING TREE, not the git index. Files that are
+# untracked or git-ignored inside a submodule still enter it and get baked into
+# the image unless .dockerignore excludes them, and release.sh's provenance gate
+# (git status + git submodule status) cannot see them. Warn about anything not
+# already covered, so an image built here does not silently differ from one
+# built from a clean clone. Keep the pattern list in step with .dockerignore.
+CONTEXT_EXCLUDED='(__pycache__|\.pytest_cache|\.venv|/build(-release|-debug)?/|/bin-(release|debug)/|SESSION_LOG\.md|/docs/$|tests/test_.*\.gds)'
+strays="$(git submodule --quiet foreach \
+    'git status --porcelain --ignored 2>/dev/null | cut -c4- | sed "s|^|$sm_path/|"' \
+    2>/dev/null | grep -Ev "$CONTEXT_EXCLUDED" || true)"
+if [ -n "$strays" ]; then
+    echo "warning: untracked/ignored files under tools/ will enter the build context:" >&2
+    printf '  %s\n' $strays >&2
+    echo "  they are NOT in git, so this image will differ from a clean-clone build." >&2
+    echo "  Exclude them in .dockerignore, or build a release image from a fresh clone." >&2
+fi
+
 # Version manifest from the pinned submodules (baked into the image, shown by
 # the in-image `adk-tools` command).
 python3 - > manifest.json <<'PY'

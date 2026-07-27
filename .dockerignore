@@ -23,10 +23,22 @@ tools/chiplet-studio/extern/klayout/bin-debug
 # no tracked fixture lives at tests/*.gds, so this bakes nothing intended.
 tools/gds_to_kicad/tests/test_*.gds
 
-# Generated at build time / local files
+# Generated at build time / local files. SESSION_LOG.md is matched at every
+# depth on purpose: a submodule checkout keeps its own at its repo root, and a
+# bare pattern only matches the context root.
 manifest.json
 *.log
-SESSION_LOG.md
+**/SESSION_LOG.md
+
+# Internal notes that three tool repos untracked and now gitignore (`docs/`).
+# They still sit in a working checkout, and .dockerignore is an exclude list
+# over the working tree, not over the git index, so without these lines they get
+# baked into the image and an image built here differs from one built from a
+# clean clone. Listed one by one on purpose: a future tool with a TRACKED docs/
+# that the image needs must not be swept up by a `tools/*/docs` wildcard.
+tools/adk/docs
+tools/chiplet-studio/docs
+tools/gds_to_kicad/docs
 
 # OpenROAD sidecar: host-side only, never copied into the image. Excluding it
 # also keeps a 3 GB managed OpenROAD checkout out of the build context.
