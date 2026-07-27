@@ -6,6 +6,12 @@ manifest.json
 # Local session-continuity tracking (not part of the project)
 SESSION_LOG.md
 
+# OpenROAD sidecar working state: the managed upstream checkout (~3 GB) and
+# the host virtualenv the live gate runs in. Both are rebuildable from
+# openroad/openroad.pin.
+openroad/.openroad-src/
+openroad/.venv/
+
 # Demo / project artifacts under examples/<project>/. The export and the verify
 # stage regenerate everything below; only the heavy and scratch files are
 # ignored. The light deliverables are tracked on purpose (a fresh clone then

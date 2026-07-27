@@ -5,7 +5,7 @@
 [submodule "tools/chiplet-studio"]
 	path = tools/chiplet-studio
 	url = https://github.com/IHP-GmbH/chiplet-studio.git
-	branch = main
+	branch = dev
 [submodule "tools/chiplet_kicad_plugin"]
 	path = tools/chiplet_kicad_plugin
 	url = https://github.com/IHP-GmbH/Chiplets-KiCad-Plugin.git
@@ -17,12 +17,12 @@
 [submodule "tools/adk"]
 	path = tools/adk
 	url = https://github.com/IHP-GmbH/IHP-Open-ADK.git
-	branch = main
+	branch = dev
 [submodule "tools/interposer"]
 	path = tools/OpenIntM4TM2
 	url = https://github.com/IHP-GmbH/OpenIntM4TM2.git
-	branch = main
+	branch = dev
 [submodule "tools/interconnect_pdk"]
 	path = tools/IHP-Interconnect-IntM4TM2
 	url = https://github.com/IHP-GmbH/IHP-Interconnect-IntM4TM2.git
-	branch = main
+	branch = dev

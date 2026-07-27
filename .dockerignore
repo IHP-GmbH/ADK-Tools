@@ -28,6 +28,10 @@ manifest.json
 *.log
 SESSION_LOG.md
 
+# OpenROAD sidecar: host-side only, never copied into the image. Excluding it
+# also keeps a 3 GB managed OpenROAD checkout out of the build context.
+openroad
+
 # Demo / project artifacts: never bake a developer's local heavy/scratch output
 # into the image. Mirrors .gitignore (the verify stage regenerates everything;
 # the tracked light deliverables -- the .chiplet + MANIFEST.md at the outputs/

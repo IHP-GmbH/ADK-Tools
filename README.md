@@ -93,6 +93,11 @@ build); it follows the same `kicad/` + `chiplets/` + `outputs/` template
 as a scaffolded project. Python worker venv: `/opt/adk-tools/venv`
 (`KICAD_CHIPLET_PYTHON` already points at it).
 
+`openroad/` holds a host-side sidecar that lints an assembly with OpenROAD's
+`read_3dbx` / `check_3dblox`, using a separately pinned OpenROAD image. It is
+not part of the distribution image; see `openroad/README.md`, which also
+states plainly what that linter does and does not catch.
+
 The interposer KLayout technology is pre-registered (`KLAYOUT_PATH`
 includes the OpenIntM4TM2 tree), so exported interposer/assembly GDS
 files open with named, colored layers: `klayout -n intm4tm2 <file>.gds`,
@@ -119,10 +124,22 @@ One-time cleanups, depending on how old the clone is:
   happens when absent); `rm -rf ~/adk-work/example` to get the current
   one on next start.
 
+## Branch model
+
+`main` is frozen per release and pins each tool's `main`. `dev` is where the
+suite is integrated and tested, and pins each tool's `dev` branch instead, so
+`git submodule update --remote` follows the right side on each branch. Tools
+without ongoing work keep `branch = main` in `.gitmodules` on both sides until
+they need a `dev`; check that file for which is which.
+
+Feature work happens on a branch of the tool's `dev`, and is evaluated by
+checking it out in the submodule and rebuilding (see below). A release folds
+each tool's `dev` into its `main`, then re-pins adk-tools `main`.
+
 ## Updating / testing a tool release
 
 ```bash
-# bump one tool to its latest upstream branch
+# bump one tool to its latest upstream branch (dev on this branch, main on main)
 git submodule update --remote tools/adk
 ./build.sh && git commit -am "Bump adk to <ref>"
 

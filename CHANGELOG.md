@@ -10,7 +10,33 @@ bundled tools; the exact submodule pins for a tag are in that commit's
 
 _Development happens on `dev`; entries accumulate here until the next release._
 
+### Added
+- `openroad/`: host-side sidecar that lints an assembly with OpenROAD's
+  `read_3dbx` / `check_3dblox`. `openroad.pin` locks the upstream repository,
+  the exact commit (`ad9e7248`) and the image tag, playing for OpenROAD the
+  role the `tools/` submodules play for the rest of the suite;
+  `build-image.sh` builds that image from upstream's own Dockerfile, capped at
+  `JOBS` compile jobs (upstream defaults to every core);
+  `check-3dblox.sh` runs the exporter from the adk-tools image and the linter
+  from the OpenROAD image, so what is exercised is the exporter that ships,
+  and exits non-zero on any linter warning, not only on a crash;
+  `verify-live.sh` runs the ADK `test_chiplet2dbx.py` suite against the pinned
+  image and, unlike the suite's own skip-when-absent guard, refuses to pass if
+  a live test skipped. OpenROAD stays out of the distribution image on
+  purpose: a second multi-gigabyte toolchain for a linter whose reach is
+  narrow. `openroad/README.md` states that reach plainly, including the checks
+  it cannot see (a displaced die, two swapped dies, a face-up flip and an open
+  cut in the artwork all lint clean).
+
 ### Changed
+- Branch model made explicit: `dev` now pins each tool's `dev` branch, `main`
+  keeps pinning each tool's `main`, so `git submodule update --remote` follows
+  the right side on each branch. `dev` branches were created at the current
+  `main` tip in the four repositories with ongoing work (`IHP-Open-ADK`,
+  `chiplet-studio`, `OpenIntM4TM2`, `IHP-Interconnect-IntM4TM2`); the other
+  three keep `branch = main` on both sides until they need one.
+- `adk` pin advanced to `859eff3` and `IHP-Interconnect-IntM4TM2` to `f249b99`
+  (their `dev` tips): README and title wording only, no code change.
 - `OpenIntM4TM2` pin advanced to `a119512`: the CMIM (MIM-cap) KiCad symbol and
   footprint family get a readable +/- polarity presentation without touching the
   copper. The symbol (`cap_cmim.kicad_sym`) hides the overlapping pin names and
