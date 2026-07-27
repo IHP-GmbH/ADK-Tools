@@ -37,6 +37,13 @@ _Development happens on `dev`; entries accumulate here until the next release._
   three keep `branch = main` on both sides until they need one.
 - `adk` pin advanced to `859eff3` and `IHP-Interconnect-IntM4TM2` to `f249b99`
   (their `dev` tips): README and title wording only, no code change.
+- `chiplet-studio` pin advanced to `4a00bcb`: the verify stage's `ctest` step
+  now bounds gtest discovery at 120 s instead of CMake's 5 s default.
+  Enumerating the suite runs the test binary once, linking KLayout and
+  starting Qt offscreen; on a loaded machine that overran the default and
+  failed the build with "Error running test executable ... terminated due to
+  timeout" after the binary had already listed all 584 tests. It read as a
+  broken submodule combination when nothing was broken.
 - `OpenIntM4TM2` pin advanced to `a119512`: the CMIM (MIM-cap) KiCad symbol and
   footprint family get a readable +/- polarity presentation without touching the
   copper. The symbol (`cap_cmim.kicad_sym`) hides the overlapping pin names and
