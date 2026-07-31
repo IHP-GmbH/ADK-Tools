@@ -1,0 +1,320 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Run the interposer PDK's own DRC on the exported carrier and gate the result.
+
+The ADK assembly DRC answers "is this assembly legal": dies do not overlap, the
+interconnect method is respected, boundaries are contained. It says nothing
+about whether the carrier the exporter drew can actually be made. That is the
+foundry deck's job, and until this gate existed nothing in the build ever ran
+it on our own output.
+
+What it does: run every deck of the interposer PDK (offgrid, angle, the metal
+and via tables, pad, cu-pillar, slits, LBE) on the exported interposer GDS,
+count the markers per rule, and compare against a committed baseline.
+
+Why a baseline and not zero: the export is on grid and angle-clean today, but
+the reference board still carries geometry the process does not allow (see the
+baseline file's per-rule notes). A gate that demanded zero would be switched
+off within a week; a gate that pins the exact known set fails the moment a
+change makes anything worse, and the baseline is a debt list in the repository
+rather than a rumour. Driving it to zero is the point; every entry says what it
+would take.
+
+Exit status: 0 when no rule exceeds its baseline and no unknown rule appears,
+1 otherwise. Improvements never fail the build, but they are reported loudly so
+the baseline gets tightened in the same change.
+
+One class of rule is delegated rather than compared: see BUMP_TO_BUMP_RULES.
+"""
+import argparse
+import collections
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+PY = os.environ.get("ADK_PYTHON", "/opt/adk-tools/venv/bin/python3")
+
+# Image paths first, then the checkout the script is running from, so the same
+# gate is runnable on a host while working the baseline down.
+_HERE = Path(__file__).resolve().parents[1]
+
+
+def _first_existing(*candidates):
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[0]
+
+
+DEFAULT_EXAMPLE = _first_existing(
+    Path("/opt/adk-tools/examples/two_die_interposer"),
+    _HERE / "examples" / "two_die_interposer")
+DEFAULT_PDK = _first_existing(
+    Path("/opt/adk-tools/OpenIntM4TM2"),
+    _HERE / "tools" / "OpenIntM4TM2",
+    _HERE.parent / "interposer")
+DEFAULT_INTERCONNECT = _first_existing(
+    Path("/opt/adk-tools/IHP-Interconnect-IntM4TM2"),
+    _HERE / "tools" / "IHP-Interconnect-IntM4TM2",
+    _HERE.parent / "interconnect_pdk")
+
+# Bump-to-bump rules: the interposer deck checks these, but it is not the deck
+# that owns them for an assembly.
+#
+# The deck derives a Cu-pillar pad from the layer pair Passiv:pillar (9/35) AND
+# dfpad:pillar (41/35). That pair is a *fab mask* identity, not an attachment
+# method: every method that lands on the IHP UBM declares fab_anchor
+# ihp_cupillar_anchor and draws exactly those layers, on purpose, because it
+# reuses the opening IHP fabricates. So a fine-pitch microbump array is judged
+# by PacTech Table 6.1 Cu-pillar numbers, which it never agreed to.
+#
+# The interconnect PDK owns the per-method versions (IXN.b space, IXN.e pitch)
+# and the ADK assembly DRC checks them with each method's own values. These two
+# are therefore delegated, not waived, and only when the carrier provably
+# carries a method the deck's numbers do not describe. Everything else in the
+# copper-pillar table (Padc.a size, Padc.c enclosure, Padc.d edge seal,
+# Padc.f shape) is genuinely the interposer's and stays compared.
+BUMP_TO_BUMP_RULES = ("Padc.b", "Padc.e")
+
+
+def parse_lyrdb(path):
+    """Marker count per rule id, from a KLayout report database."""
+    counts = collections.Counter()
+    root = ET.parse(path).getroot()
+    for item in root.iter("item"):
+        cat = (item.findtext("category") or "").strip().strip("'")
+        if cat:
+            counts[cat] += 1
+    return counts
+
+
+def _read_json(path, what):
+    try:
+        return json.loads(Path(path).read_text()), None
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, f"{what} is missing or unreadable ({path}): {exc}"
+
+
+def delegated_bump_rules(gds, pdk_root, interconnect_root):
+    """Which bump-to-bump rules this carrier delegates, and the reason either way.
+
+    Delegation needs positive proof: the carrier has to carry an attachment
+    method whose own rules ALLOW something the deck's Cu-pillar numbers forbid.
+    A method that is stricter than the deck (a coarser pitch option, say) keeps
+    the check, because then the deck can only fire on geometry the method also
+    rejects. Anything unreadable - no pillar manifest, a method the registry
+    does not know, a deck whose values we cannot fetch - delegates nothing, so
+    a missing artifact can never waive a real violation; the rule then shows up
+    as an unknown rule and fails the gate.
+
+    Returns (rules, reason). rules is a possibly empty set.
+    """
+    sidecar = gds.with_suffix(".pillars.json")
+    if not sidecar.exists():
+        return set(), f"no pillar manifest beside the GDS ({sidecar.name})"
+    manifest, err = _read_json(sidecar, "pillar manifest")
+    if err:
+        return set(), err
+    methods = sorted({p.get("method") for p in manifest.get("pillars", [])
+                      if isinstance(p, dict) and p.get("method")})
+    if not methods:
+        return set(), f"{sidecar.name} records no attachment method"
+
+    tech, err = _read_json(
+        pdk_root / "libs.tech" / "klayout" / "tech" / "drc" / "rule_decks"
+        / "interposer_tech_default.json", "interposer tech rules")
+    if err:
+        return set(), err
+    rules = tech.get("rules", {})
+    try:
+        deck_space = float(rules["Padc_b"])
+        deck_pitch = float(rules["Padc_e"])
+    except (KeyError, TypeError, ValueError):
+        return set(), "the deck's Padc_b/Padc_e values are not readable"
+
+    registry, err = _read_json(
+        interconnect_root / "manifest" / "interconnect_methods.json",
+        "interconnect method registry")
+    if err:
+        return set(), err
+    known = registry.get("methods", {})
+    # What the exporter recorded as the rules it placed and checked against
+    # (pillar manifest 1.1.0). The registry stays the authority; this is here
+    # to catch an artifact generated against a different interconnect PDK than
+    # the one on disk, which would make the delegation decision on stale
+    # evidence.
+    as_built = manifest.get("methods", {})
+
+    looser = []
+    for method in methods:
+        entry = known.get(method)
+        if not isinstance(entry, dict) or "pitch_rules" not in entry:
+            return set(), (f"method '{method}' is not in the interconnect "
+                           f"registry, so its rules are unknown")
+        pitch_rules = entry["pitch_rules"]
+        try:
+            space = float(pitch_rules["IXN_spacing"])
+            pitch = float(pitch_rules["IXN_pitch"])
+        except (KeyError, TypeError, ValueError):
+            return set(), f"method '{method}' has no usable pitch rules"
+        built = as_built.get(method)
+        if isinstance(built, dict):
+            try:
+                built_space = float(built["IXN_spacing"])
+                built_pitch = float(built["IXN_pitch"])
+            except (KeyError, TypeError, ValueError):
+                return set(), (f"the pillar manifest records unreadable rules "
+                               f"for method '{method}'")
+            if (built_space, built_pitch) != (space, pitch):
+                return set(), (
+                    f"method '{method}' was drawn against {built_space:g} um "
+                    f"space / {built_pitch:g} um pitch but the interconnect "
+                    f"PDK now declares {space:g}/{pitch:g}; the carrier is "
+                    f"stale, regenerate it before trusting either")
+        if space < deck_space or pitch < deck_pitch:
+            looser.append(f"{method} ({space:g} um space / {pitch:g} um pitch)")
+
+    if not looser:
+        return set(), (f"every method on this carrier ({', '.join(methods)}) "
+                       f"is at least as strict as the deck")
+    return set(BUMP_TO_BUMP_RULES), (
+        f"the carrier carries {', '.join(looser)}, which the deck's Cu-pillar "
+        f"numbers ({deck_space:g} um space / {deck_pitch:g} um pitch) do not "
+        f"describe; IXN.b/IXN.e in the assembly DRC own this check")
+
+
+def run_deck(run_drc, gds, topcell, run_dir, threads):
+    cmd = [PY, str(run_drc), "--path", str(gds), "--run_dir", str(run_dir),
+           "--threads", str(threads), "--mp", "1"]
+    if topcell:
+        cmd += ["--topcell", topcell]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    # run_drc.py exits 1 when it finds violations, which is the normal case
+    # here; only a crash (no report written) is a runner failure.
+    reports = sorted(Path(run_dir).glob("*.lyrdb"))
+    if not reports:
+        sys.stderr.write(proc.stdout)
+        sys.stderr.write(proc.stderr)
+        raise SystemExit("carrier DRC: the deck produced no report database")
+    counts = collections.Counter()
+    for rep in reports:
+        counts.update(parse_lyrdb(rep))
+    return counts, reports
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--gds", type=Path,
+                    help="Interposer GDS to check (default: the two_die_"
+                         "interposer example's exported carrier)")
+    ap.add_argument("--topcell", default="INTERPOSER")
+    ap.add_argument("--baseline", type=Path,
+                    help="Baseline JSON (default: <example>/carrier_drc_baseline.json)")
+    ap.add_argument("--pdk-root", type=Path, default=DEFAULT_PDK,
+                    help="Interposer PDK checkout that owns the deck")
+    ap.add_argument("--interconnect-root", type=Path,
+                    default=DEFAULT_INTERCONNECT,
+                    help="Interconnect PDK checkout that owns the per-method "
+                         "bump rules (see BUMP_TO_BUMP_RULES)")
+    ap.add_argument("--run-dir", type=Path,
+                    help="Where to leave the reports (default: a temp dir)")
+    ap.add_argument("--threads", type=int, default=4,
+                    help="Threads per KLayout invocation (default 4)")
+    ap.add_argument("--update-baseline", action="store_true",
+                    help="Rewrite the baseline counts from this run, keeping "
+                         "every note. Never run this to make a red gate green "
+                         "without reading what changed.")
+    args = ap.parse_args(argv)
+
+    example = DEFAULT_EXAMPLE
+    gds = args.gds or (example / "outputs" / "layout"
+                       / "two_die_interposer_interposer.gds")
+    baseline_path = args.baseline or (example / "carrier_drc_baseline.json")
+    run_drc = (args.pdk_root / "libs.tech" / "klayout" / "tech" / "drc"
+               / "run_drc.py")
+
+    for path, what in ((gds, "interposer GDS"), (run_drc, "PDK DRC runner"),
+                       (baseline_path, "baseline")):
+        if not path.exists():
+            raise SystemExit(f"carrier DRC: {what} not found: {path}")
+    if not shutil.which("klayout"):
+        raise SystemExit("carrier DRC: no klayout on PATH")
+
+    baseline = json.loads(baseline_path.read_text())
+    expected = {rule: int(spec["count"])
+                for rule, spec in baseline.get("expected", {}).items()}
+
+    # The reports are kept, temp dir or not: on a red gate the marker
+    # coordinates are the only way to see what moved.
+    run_dir = args.run_dir or Path(tempfile.mkdtemp(prefix="carrier-drc-"))
+    run_dir.mkdir(parents=True, exist_ok=True)
+    counts, reports = run_deck(run_drc, gds, args.topcell, run_dir,
+                               args.threads)
+
+    print(f"carrier DRC on {gds}")
+    print(f"  deck    : {run_drc}")
+    print(f"  reports : {', '.join(str(r) for r in reports)}")
+    print(f"  total   : {sum(counts.values())} marker(s) "
+          f"across {len(counts)} rule(s)")
+
+    delegated, reason = delegated_bump_rules(gds, args.pdk_root,
+                                             args.interconnect_root)
+    fired = [r for r in BUMP_TO_BUMP_RULES if counts.get(r)]
+    if delegated:
+        moved = sum(counts.pop(r, 0) for r in delegated)
+        for rule in delegated:
+            expected.pop(rule, None)
+        print(f"  DELEGATED {', '.join(sorted(delegated))}: {moved} marker(s) "
+              f"not counted here. Reason: {reason}.")
+    elif fired:
+        print(f"  NOTE      {', '.join(fired)} stay compared: {reason}.")
+
+    if args.update_baseline:
+        spec = baseline.setdefault("expected", {})
+        for rule in sorted(set(spec) | set(counts)):
+            n = counts.get(rule, 0)
+            if n == 0:
+                spec.pop(rule, None)
+                continue
+            entry = spec.setdefault(rule, {})
+            entry["count"] = n
+            entry.setdefault("why", "TODO: say what this is and how it goes away")
+        baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
+        print(f"  baseline rewritten: {baseline_path}")
+        return 0
+
+    regressions, unknown, improvements = [], [], []
+    for rule, n in sorted(counts.items()):
+        if rule not in expected:
+            unknown.append((rule, n))
+        elif n > expected[rule]:
+            regressions.append((rule, expected[rule], n))
+        elif n < expected[rule]:
+            improvements.append((rule, expected[rule], n))
+    for rule, n in sorted(expected.items()):
+        if rule not in counts:
+            improvements.append((rule, n, 0))
+
+    for rule, was, now in improvements:
+        print(f"  IMPROVED  {rule}: {was} -> {now}. Tighten the baseline in "
+              f"this change ({baseline_path.name}).")
+    for rule, n in unknown:
+        print(f"  NEW       {rule}: {n} marker(s), not in the baseline")
+    for rule, was, now in regressions:
+        print(f"  WORSE     {rule}: {was} -> {now}")
+
+    if unknown or regressions:
+        print("\ncarrier DRC FAILED: the export got worse against the "
+              "interposer PDK deck.")
+        return 1
+    print("\ncarrier DRC OK: no rule exceeds its baseline.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

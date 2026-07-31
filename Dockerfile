@@ -440,6 +440,15 @@ RUN adk-verify-demo-reproducible \
         /opt/adk-tools/.demo-tracked-snapshot \
         /opt/adk-tools/examples/two_die_interposer/outputs
 
+# 4c. Carrier foundry DRC. Step 4 gates the ASSEMBLY (dies do not overlap, the
+#     interconnect method is respected); it says nothing about whether the
+#     interposer we just drew can be made. Run the interposer PDK's own deck on
+#     the regenerated carrier and compare against the committed baseline, so an
+#     export change that puts geometry off the 5 nm grid, off 0/45/90, or under
+#     a width or space minimum fails the image build. The baseline is a debt
+#     list with per-rule notes, not a waiver; see the file.
+RUN /opt/adk-tools/venv/bin/python3 /usr/local/bin/adk-verify-carrier-drc
+
 # 5. Chiplet Studio full suite (gated tests resolve the PDK/tool roots via the
 #    env baked in deps).
 RUN cd /opt/adk-tools/chiplet-studio/build \
