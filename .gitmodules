@@ -1,7 +1,7 @@
 [submodule "tools/kicad"]
 	path = tools/kicad
 	url = https://github.com/IHP-GmbH/KiCad-ADK-MOD.git
-	branch = main
+	branch = dev
 [submodule "tools/chiplet-studio"]
 	path = tools/chiplet-studio
 	url = https://github.com/IHP-GmbH/chiplet-studio.git
@@ -9,11 +9,11 @@
 [submodule "tools/chiplet_kicad_plugin"]
 	path = tools/chiplet_kicad_plugin
 	url = https://github.com/IHP-GmbH/Chiplets-KiCad-Plugin.git
-	branch = main
+	branch = dev
 [submodule "tools/gds_to_kicad"]
 	path = tools/gds_to_kicad
 	url = https://github.com/IHP-GmbH/gds2kicad.git
-	branch = main
+	branch = dev
 [submodule "tools/adk"]
 	path = tools/adk
 	url = https://github.com/IHP-GmbH/IHP-Open-ADK.git

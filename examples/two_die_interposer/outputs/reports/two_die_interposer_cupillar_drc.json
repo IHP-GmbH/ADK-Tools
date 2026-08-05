@@ -10,7 +10,7 @@
     "cupillar_opt1": {
       "body_diameter_um": 44,
       "params": {
-        "Padc_a_diameter_um": 35,
+        "Padc_a_diameter_um": 35.0,
         "Padc_b_min_spacing_um": 40.0,
         "Padc_c_min_enclosure_um": 7.5,
         "Padc_d_min_edgeseal_um": 30.0,
@@ -20,7 +20,7 @@
     "vendorx_microbump": {
       "body_diameter_um": 40,
       "params": {
-        "Padc_a_diameter_um": 40.0,
+        "Padc_a_diameter_um": 35.0,
         "Padc_b_min_spacing_um": 15.0,
         "Padc_c_min_enclosure_um": 7.5,
         "Padc_d_min_edgeseal_um": 30.0,
@@ -40,7 +40,7 @@
     "U1": {
       "passed": true,
       "params": {
-        "Padc_a_diameter_um": 35,
+        "Padc_a_diameter_um": 35.0,
         "Padc_b_min_spacing_um": 40.0,
         "Padc_c_min_enclosure_um": 7.5,
         "Padc_d_min_edgeseal_um": 30.0,
@@ -50,7 +50,7 @@
         {
           "rule": "Padc.a",
           "severity": "info",
-          "message": "Diameter matches tech: 35 um",
+          "message": "Diameter matches tech: 35.0 um",
           "details": {}
         },
         {
@@ -89,7 +89,7 @@
     "U2": {
       "passed": true,
       "params": {
-        "Padc_a_diameter_um": 40.0,
+        "Padc_a_diameter_um": 35.0,
         "Padc_b_min_spacing_um": 15.0,
         "Padc_c_min_enclosure_um": 7.5,
         "Padc_d_min_edgeseal_um": 30.0,
@@ -99,7 +99,7 @@
         {
           "rule": "Padc.a",
           "severity": "info",
-          "message": "Diameter matches tech: 40.0 um",
+          "message": "Diameter matches tech: 35.0 um",
           "details": {}
         },
         {

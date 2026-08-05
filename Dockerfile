@@ -329,6 +329,16 @@ COPY --from=sg13g2-pdk /pdk /opt/adk-tools/IHP-Open-PDK
 # Pinning only klayout left the behaviour-defining packages free to drift against
 # live PyPI on a cache-cold rebuild, which could silently flip a verify-stage
 # suite; bump a pin deliberately, in its own commit.
+#
+# KLAYOUT_PIP is the ecosystem's one KLayout version, not just this venv's.
+# Testing a deck against a different KLayout than the one the image runs proves
+# the deck works somewhere other than where it ships, so these agree with it and
+# have to be bumped in the same change:
+#   chiplet-studio  extern/klayout submodule tag       (the in-tree build)
+#   IHP-Open-ADK    .github/workflows/tests.yml        (env KLAYOUT_VERSION)
+#   IHP-Open-ADK-docs  docs/requirements.txt           (klayout==)
+#   IHP-Open-ADK-docs  docs/install/02_host.rst        (the worker venv block)
+#   Chiplets-KiCad-Plugin  plugins/chiplet_export/requirements.txt  (the floor)
 ARG KLAYOUT_PIP=0.30.5
 ARG PYYAML_PIP=6.0.3
 ARG PYQT6_PIP=6.11.0
@@ -346,9 +356,17 @@ RUN python3 -m venv --system-site-packages /opt/adk-tools/venv \
         "psutil==${PSUTIL_PIP}" \
         "pytest==${PYTEST_PIP}"
 
-# Plugin visible to the KiCad GUI for every user
+# Plugins visible to the KiCad GUI for every user. The repository is a monorepo
+# of plugins, so its root is not a plugin package: KiCad scans this folder for
+# packages that register an ActionPlugin, and linking the root would give it a
+# directory with no __init__.py and no plugin at all. Link each package, which
+# is also what the plugin README prescribes ("the specific plugin directory,
+# not the whole repository").
 RUN mkdir -p /usr/share/kicad/scripting/plugins \
-    && ln -s /opt/adk-tools/chiplet_kicad_plugin /usr/share/kicad/scripting/plugins/chiplet_kicad_plugin
+    && ln -s /opt/adk-tools/chiplet_kicad_plugin/plugins/chiplet_export \
+             /usr/share/kicad/scripting/plugins/chiplet_export \
+    && ln -s /opt/adk-tools/chiplet_kicad_plugin/plugins/resizer_passive_elements \
+             /usr/share/kicad/scripting/plugins/resizer_passive_elements
 
 # Command wrappers + interactive-shell banner
 COPY bin/ /usr/local/bin/
@@ -423,7 +441,7 @@ RUN cp -a /opt/adk-tools/examples/two_die_interposer/outputs \
 #    the sibling `outputs/` dir, where the studio gated tests pick up the .chiplet
 #    + its co-located interposer/complete GDS. --require-drc: a combo that breaks
 #    assembly DRC fails the image build.
-RUN python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.py \
+RUN python3 /opt/adk-tools/chiplet_kicad_plugin/plugins/chiplet_export/tests/regenerate_wirebond_demo.py \
         --require-drc \
         --board /opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
         --output-dir /opt/adk-tools/examples/two_die_interposer/outputs
@@ -457,15 +475,23 @@ RUN cd /opt/adk-tools/chiplet-studio/build \
        WIREBOND_DEMO_CHIPLET=/opt/adk-tools/examples/two_die_interposer/outputs/two_die_interposer.chiplet \
        ctest --output-on-failure
 
-# 6. Plugin suite (pcbnew available here, so the env-gated tests run too).
+# 6. Plugin suites (pcbnew available here, so the env-gated tests run too).
 #    The writer fixtures discover the demo board via CHIPLET_WRITER_BOARD /
 #    HYPERLYNX_WRITER_BOARD before falling back to hardcoded paths; point them
 #    at the board's new kicad/ location so the byte-exact regression tests run
 #    instead of self-skipping.
-RUN cd /opt/adk-tools/chiplet_kicad_plugin \
-    && CHIPLET_WRITER_BOARD=/opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
-       HYPERLYNX_WRITER_BOARD=/opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
-       /opt/adk-tools/venv/bin/python3 -m pytest tests -q
+#    One run per plugin package, from inside it, which is what each package's
+#    own pytest.ini (testpaths = tests) is written for and what the repository's
+#    CI matrix does. A single run from the monorepo root would pick up no ini at
+#    all and collect both suites into one rootdir.
+RUN for plugin in chiplet_export resizer_passive_elements; do \
+        cd "/opt/adk-tools/chiplet_kicad_plugin/plugins/$plugin" \
+        && echo "=== plugin suite: $plugin" \
+        && CHIPLET_WRITER_BOARD=/opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
+           HYPERLYNX_WRITER_BOARD=/opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
+           /opt/adk-tools/venv/bin/python3 -m pytest tests -q \
+        || exit 1; \
+    done
 
 # 7. End-to-end smoke exactly as a user would run it.
 RUN adk-smoke

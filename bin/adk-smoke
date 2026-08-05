@@ -24,7 +24,7 @@ PY
 klayout -b -r "$OUT/check_tech.py"
 
 echo "adk-smoke: exporting two-die interposer demo to $OUT"
-python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.py \
+python3 /opt/adk-tools/chiplet_kicad_plugin/plugins/chiplet_export/tests/regenerate_wirebond_demo.py \
     --require-drc \
     --board /opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
     --output-dir "$OUT"

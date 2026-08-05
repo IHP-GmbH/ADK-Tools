@@ -65,7 +65,7 @@ The verify build regenerates `outputs/` from `kicad/` on every image build and
 gates it through the assembly DRC. To do it by hand:
 
 ```bash
-python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.py \
+python3 /opt/adk-tools/chiplet_kicad_plugin/plugins/chiplet_export/tests/regenerate_wirebond_demo.py \
     --require-drc \
     --board   example/kicad/two_die_interposer.kicad_pcb \
     --output-dir example/outputs
