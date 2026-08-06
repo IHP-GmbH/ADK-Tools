@@ -49,6 +49,20 @@ if [ -n "$strays" ]; then
     echo "  Exclude them in .dockerignore, or build a release image from a fresh clone." >&2
 fi
 
+# Preconditions, before an hour of build. Every path the Dockerfile and the
+# shipped wrapper scripts address inside the image has to exist in the tree
+# that is about to be copied into it. A pin bump can move one without changing
+# a line here, and the build's own answer to that arrives at the step that
+# trips over it. This one arrives now, and it is the same checker CI runs.
+if ! python3 ci/check_paths.py > /dev/null; then
+    python3 ci/check_paths.py >&2 || true
+    echo "" >&2
+    echo "Refusing to build: the pinned tree does not have the shape the image" >&2
+    echo "expects. Fix the paths or the pins; the build would fail on this an" >&2
+    echo "hour from now, or ship it to users if the path is only in bin/." >&2
+    exit 1
+fi
+
 # Version manifest from the pinned submodules (baked into the image, shown by
 # the in-image `adk-tools` command).
 python3 - > manifest.json <<'PY'

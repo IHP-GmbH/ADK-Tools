@@ -1,0 +1,79 @@
+name: ci
+
+# adk-tools is a lockfile plus a build recipe. The build itself takes about an
+# hour, needs a shared Docker cache and stays on the machine that has it, so
+# hosted CI here is not a smaller version of the build: it is the set of
+# questions that can be answered without one.
+#
+# Both jobs below answer a question the build answers too, an hour later, and
+# both of them are questions this repository has already got wrong once.
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pins:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Self-test the checker
+        run: python3 ci/check_pins.py --self-test
+
+      - name: Every pin is publicly reachable and on its declared branch
+        env:
+          # Two API calls per submodule. Anonymous requests are rate-limited
+          # per IP, and hosted runners share theirs.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 ci/check_pins.py
+
+  paths:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Self-test the checker
+        run: python3 ci/check_paths.py --self-test
+
+      - name: Check out the submodules the build addresses by path
+        # Not chiplet-studio (349 MB) and not the KiCad fork (2.1 GB): nothing
+        # in a RUN or a wrapper resolves into their sources, only into build
+        # products, and the checker reports an uninitialised submodule as a
+        # failure rather than passing over it, so this list cannot silently
+        # become too short.
+        run: |
+          git submodule update --init \
+            tools/adk \
+            tools/gds_to_kicad \
+            tools/OpenIntM4TM2 \
+            tools/IHP-Interconnect-IntM4TM2 \
+            tools/chiplet_kicad_plugin
+
+      - name: Every path the build reaches for exists in the pinned tree
+        run: python3 ci/check_paths.py
+
+  # The one required status check. A single collector context per repository
+  # means a ruleset names `ci-gate` everywhere and never has to be edited when
+  # the job list inside a workflow changes.
+  ci-gate:
+    needs: [pins, paths]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every gating job to have succeeded
+        # `needs` alone does not gate: with `if: always()` this job runs even
+        # when a dependency failed, so each result has to be compared
+        # explicitly. Without the comparison the gate reports green after its
+        # dependencies went red.
+        run: |
+          echo "pins:  ${{ needs.pins.result }}"
+          echo "paths: ${{ needs.paths.result }}"
+          test "${{ needs.pins.result }}" = "success"
+          test "${{ needs.paths.result }}" = "success"
