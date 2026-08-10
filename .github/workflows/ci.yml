@@ -59,11 +59,28 @@ jobs:
       - name: Every path the build reaches for exists in the pinned tree
         run: python3 ci/check_paths.py
 
+  rulesets:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Self-test the comparison
+        run: python3 ci/rulesets/apply_rulesets.py --self-test
+
+      - name: The tracked ruleset payloads are well formed
+        # Offline on purpose. Comparing against what GitHub actually holds needs
+        # admin on all ten repositories and this token has admin on one, so
+        # drift detection stays a deliberate local run. What is caught here is
+        # the hand edit that puts a ruleset in a shape nobody can merge through:
+        # an empty context list, a bypass list that locks the maintainer out, or
+        # an integration_id copied in from the web UI.
+        run: python3 ci/rulesets/apply_rulesets.py --validate
+
   # The one required status check. A single collector context per repository
   # means a ruleset names `ci-gate` everywhere and never has to be edited when
   # the job list inside a workflow changes.
   ci-gate:
-    needs: [pins, paths]
+    needs: [pins, paths, rulesets]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -73,7 +90,9 @@ jobs:
         # explicitly. Without the comparison the gate reports green after its
         # dependencies went red.
         run: |
-          echo "pins:  ${{ needs.pins.result }}"
-          echo "paths: ${{ needs.paths.result }}"
+          echo "pins:     ${{ needs.pins.result }}"
+          echo "paths:    ${{ needs.paths.result }}"
+          echo "rulesets: ${{ needs.rulesets.result }}"
           test "${{ needs.pins.result }}" = "success"
           test "${{ needs.paths.result }}" = "success"
+          test "${{ needs.rulesets.result }}" = "success"
