@@ -13,6 +13,25 @@ repo pins one exact, verified combination of every tool.
   verified, then promote to `main` at a release.
 - **`feature/*`** -- short-lived branches cut from `dev`, merged back into `dev`.
 
+## What enforces the model
+
+A ruleset covers `main` and `dev`, so the section above is a condition on
+merging rather than a convention. Both lines take changes only through a pull
+request, neither can be deleted or force-pushed, and one status check is
+required to merge: **`ci-gate`**. It collects the jobs in
+`.github/workflows/ci.yml`, which check that every submodule pin is publicly
+reachable on the branch it declares, that every path the image build reaches for
+exists in the pinned tree, and that the tracked ruleset payloads are well
+formed. It runs in under a minute and compiles nothing. Release tags (`v*`) are
+protected against deletion and against being moved onto a different commit.
+
+The payloads for every repository in the ecosystem live in `ci/rulesets/` and
+are applied with `ci/rulesets/apply_rulesets.py`, never through the GitHub web
+UI. `ci/rulesets/README.md` gives the reason, which is sharper than a style
+preference. Repository admins hold a permanent bypass, so the ruleset is binding
+for contributors and advisory for a maintainer who needs a force push on the day
+a history rewrite is genuinely required.
+
 ## The verify gate
 
 `build.sh` always builds the `verify` stage first (regenerates the demo
