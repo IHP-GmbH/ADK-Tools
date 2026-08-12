@@ -1,0 +1,28 @@
+{
+  "_comment": [
+    "Repositories the integration job checks out that this repository does not",
+    "pin as a submodule. Two exist: chiplet-spec, which is the upstream of two",
+    "vendored copies and is deliberately not a submodule because nothing here",
+    "builds from it, and IHP-Open-ADK-docs, whose requirements file is one of",
+    "the places the ecosystem's KLayout version is declared.",
+    "",
+    "They are pinned here for the same reason the submodules are pinned: a",
+    "required check that follows a branch head goes red because somebody else",
+    "pushed, on a pull request that changed nothing. Bumping a pin is then a",
+    "deliberate commit that says which combination was checked, which is what",
+    "this repository is for.",
+    "",
+    "The floating weekly run ignores these pins and takes the branch heads, so",
+    "a pin going stale is visible without being blocking."
+  ],
+  "spec": {
+    "slug": "IHP-GmbH/chiplet-spec",
+    "branch": "dev",
+    "pin": "f6d833c8c36c56be09d3ffa3a41449a93c66196b"
+  },
+  "docs": {
+    "slug": "IHP-GmbH/IHP-Open-ADK-docs",
+    "branch": "dev",
+    "pin": "729b356d2673bff798554fa6bf45c76052b42eeb"
+  }
+}
