@@ -13,6 +13,8 @@
 #   bare  plugin 132 passed   adk 185 passed
 #   with  plugin 290 passed   adk 190 passed
 #
+# Two of the adk gains were dropped afterwards; see the OpenROAD note below.
+#
 # Deliberately absent, and each for a reason rather than an oversight:
 #
 #   pcbnew          six plugin modules skip at collection. KiCad's Python
@@ -23,6 +25,12 @@
 #   the KLayout CLI the pip wheel ships the module and no binary. Deck
 #                   semantics belong to the interposer's own decks job, which
 #                   installs the deb and verifies the version.
+#   the OpenROAD    adk's two @needs_openroad_image tests pull a local Docker
+#   image           image. They pass on a developer box that has it and skip on
+#                   a runner, which is how they got into the first draft of this
+#                   file and how the job caught them: 161 of 163 passed and
+#                   these two skipped. A capability the runner cannot have does
+#                   not belong here at any strength of wish.
 #   gds2kicad       measured, and the siblings make no difference to it at all:
 #                   178 passed and 20 skipped either way. Its skips want
 #                   kicad_designs/kicad_interposer_hyperlynx_to_gds/, a
@@ -36,10 +44,8 @@
 # skips without the siblings; an entry that passes either way is a line that
 # proves nothing.
 
-# ---- adk (5) ----
+# ---- adk (3) ----
 # tests/test_chiplet2dbx.py
-adk tests/test_chiplet2dbx.py::test_live_bump_alignment_sees_bumps
-adk tests/test_chiplet2dbx.py::test_live_check_3dblox_with_bumps
 adk tests/test_chiplet2dbx.py::test_macro_naming_matches_generator
 adk tests/test_chiplet2dbx.py::test_unknown_manifest_method_fails_loudly
 adk tests/test_chiplet2dbx.py::test_vendored_reader_matches_spec_reference
