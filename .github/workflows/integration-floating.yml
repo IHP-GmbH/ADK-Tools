@@ -1,0 +1,129 @@
+name: integration-floating
+
+# The same contracts as integration.yml, but against the head of every
+# repository's declared branch instead of the pinned combination. It answers a
+# different question: not "is the combination this repository names still
+# consistent", which is what blocks a merge, but "has anything drifted since it
+# was named", which is information and must never block anything.
+#
+# It therefore never fails. A red X on an Actions tab is invisible within a
+# month, and the habit of ignoring one spreads to the checks that do matter. The
+# result goes into exactly one issue, opened when drift appears, updated while
+# it lasts, closed the first time a run comes back clean.
+#
+# The run date is also the only available detector for GitHub disabling
+# `schedule` after 60 days without repository activity, which is why
+# docs/RELEASE_CHECKLIST.md asks for a floating run newer than 14 days.
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: integration-floating
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: adk-tools
+
+      - name: Resolve every branch head and prove it exists
+        id: refs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        working-directory: adk-tools
+        run: python3 ci/resolve_refs.py --floating --github-output
+
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Open-ADK
+          ref: ${{ fromJSON(steps.refs.outputs.refs).adk }}
+          path: adk
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/chiplet-spec
+          ref: ${{ fromJSON(steps.refs.outputs.refs).spec }}
+          path: chiplet-spec
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/OpenIntM4TM2
+          ref: ${{ fromJSON(steps.refs.outputs.refs).interposer }}
+          path: interposer
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Interconnect-IntM4TM2
+          ref: ${{ fromJSON(steps.refs.outputs.refs).interconnect }}
+          path: interconnect_pdk
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/Chiplets-KiCad-Plugin
+          ref: ${{ fromJSON(steps.refs.outputs.refs).plugin }}
+          path: chiplet_kicad_plugin
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/gds2kicad
+          ref: ${{ fromJSON(steps.refs.outputs.refs).gds2kicad }}
+          path: gds_to_kicad
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Open-ADK-docs
+          ref: ${{ fromJSON(steps.refs.outputs.refs).docs }}
+          path: adk-docs
+      # chiplet-studio and the KiCad fork are not checked out: the ci-gate
+      # contract reads their workflow from the branch through the API.
+
+      - name: Install the YAML reader at the version the image pins
+        run: |
+          pin=$(sed -n 's/^ARG PYYAML_PIP=\(.*\)$/\1/p' adk-tools/Dockerfile)
+          test -n "$pin"
+          pip install "PyYAML==${pin}"
+
+      - name: Assert the contracts against the branch heads
+        # Deliberately not allowed to fail the run. The verdict is carried by
+        # the issue below, not by the tick on this workflow.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 adk-tools/ci/contracts.py \
+            --root . --dir tools=adk-tools --track dev \
+            > report.txt 2> failures.txt || true
+          cat report.txt
+          cat failures.txt
+
+      - name: Open, update or close the one drift issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: "integration: floating drift"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Exact title match, not the search index, which is fuzzy and would
+          # eventually match a second issue and open a third.
+          num=$(gh issue list --state open --limit 100 --json number,title \
+                  --jq '.[] | select(.title == env.TITLE) | .number' | head -1)
+
+          if [ -s failures.txt ]; then
+            body=$(printf '%s\n\n```\n%s\n```\n\n%s\n\n%s\n' \
+              "The heads of the ecosystem's \`dev\` branches no longer satisfy the cross-repo contracts. The pinned combination this repository names is unaffected and merges are not blocked; this is what has moved since it was named." \
+              "$(cat report.txt failures.txt)" \
+              "Run: $RUN_URL" \
+              "This issue closes itself on the first clean weekly run.")
+            if [ -n "$num" ]; then
+              gh issue comment "$num" --body "$body"
+            else
+              gh issue create --title "$TITLE" --body "$body"
+            fi
+          elif [ -n "$num" ]; then
+            gh issue close "$num" --comment "Clean floating run: $RUN_URL"
+          else
+            echo "No drift and no open issue."
+          fi
