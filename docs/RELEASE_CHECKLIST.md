@@ -24,6 +24,11 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
 - [ ] Every submodule pin is on its tracked branch and pushed to its remote
       (a pin that only exists on your machine breaks a fresh clone and the
       Docker submodule fetch).
+- [ ] The last `integration-floating` run is under 14 days old
+      (`gh run list --workflow integration-floating.yml --limit 1`) and its
+      drift issue, if one is open, has been read. An older run does not mean
+      the ecosystem is quiet: GitHub disables `schedule` after 60 days without
+      repository activity, and this date is the only place that shows.
 - [ ] No local paths or secrets in tracked files:
       `git grep -nI "/home/" -- . ':(exclude)tools/*' ':(exclude)docs/*'` is empty
       (excluding `docs/` keeps this checklist's own example pattern from
@@ -31,7 +36,10 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
 - [ ] Promote `dev -> main`.
 - [ ] Put `main` back on the main track: reset every `.gitmodules` `branch`
       field to `main` and move each gitlink to that tool's `main` tip. The fold
-      does not do this; `dev` pins the tools' `dev` branches.
+      does not do this; `dev` pins the tools' `dev` branches. The same applies
+      to `ci/integration-refs.json`, which pins the two repositories that are
+      not submodules. The `gitmodules-track` contract checks both halves, so
+      forgetting either turns the `integration` check red on `main`.
 - [ ] Build the release commit: `./build.sh` (produces `adk-tools:dev` + a clean
       `manifest.json`).
 - [ ] Annotated tag on `main`: `git tag -a vYYYY.MM -m "..."` (add `-s` to sign
