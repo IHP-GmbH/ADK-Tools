@@ -29,19 +29,22 @@ permanent.
 
 ## What is required, and what is deliberately not
 
-`ci-gate` is the only required context, in every repository. It is one collector
-job per repo that depends on every gating job in that repo and compares their
-results explicitly, so the ruleset never has to be edited when a workflow grows
-or loses a job.
+`ci-gate` is required in every repository. It is one collector job per repo that
+depends on every gating job in that repo and compares their results explicitly,
+so the ruleset never has to be edited when a workflow grows or loses a job.
 
-Two contexts named in the original plan are absent on purpose:
+ADK-Tools requires a second context, `integration`, the cross-repo run in
+`.github/workflows/integration.yml`. It is only here because this is the only
+repository where more than one repository exists at once.
 
-- `integration`, the cross-repo job in this repository. Not built yet.
-- `local/verify`, the verdict the local heavy gate posts. Not built yet.
-
-Requiring a context that nothing publishes does not make a repository stricter,
-it makes every pull request unmergeable forever. Each of those two lands in this
-JSON in the same change that makes its producer real, and not before.
+One context named in the original plan is still absent on purpose: `local/verify`,
+the verdict the local heavy gate posts, which is not built yet. Requiring a
+context that nothing publishes does not make a repository stricter, it makes
+every pull request unmergeable forever, so it lands in this JSON in the same
+change that makes its producer real and not before. That is not a hypothetical:
+adding `ci-gate` blocked a colleague's open pull request whose branch predated
+the CI, because the merge ref carried no workflow and the context could never
+appear on it.
 
 ## Settled parameters
 
