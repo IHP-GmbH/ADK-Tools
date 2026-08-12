@@ -942,7 +942,13 @@ def main():
         "fetch": make_fetch(trees, targets,
                             resolve_refs.make_api(resolve_refs.token())),
     }
-    results = run(trees, ctx, only)
+    try:
+        results = run(trees, ctx, only)
+    except resolve_refs.Unreachable as e:
+        print("NO VERDICT: could not reach the GitHub API (%s). The contracts "
+              "were not evaluated; this says nothing about them." % e,
+              file=sys.stderr)
+        return 2
 
     if args.json:
         print(json.dumps([{"contract": n, "failures": f} for n, f in results],
