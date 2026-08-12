@@ -1,0 +1,223 @@
+# Tests that must have run and passed in the integration job's suite run.
+#
+# Every one of these is skipped on a bare runner and passes once the six
+# ecosystem checkouts are on disk with the roots exported. That is the whole
+# point of the job: the per-repo gates are honest when they skip, because the
+# capability really is absent there, and this is the one place it is present.
+# check_required_tests.py therefore treats a skip here as a failure.
+#
+# Derived by measurement, not by reading the markers. Both sides were run in a
+# tree holding only what the job supplies: no pcbnew, no SG13G2 PDK, no KLayout
+# CLI, nothing on PATH beyond /usr/bin.
+#
+#   bare  plugin 132 passed   adk 185 passed
+#   with  plugin 290 passed   adk 190 passed
+#
+# Two of the adk gains were dropped afterwards; see the OpenROAD note below.
+#
+# Deliberately absent, and each for a reason rather than an oversight:
+#
+#   pcbnew          six plugin modules skip at collection. KiCad's Python
+#                   module is not installable on a hosted runner and the local
+#                   verify gate is where those run.
+#   SG13G2 PCells   two tests want a discoverable IHP-Open-PDK, which is a
+#                   different PDK and not part of this checkout matrix.
+#   the KLayout CLI the pip wheel ships the module and no binary. Deck
+#                   semantics belong to the interposer's own decks job, which
+#                   installs the deb and verifies the version.
+#   the OpenROAD    adk's two @needs_openroad_image tests pull a local Docker
+#   image           image. They pass on a developer box that has it and skip on
+#                   a runner, which is how they got into the first draft of this
+#                   file and how the job caught them: 161 of 163 passed and
+#                   these two skipped. A capability the runner cannot have does
+#                   not belong here at any strength of wish.
+#   gds2kicad       measured, and the siblings make no difference to it at all:
+#                   178 passed and 20 skipped either way. Its skips want
+#                   kicad_designs/kicad_interposer_hyperlynx_to_gds/, a
+#                   directory that exists in no repository. That is a fixture
+#                   repatriation, not a missing capability, and inventing a
+#                   manifest entry for it would only hide it.
+#
+# To regenerate after a rename: run the suite twice, once in a lone checkout
+# and once with the roots exported, and take the ids that changed from not
+# passing to passing. Do not add an id by hand without checking it actually
+# skips without the siblings; an entry that passes either way is a line that
+# proves nothing.
+
+# ---- adk (3) ----
+# tests/test_chiplet2dbx.py
+adk tests/test_chiplet2dbx.py::test_macro_naming_matches_generator
+adk tests/test_chiplet2dbx.py::test_unknown_manifest_method_fails_loudly
+adk tests/test_chiplet2dbx.py::test_vendored_reader_matches_spec_reference
+
+# ---- plugin (158) ----
+# tests/test_boundary_annotations.py
+plugin tests/test_boundary_annotations.py::test_annotation_does_not_alter_manifest
+plugin tests/test_boundary_annotations.py::test_annotation_never_uses_exchange0
+plugin tests/test_boundary_annotations.py::test_annotation_off_by_default
+plugin tests/test_boundary_annotations.py::test_annotation_paints_polygon_and_label_per_boundary
+plugin tests/test_boundary_annotations.py::test_custom_viz_layer_is_honored
+plugin tests/test_boundary_annotations.py::test_dual_write_interposer_empty_then_complete
+# tests/test_cmim_devices.py
+plugin tests/test_cmim_devices.py::test_a_legacy_key_means_metres_whether_quoted_or_not
+plugin tests/test_cmim_devices.py::test_a_plate_the_pcell_would_refuse_never_reaches_it[infinite]
+plugin tests/test_cmim_devices.py::test_a_plate_the_pcell_would_refuse_never_reaches_it[just_over_cmax]
+plugin tests/test_cmim_devices.py::test_a_plate_the_pcell_would_refuse_never_reaches_it[metres_typo]
+plugin tests/test_cmim_devices.py::test_a_plate_the_pcell_would_refuse_never_reaches_it[over_cmax]
+plugin tests/test_cmim_devices.py::test_a_plate_the_pcell_would_refuse_never_reaches_it[over_maxlw]
+plugin tests/test_cmim_devices.py::test_a_plate_the_pcell_would_refuse_never_reaches_it[under_minlw]
+plugin tests/test_cmim_devices.py::test_a_rotated_rectangular_device_is_placed_rotated
+plugin tests/test_cmim_devices.py::test_add_cmim_devices_is_a_no_op_without_devices
+plugin tests/test_cmim_devices.py::test_an_in_spec_rectangle_is_not_rejected_by_the_bound
+plugin tests/test_cmim_devices.py::test_an_unreadable_sidecar_is_not_an_empty_one
+plugin tests/test_cmim_devices.py::test_cmim_length_um_falls_back_to_the_legacy_key
+plugin tests/test_cmim_devices.py::test_cmim_length_um_prefers_the_v2_key
+plugin tests/test_cmim_devices.py::test_cmim_length_um_raises_on_missing_and_unparseable
+plugin tests/test_cmim_devices.py::test_every_field_convention_lands_on_the_same_plate[library_um_suffix]
+plugin tests/test_cmim_devices.py::test_every_field_convention_lands_on_the_same_plate[short_u_suffix]
+plugin tests/test_cmim_devices.py::test_every_field_convention_lands_on_the_same_plate[symbol_metres]
+plugin tests/test_cmim_devices.py::test_every_field_convention_lands_on_the_same_plate[v2_um]
+plugin tests/test_cmim_devices.py::test_instance_origin_is_snapped_to_the_technology_grid
+plugin tests/test_cmim_devices.py::test_load_cmim_devices_reads_the_entries
+plugin tests/test_cmim_devices.py::test_no_group_cell_is_left_behind_when_nothing_is_placed
+plugin tests/test_cmim_devices.py::test_parse_length_um_accepts_every_board_convention[  8.11UM -8.11]
+plugin tests/test_cmim_devices.py::test_parse_length_um_accepts_every_board_convention[0-0.0]
+plugin tests/test_cmim_devices.py::test_parse_length_um_accepts_every_board_convention[5.768e-5-57.68]
+plugin tests/test_cmim_devices.py::test_parse_length_um_accepts_every_board_convention[57.68-57.68]
+plugin tests/test_cmim_devices.py::test_parse_length_um_accepts_every_board_convention[57.68u-57.68]
+plugin tests/test_cmim_devices.py::test_parse_length_um_accepts_every_board_convention[57.68um-57.68]
+plugin tests/test_cmim_devices.py::test_parse_length_um_rejects_junk[   ]
+plugin tests/test_cmim_devices.py::test_parse_length_um_rejects_junk[57,68um]
+plugin tests/test_cmim_devices.py::test_parse_length_um_rejects_junk[None]
+plugin tests/test_cmim_devices.py::test_parse_length_um_rejects_junk[True]
+plugin tests/test_cmim_devices.py::test_parse_length_um_rejects_junk[]
+plugin tests/test_cmim_devices.py::test_parse_length_um_rejects_junk[abc]
+plugin tests/test_cmim_devices.py::test_the_written_gds_reads_back
+plugin tests/test_cmim_devices.py::test_unplaceable_devices_are_reported_not_swallowed[missing]
+plugin tests/test_cmim_devices.py::test_unplaceable_devices_are_reported_not_swallowed[negative]
+plugin tests/test_cmim_devices.py::test_unplaceable_devices_are_reported_not_swallowed[unparseable]
+plugin tests/test_cmim_devices.py::test_unplaceable_devices_are_reported_not_swallowed[zero]
+plugin tests/test_cmim_devices.py::test_unplaceable_devices_are_reported_not_swallowed[zero_multiplier]
+# tests/test_connection_stacks.py
+plugin tests/test_connection_stacks.py::test_connection_stacks_block_byte_exact
+plugin tests/test_connection_stacks.py::test_validate_known_ids_pass
+plugin tests/test_connection_stacks.py::test_validate_unknown_adapter_fails_listing_valid
+plugin tests/test_connection_stacks.py::test_validate_unknown_method_fails_listing_valid
+plugin tests/test_connection_stacks.py::test_vendorx_excluded_from_default_library
+# tests/test_corner_mitre.py
+plugin tests/test_corner_mitre.py::test_45_bend_loses_exactly_the_overshoot
+plugin tests/test_corner_mitre.py::test_collinear_vertex_keeps_the_square
+plugin tests/test_corner_mitre.py::test_corner_is_never_opened
+plugin tests/test_corner_mitre.py::test_diagonal_90_bend_reaches_further_than_the_square
+plugin tests/test_corner_mitre.py::test_drawn_patches_stay_on_grid_and_0_45_90
+plugin tests/test_corner_mitre.py::test_every_45_degree_turn_only_removes_copper
+plugin tests/test_corner_mitre.py::test_grid_constant_is_the_one_the_patch_uses
+plugin tests/test_corner_mitre.py::test_no_drawn_polygon_has_an_acute_corner
+plugin tests/test_corner_mitre.py::test_orthogonal_90_bend_is_untouched
+plugin tests/test_corner_mitre.py::test_reversal_keeps_the_square
+plugin tests/test_corner_mitre.py::test_segment_off_the_45_grid_keeps_the_square
+plugin tests/test_corner_mitre.py::test_the_outer_corner_lands_where_the_flanks_meet
+plugin tests/test_corner_mitre.py::test_turn_sharper_than_90_degrees_keeps_the_square
+# tests/test_hyp_to_gds_decoupling.py
+plugin tests/test_hyp_to_gds_decoupling.py::test_auto_emit_declares_technology_block
+plugin tests/test_hyp_to_gds_decoupling.py::test_auto_emit_respects_explicit_adapter
+plugin tests/test_hyp_to_gds_decoupling.py::test_auto_emit_sets_adapter_from_die_connection
+plugin tests/test_hyp_to_gds_decoupling.py::test_auto_emit_skips_when_no_adapter_bearing_connection
+plugin tests/test_hyp_to_gds_decoupling.py::test_body_diameter_ihp_identical
+plugin tests/test_hyp_to_gds_decoupling.py::test_body_diameter_vendor_enabled
+plugin tests/test_hyp_to_gds_decoupling.py::test_cli_choices_include_all_methods
+plugin tests/test_hyp_to_gds_decoupling.py::test_connection_stack_from_manifest_resolves_non_default_methods
+plugin tests/test_hyp_to_gds_decoupling.py::test_connection_to_adapter_from_manifest
+plugin tests/test_hyp_to_gds_decoupling.py::test_convert_draws_outline_on_prboundary
+plugin tests/test_hyp_to_gds_decoupling.py::test_default_connection_stacks_byte_equal_to_literal
+plugin tests/test_hyp_to_gds_decoupling.py::test_default_lyp_resolves_canonical
+plugin tests/test_hyp_to_gds_decoupling.py::test_expand_path_vars_env_wins
+plugin tests/test_hyp_to_gds_decoupling.py::test_expand_path_vars_passthrough
+plugin tests/test_hyp_to_gds_decoupling.py::test_expand_path_vars_unknown_var_is_loud
+plugin tests/test_hyp_to_gds_decoupling.py::test_expand_path_vars_walk
+plugin tests/test_hyp_to_gds_decoupling.py::test_explicit_adapter_gains_technology_block
+plugin tests/test_hyp_to_gds_decoupling.py::test_interconnect_pdk_resolves_live_not_fallback
+plugin tests/test_hyp_to_gds_decoupling.py::test_interposer_pdk_env_override_wins
+plugin tests/test_hyp_to_gds_decoupling.py::test_interposer_pdk_python_found_via_walk
+plugin tests/test_hyp_to_gds_decoupling.py::test_method_bodies_resolved_from_manifest
+plugin tests/test_hyp_to_gds_decoupling.py::test_mixed_methods_draw_each_dies_own_bodies
+plugin tests/test_hyp_to_gds_decoupling.py::test_offboard_geometry_warns
+plugin tests/test_hyp_to_gds_decoupling.py::test_open_outline_warns_and_draws_nothing
+plugin tests/test_hyp_to_gds_decoupling.py::test_parser_reads_board_perimeter
+plugin tests/test_hyp_to_gds_decoupling.py::test_single_method_export_unchanged_by_die_connections_param
+plugin tests/test_hyp_to_gds_decoupling.py::test_unknown_adapter_stays_adapter_only
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_die_thickness_never_touches_interposer
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_die_thickness_set_per_die
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_die_thickness_without_connections
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_emits_attachment_surface_z_and_keeps_body
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_falls_back_to_full_bbox_without_outline
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_legacy_global_unchanged
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_missing_outline_flags_legacy_189
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_missing_outline_warns_loudly
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_no_thickness_keeps_placeholder
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_per_die_override_wins_over_global
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_per_die_unknown_method_warned_and_skipped
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_per_die_without_global
+plugin tests/test_hyp_to_gds_decoupling.py::test_update_chiplet_prefers_outline_dims_keeps_full_bbox_position
+# tests/test_io_pads.py
+plugin tests/test_io_pads.py::test_add_io_pads_handles_missing_file
+plugin tests/test_io_pads.py::test_add_io_pads_places_pads_on_topmetal2
+plugin tests/test_io_pads.py::test_add_io_pads_skips_invalid_size
+plugin tests/test_io_pads.py::test_io_class_dispatch_skips_reserved
+plugin tests/test_io_pads.py::test_update_chiplet_file_injects_io_pads
+plugin tests/test_io_pads.py::test_update_chiplet_layout_ref_relative_only_when_colocated
+# tests/test_layer_guard.py
+plugin tests/test_layer_guard.py::test_all_segments_unmapped_fails_loudly
+plugin tests/test_layer_guard.py::test_fully_mapped_no_aggregate_warning
+plugin tests/test_layer_guard.py::test_minor_unmapped_layer_warns_but_succeeds
+# tests/test_manufacturing_grid.py
+plugin tests/test_manufacturing_grid.py::test_diagonal_trace_is_not_narrower_than_nominal
+plugin tests/test_manufacturing_grid.py::test_diagonal_trace_stays_exactly_45_degrees
+plugin tests/test_manufacturing_grid.py::test_grid_can_be_disabled_for_debugging
+plugin tests/test_manufacturing_grid.py::test_grid_constant_matches_the_pdk_deck
+plugin tests/test_manufacturing_grid.py::test_instance_origins_and_pad_geometry_are_snapped
+plugin tests/test_manufacturing_grid.py::test_orthogonal_trace_is_on_grid
+plugin tests/test_manufacturing_grid.py::test_wire_bond_pad_carries_its_opening_and_recognition
+plugin tests/test_manufacturing_grid.py::test_wire_bond_pad_matches_the_requested_pycell_shape
+plugin tests/test_manufacturing_grid.py::test_wire_bond_pad_shape_is_one_the_pycell_draws_correctly
+plugin tests/test_manufacturing_grid.py::test_wire_bond_pad_too_small_for_the_pycell_is_refused
+plugin tests/test_manufacturing_grid.py::test_wire_bond_pad_vertices_are_on_grid_and_0_45_90
+# tests/test_notch_heal.py
+plugin tests/test_notch_heal.py::test_clean_layout_creates_no_heal_cell
+plugin tests/test_notch_heal.py::test_every_healed_layer_maps_to_a_known_rule_key
+plugin tests/test_notch_heal.py::test_foreign_geometry_is_not_reshaped
+plugin tests/test_notch_heal.py::test_heal_grid_matches_the_manufacturing_grid
+plugin tests/test_notch_heal.py::test_keepout_does_not_shield_cu_pillar_pads
+plugin tests/test_notch_heal.py::test_missing_tech_json_falls_back_instead_of_aborting
+plugin tests/test_notch_heal.py::test_notch_narrower_than_the_rule_is_closed
+plugin tests/test_notch_heal.py::test_notch_wider_than_the_rule_is_left_alone
+plugin tests/test_notch_heal.py::test_patches_are_on_grid_and_only_0_45_90
+plugin tests/test_notch_heal.py::test_patches_stay_axis_aligned
+plugin tests/test_notch_heal.py::test_space_rules_come_from_the_tech_json
+plugin tests/test_notch_heal.py::test_two_nets_at_exactly_the_minimum_space_are_not_bridged
+plugin tests/test_notch_heal.py::test_wire_bond_pad_notches_are_left_to_the_pad_rules
+# tests/test_orchestrator.py
+plugin tests/test_orchestrator.py::test_available_connection_types_from_manifest
+plugin tests/test_orchestrator.py::test_connection_labels_from_real_manifest
+plugin tests/test_orchestrator.py::test_connection_specs_stack_height_is_summed
+plugin tests/test_orchestrator.py::test_describe_connection_method_carries_the_drc_numbers
+plugin tests/test_orchestrator.py::test_discover_dependency_root_env_wins_and_bogus_falls_through
+plugin tests/test_orchestrator.py::test_discover_dependency_root_walk_finds_real_siblings
+# tests/test_pillar_manifest.py
+plugin tests/test_pillar_manifest.py::test_auto_resolved_bump_recorded_at_moved_position
+plugin tests/test_pillar_manifest.py::test_bump_path_with_zero_bumps_writes_empty_array
+plugin tests/test_pillar_manifest.py::test_bump_path_writes_manifest_with_header
+plugin tests/test_pillar_manifest.py::test_complete_manifest_reuses_interposer_frame_origin
+plugin tests/test_pillar_manifest.py::test_manifest_bytes_deterministic
+plugin tests/test_pillar_manifest.py::test_manifest_constants_pinned
+plugin tests/test_pillar_manifest.py::test_manifest_records_the_rules_the_bumps_were_checked_against
+plugin tests/test_pillar_manifest.py::test_no_bump_path_writes_no_manifest
+plugin tests/test_pillar_manifest.py::test_out_of_table_method_records_the_opening_it_draws
+plugin tests/test_pillar_manifest.py::test_pillars_sorted_by_device_then_pin
+plugin tests/test_pillar_manifest.py::test_positions_match_drawn_instances
+plugin tests/test_pillar_manifest.py::test_unresolvable_methods_still_write_empty_manifest
+# tests/test_via_geometry.py
+plugin tests/test_via_geometry.py::test_bootstrap_quiet_false_without_pdk
+plugin tests/test_via_geometry.py::test_fallback_spans_draw_intermediate_landing_pads
+plugin tests/test_via_geometry.py::test_fallback_uses_pdk_defaults_not_legacy_hardcodes
+plugin tests/test_via_geometry.py::test_fallback_via_array_honors_tech_json

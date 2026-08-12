@@ -116,11 +116,107 @@ jobs:
             --dir tools=adk-tools \
             --track "${{ github.base_ref || github.ref_name }}"
 
+  # The suites that only run here. Every per-repo gate is honest when it skips,
+  # because on a lone checkout the capability really is absent; this is the one
+  # place all six checkouts exist at once, so 163 tests that execute nowhere
+  # else execute here, and ci/required-tests.txt makes a skip a failure.
+  suites:
+    needs: resolve
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: adk-tools
+
+      # The same six trees the manifest was measured against, laid out as
+      # siblings because that is how the plugin discovers a dependency root
+      # when no environment variable names one.
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Open-ADK
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).adk }}
+          path: adk
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/chiplet-spec
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).spec }}
+          path: chiplet-spec
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/OpenIntM4TM2
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).interposer }}
+          path: interposer
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Interconnect-IntM4TM2
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).interconnect }}
+          path: interconnect_pdk
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/Chiplets-KiCad-Plugin
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).plugin }}
+          path: chiplet_kicad_plugin
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/gds2kicad
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).gds2kicad }}
+          path: gds_to_kicad
+
+      - name: Install every dependency at the version the image pins
+        # Read out of the Dockerfile rather than written here, so this job
+        # cannot drift into testing against a different set than the one that
+        # ships. tkinter is not a pip package and the plugin's PCell path
+        # imports it.
+        run: |
+          set -euo pipefail
+          args=()
+          while read -r name arg; do
+            pin=$(sed -n "s/^ARG ${arg}=\(.*\)$/\1/p" adk-tools/Dockerfile)
+            test -n "$pin" || { echo "no ARG ${arg} in the Dockerfile"; exit 1; }
+            args+=("${name}==${pin}")
+          done <<'PINS'
+          pytest PYTEST_PIP
+          klayout KLAYOUT_PIP
+          PyYAML PYYAML_PIP
+          jinja2 JINJA2_PIP
+          jsonschema JSONSCHEMA_PIP
+          psutil PSUTIL_PIP
+          PINS
+          echo "installing: ${args[*]}"
+          sudo apt-get update -qq && sudo apt-get install -y -qq python3-tk
+          pip install "${args[@]}"
+
+      - name: Run the suites with every sibling root on disk
+        # `|| true` on purpose: a suite is allowed to have skips that are not in
+        # the manifest, and the verdict is the manifest check below, which is
+        # strictly stronger than the exit code. A genuine failure still shows,
+        # because a failing required test fails there too.
+        env:
+          INTERPOSER_PDK_ROOT: ${{ github.workspace }}/interposer
+          INTERCONNECT_PDK_ROOT: ${{ github.workspace }}/interconnect_pdk
+          ADK_ROOT: ${{ github.workspace }}/adk
+          INTERPOSER_LYP: ${{ github.workspace }}/interposer/libs.tech/klayout/tech/intm4tm2.lyp
+        run: |
+          test -f "$INTERPOSER_LYP"
+          (cd adk && python -m pytest tests -q -ra \
+             -o junit_family=xunit1 --junitxml=../adk.xml) || true
+          (cd chiplet_kicad_plugin && python -m pytest plugins/chiplet_export/tests -q -ra \
+             -o junit_family=xunit1 --junitxml=../plugin.xml) || true
+
+      - name: Self-test the manifest checker
+        run: python3 adk-tools/ci/check_required_tests.py --self-test
+
+      - name: Every test the siblings unlock actually ran and passed
+        run: |
+          python3 adk-tools/ci/check_required_tests.py \
+            adk-tools/ci/required-tests.txt \
+            --junit adk=adk.xml --junit plugin=plugin.xml
+
   # The second required context on this repository, alongside ci-gate. Same
   # shape and same reason: `needs` alone does not gate, so each result is
   # compared explicitly.
   integration:
-    needs: [resolve, contracts]
+    needs: [resolve, contracts, suites]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -128,5 +224,7 @@ jobs:
         run: |
           echo "resolve:   ${{ needs.resolve.result }}"
           echo "contracts: ${{ needs.contracts.result }}"
+          echo "suites:    ${{ needs.suites.result }}"
           test "${{ needs.resolve.result }}" = "success"
           test "${{ needs.contracts.result }}" = "success"
+          test "${{ needs.suites.result }}" = "success"
