@@ -48,6 +48,9 @@
         "required_status_checks": [
           {
             "context": "ci-gate"
+          },
+          {
+            "context": "integration"
           }
         ]
       }

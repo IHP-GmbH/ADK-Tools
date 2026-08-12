@@ -17,13 +17,29 @@ repo pins one exact, verified combination of every tool.
 
 A ruleset covers `main` and `dev`, so the section above is a condition on
 merging rather than a convention. Both lines take changes only through a pull
-request, neither can be deleted or force-pushed, and one status check is
-required to merge: **`ci-gate`**. It collects the jobs in
-`.github/workflows/ci.yml`, which check that every submodule pin is publicly
-reachable on the branch it declares, that every path the image build reaches for
-exists in the pinned tree, and that the tracked ruleset payloads are well
-formed. It runs in under a minute and compiles nothing. Release tags (`v*`) are
-protected against deletion and against being moved onto a different commit.
+request, neither can be deleted or force-pushed, and two status checks are
+required to merge. Release tags (`v*`) are protected against deletion and
+against being moved onto a different commit.
+
+**`ci-gate`** collects the jobs in `.github/workflows/ci.yml`, which check that
+every submodule pin is publicly reachable on the branch it declares, that every
+path the image build reaches for exists in the pinned tree, and that the tracked
+ruleset payloads are well formed.
+
+**`integration`** collects `.github/workflows/integration.yml`, the cross-repo
+run. It checks out the pinned combination and asserts the facts that span two
+repositories and that therefore no per-repo gate can see: the hand-synced
+schemas and both vendored `.chiplet` readers still byte-identical to
+chiplet-spec, every pin naming this superproject's track, every repository
+publishing a `ci-gate` that is a real gate, one KLayout across the ecosystem,
+and every pinned `*_PIP` satisfying what the repositories declare. Its refs come
+from the gitlinks and from `ci/integration-refs.json`, so it goes red because
+something changed here, never because somebody pushed elsewhere while a pull
+request was open. The run that follows the branch heads is
+`integration-floating.yml`, weekly, which never blocks anything and reports
+through one issue.
+
+Both compile nothing and both finish in about a minute.
 
 The payloads for every repository in the ecosystem live in `ci/rulesets/` and
 are applied with `ci/rulesets/apply_rulesets.py`, never through the GitHub web
