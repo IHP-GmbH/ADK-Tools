@@ -1,0 +1,132 @@
+name: integration
+
+# The pinned cross-repo run. It compiles nothing and it is the only place in the
+# ecosystem where more than one repository exists at once, which is the whole
+# reason it exists: every contract it checks spans two trees, so no per-repo gate
+# can see any of them.
+#
+# Pinned means pinned. Every ref comes from a gitlink or from
+# ci/integration-refs.json, so this check goes red because somebody changed
+# something here, never because somebody pushed to another repository while a
+# pull request was open. The run that follows the branch heads is the weekly
+# one in integration-floating.yml, and it is never allowed to block anything.
+#
+# Two workflows rather than one with a mode switch, because a job name is a
+# status context: a floating run sharing this file would post `integration` on
+# the default branch head and a red tick nobody can act on is how a required
+# check gets ignored and then deleted.
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    outputs:
+      refs: ${{ steps.refs.outputs.refs }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Self-test the resolver
+        run: python3 ci/resolve_refs.py --self-test
+
+      - name: Resolve every ref and prove it exists before anything uses it
+        id: refs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 ci/resolve_refs.py --pinned --github-output
+
+  contracts:
+    needs: resolve
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: adk-tools
+
+      # Nine explicit checkouts. Not `submodules: recursive`: chiplet-spec is
+      # not a submodule of anything, and it is precisely where the vendored
+      # readers have to be compared.
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Open-ADK
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).adk }}
+          path: adk
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/chiplet-spec
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).spec }}
+          path: chiplet-spec
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/OpenIntM4TM2
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).interposer }}
+          path: interposer
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Interconnect-IntM4TM2
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).interconnect }}
+          path: interconnect_pdk
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/Chiplets-KiCad-Plugin
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).plugin }}
+          path: chiplet_kicad_plugin
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/gds2kicad
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).gds2kicad }}
+          path: gds_to_kicad
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Open-ADK-docs
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).docs }}
+          path: adk-docs
+
+      # chiplet-studio and the KiCad fork are not checked out at all. The only
+      # thing read from them is the gate workflow, and the ci-gate contract
+      # reads that from the branch through the API, so 349 MB and 2.1 GB of
+      # clone buy nothing.
+
+      - name: Install the YAML reader at the version the image pins
+        run: |
+          pin=$(sed -n 's/^ARG PYYAML_PIP=\(.*\)$/\1/p' adk-tools/Dockerfile)
+          test -n "$pin"
+          pip install "PyYAML==${pin}"
+
+      - name: Self-test the contracts
+        run: python3 adk-tools/ci/contracts.py --self-test
+
+      - name: Assert the contracts across every checked-out tree
+        # --track is the branch the superproject is on, which .gitmodules has to
+        # declare. On a pull request that is the base, not the head: the head is
+        # a feature branch and no submodule ever declares one.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 adk-tools/ci/contracts.py \
+            --root . \
+            --dir tools=adk-tools \
+            --track "${{ github.base_ref || github.ref_name }}"
+
+  # The second required context on this repository, alongside ci-gate. Same
+  # shape and same reason: `needs` alone does not gate, so each result is
+  # compared explicitly.
+  integration:
+    needs: [resolve, contracts]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every cross-repo job to have succeeded
+        run: |
+          echo "resolve:   ${{ needs.resolve.result }}"
+          echo "contracts: ${{ needs.contracts.result }}"
+          test "${{ needs.resolve.result }}" = "success"
+          test "${{ needs.contracts.result }}" = "success"
