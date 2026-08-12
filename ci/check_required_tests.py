@@ -42,16 +42,21 @@ import xml.etree.ElementTree as ET
 def parse_manifest(text):
     """[(repo, nodeid)] from `repo<space>nodeid` lines.
 
-    Whitespace-separated rather than colon-separated, because a node id is full
-    of colons and `repo:path::test` splits in two places.
+    Split on the first whitespace only, and the rest of the line is the node id
+    verbatim. Not colon-separated, because a node id is full of colons; and not
+    fully whitespace-separated either, because a parametrised id contains
+    spaces of its own, sometimes only spaces:
+
+        plugin tests/test_cmim_devices.py::test_parse_length_um_rejects_junk[   ]
+
+    A `#` only starts a comment at the start of a line, for the same reason.
     """
     entries, bad = [], []
     for n, raw in enumerate(text.splitlines(), 1):
-        line = raw.split("#", 1)[0].strip()
-        if not line:
+        if raw.lstrip().startswith("#") or not raw.strip():
             continue
-        parts = line.split()
-        if len(parts) != 2:
+        parts = raw.strip().split(None, 1)
+        if len(parts) != 2 or not parts[1].strip():
             bad.append("line %d: %r is not `repo nodeid`" % (n, raw.strip()))
             continue
         entries.append((parts[0], parts[1]))
@@ -167,8 +172,18 @@ def self_test():
     _, bad = parse_manifest("tests/test_a.py::test_one\n")
     expect("a line with no repo is rejected", bool(bad))
 
-    _, bad = parse_manifest("adk tests/test_a.py::test_one extra\n")
-    expect("a line with a stray third field is rejected", bool(bad))
+    entries, bad = parse_manifest(
+        "plugin tests/test_a.py::test_one[  8.11UM -8.11]\n")
+    expect("a parametrised id containing spaces survives intact",
+           not bad and entries == [
+               ("plugin", "tests/test_a.py::test_one[  8.11UM -8.11]")])
+
+    entries, bad = parse_manifest("plugin tests/test_a.py::test_junk[   ]\n")
+    expect("an id whose parameter is only spaces survives",
+           not bad and entries == [("plugin", "tests/test_a.py::test_junk[   ]")])
+
+    _, bad = parse_manifest("plugin\n")
+    expect("a line with a repo and no id is rejected", bool(bad))
 
     want = [("adk", "tests/test_a.py::test_one")]
     expect("a required test that passed passes",
