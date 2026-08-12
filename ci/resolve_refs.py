@@ -44,6 +44,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -81,17 +82,37 @@ def token():
         return None
 
 
-def make_api(auth):
+class Unreachable(Exception):
+    """The API could not be reached at all.
+
+    Deliberately not a RuntimeError and deliberately not a status code: "the
+    pin is bad" and "we could not ask" are different facts, and a runner that
+    loses TLS for four seconds must not be reported as a repository with a
+    broken pin. A hosted runner has been observed handing back a self-signed
+    certificate mid-run, twice in one minute, and passing on the next attempt.
+    """
+
+
+def make_api(auth, attempts=3, sleep=time.sleep):
     def call(path):
         req = urllib.request.Request(API + path)
         req.add_header("Accept", "application/vnd.github+json")
         if auth:
             req.add_header("Authorization", "Bearer " + auth)
-        try:
-            with urllib.request.urlopen(req, timeout=30) as r:
-                return r.status, json.load(r)
-        except urllib.error.HTTPError as e:
-            return e.code, None
+        last = None
+        for attempt in range(attempts):
+            try:
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    return r.status, json.load(r)
+            except urllib.error.HTTPError as e:
+                if e.code < 500:
+                    return e.code, None
+                last = "HTTP %d" % e.code
+            except (urllib.error.URLError, OSError) as e:
+                last = str(e)
+            if attempt + 1 < attempts:
+                sleep(2 ** attempt)
+        raise Unreachable("%s: %s (after %d attempts)" % (path, last, attempts))
     return call
 
 
@@ -260,6 +281,52 @@ def self_test():
     expect("a submodule this script does not know about fails loudly",
            any("no entry in SUBMODULE_ID" in f for f in fails))
 
+    # The retry, which exists because a hosted runner handed back a self-signed
+    # certificate mid-run and both API-using jobs died with a traceback.
+    tries = []
+
+    def flaky(fail_first):
+        def opener(req, timeout=None):
+            tries.append(1)
+            if len(tries) <= fail_first:
+                raise urllib.error.URLError("SSL: CERTIFICATE_VERIFY_FAILED")
+            raise urllib.error.HTTPError(req.full_url, 200, "ok", {}, None)
+        return opener
+
+    real_urlopen = urllib.request.urlopen
+    try:
+        urllib.request.urlopen = flaky(2)
+        api = make_api(None, attempts=3, sleep=lambda _: None)
+        expect("a transient failure is retried rather than reported",
+               api("/x") == (200, None) and len(tries) == 3)
+
+        tries.clear()
+        urllib.request.urlopen = flaky(9)
+        api = make_api(None, attempts=3, sleep=lambda _: None)
+        try:
+            api("/x")
+            expect("an unreachable API raises rather than looking like a bad pin",
+                   False)
+        except Unreachable:
+            expect("an unreachable API raises rather than looking like a bad pin",
+                   len(tries) == 3)
+    finally:
+        urllib.request.urlopen = real_urlopen
+
+    tries.clear()
+
+    def four_oh_four(req, timeout=None):
+        tries.append(1)
+        raise urllib.error.HTTPError(req.full_url, 404, "nope", {}, None)
+
+    try:
+        urllib.request.urlopen = four_oh_four
+        api = make_api(None, attempts=3, sleep=lambda _: None)
+        expect("a 404 is an answer and is not retried",
+               api("/x") == (404, None) and len(tries) == 1)
+    finally:
+        urllib.request.urlopen = real_urlopen
+
     ok = True
     for name, passed, _ in cases:
         print("%-62s %s" % (name, "ok" if passed else "FAILED"))
@@ -290,7 +357,16 @@ def main():
 
     entries = declared(gitmodules.read_text(), extra)
     api = make_api(token())
-    refs, slugs, failures = resolve(entries, pins, args.floating, api)
+    try:
+        refs, slugs, failures = resolve(entries, pins, args.floating, api)
+    except Unreachable as e:
+        # Exit 2, not 1: no verdict was reached. Same distinction the local gate
+        # makes, and the reason a traceback is not good enough here is that the
+        # next person reads "resolve failed" and starts looking at the pins.
+        print("NO VERDICT: could not reach the GitHub API (%s). Nothing is "
+              "known about the refs; this is not a finding about them."
+              % e, file=sys.stderr)
+        return 2
 
     for rid in sorted(slugs):
         print("%-14s %-40s %s" % (rid, slugs[rid], refs.get(rid, "UNRESOLVED")))

@@ -36,15 +36,10 @@ Usage:
 """
 
 import argparse
-import json
-import os
 import re
 import subprocess
 import sys
-import urllib.error
-import urllib.request
 
-API = "https://api.github.com"
 # Accepted answers to "is the pin contained in the declared branch". `behind`
 # means the pin is an ancestor of the branch head; `identical` means it is the
 # head. `ahead` and `diverged` both mean the branch does not contain it.
@@ -57,30 +52,10 @@ def git(*args):
     ).stdout
 
 
-def token():
-    for var in ("GITHUB_TOKEN", "GH_TOKEN"):
-        if os.environ.get(var):
-            return os.environ[var]
-    try:
-        return subprocess.run(
-            ["gh", "auth", "token"], capture_output=True, text=True, check=True
-        ).stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
-        return None
-
-
-def make_api(auth):
-    def call(path):
-        req = urllib.request.Request(API + path)
-        req.add_header("Accept", "application/vnd.github+json")
-        if auth:
-            req.add_header("Authorization", "Bearer " + auth)
-        try:
-            with urllib.request.urlopen(req, timeout=30) as r:
-                return r.status, json.load(r)
-        except urllib.error.HTTPError as e:
-            return e.code, None
-    return call
+# One API client for the whole ci/ directory, so the retry and the
+# "unreachable is not a finding" distinction hold everywhere rather than in
+# whichever copy was edited last.
+from resolve_refs import Unreachable, make_api, token          # noqa: E402
 
 
 def submodules():
@@ -229,7 +204,14 @@ def main():
         return 1
 
     api = make_api(token())
-    failures = check(entries, api)
+    try:
+        failures = check(entries, api)
+    except Unreachable as e:
+        # Exit 2: no verdict. A runner that loses TLS for a few seconds must not
+        # read as a repository with an unfetchable pin.
+        print("NO VERDICT: could not reach the GitHub API (%s). The pins were "
+              "not checked; this says nothing about them." % e, file=sys.stderr)
+        return 2
 
     for path, slug, branch, sha in entries:
         print("%-40s %s@%s on %s" % (path, slug, (sha or "?")[:10], branch))
