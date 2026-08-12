@@ -29,6 +29,14 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
       drift issue, if one is open, has been read. An older run does not mean
       the ecosystem is quiet: GitHub disables `schedule` after 60 days without
       repository activity, and this date is the only place that shows.
+
+      **Not yet applicable.** A `schedule` trigger fires only from the version
+      of the workflow on the default branch, and every workflow in this
+      repository currently lives on `dev` alone, so the weekly run has never
+      fired and cannot be dispatched either. The first fold that carries
+      `.github/workflows/` onto `main` is what starts it; check this item from
+      the fold after that one. The same mechanism is why a pull request opened
+      before the CI existed shows no checks at all.
 - [ ] No local paths or secrets in tracked files:
       `git grep -nI "/home/" -- . ':(exclude)tools/*' ':(exclude)docs/*'` is empty
       (excluding `docs/` keeps this checklist's own example pattern from
