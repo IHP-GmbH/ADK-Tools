@@ -116,6 +116,11 @@ IDENTICAL = [
      "the vendored Python .chiplet reader. adk's own suite cross-checks this "
      "when a chiplet-spec sibling happens to be discoverable, which on a bare "
      "runner it never is"),
+    ("spec", "reference/python/chiplet_format_io/__init__.py",
+     "plugin", "plugins/chiplet_export/vendor/chiplet_format_io/__init__.py",
+     "the vendored Python .chiplet reader inside the KiCad plugin. H-A added it "
+     "so hyp_to_gds and the clobber guard read through the shared loader; H-B "
+     "keeps it byte-identical to the reference and this pins that"),
 ]
 
 # Directories scanned for a basename that appears in two trees without a
