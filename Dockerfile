@@ -441,7 +441,7 @@ RUN cp -a /opt/adk-tools/examples/two_die_interposer/outputs \
 #    the sibling `outputs/` dir, where the studio gated tests pick up the .chiplet
 #    + its co-located interposer/complete GDS. --require-drc: a combo that breaks
 #    assembly DRC fails the image build.
-RUN python3 /opt/adk-tools/chiplet_kicad_plugin/plugins/chiplet_export/tests/regenerate_wirebond_demo.py \
+RUN /opt/adk-tools/venv/bin/python3 /opt/adk-tools/chiplet_kicad_plugin/plugins/chiplet_export/tests/regenerate_wirebond_demo.py \
         --require-drc \
         --board /opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
         --output-dir /opt/adk-tools/examples/two_die_interposer/outputs
