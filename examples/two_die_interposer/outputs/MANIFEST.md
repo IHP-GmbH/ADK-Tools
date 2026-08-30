@@ -13,6 +13,7 @@ The .chiplet references the interposer GDS by a `layout/<file>` path, resolved a
 - [x] `layout/two_die_interposer_interposer.gds` - interposer layout (referenced by the .chiplet)
 - [x] `layout/two_die_interposer_interposer.boundaries.json` - chiplet-boundary manifest for the interposer GDS
 - [x] `layout/two_die_interposer_interposer.pillars.json` - cu-pillar manifest for the interposer GDS (per-pillar geometry and connection method; present when a cu-pillar stack is used)
+- [ ] `layout/two_die_interposer_interposer.fill_coverage.json` - coarse metal-fill coverage map for the KiCad read-back layer (present when metal fill is inserted)
 - [x] `layout/two_die_interposer_complete.gds` - full assembly layout (interposer + dies)
 - [x] `layout/two_die_interposer_complete.boundaries.json` - chiplet-boundary manifest for the complete GDS
 - [x] `layout/two_die_interposer_complete.pillars.json` - cu-pillar manifest for the complete GDS
@@ -22,6 +23,7 @@ The .chiplet references the interposer GDS by a `layout/<file>` path, resolved a
 
 - [x] `reports/two_die_interposer_assembly_drc.lyrdb` - ADK assembly DRC results (open in KLayout)
 - [x] `reports/two_die_interposer_cupillar_drc.json` - cu-pillar connection DRC summary
+- [ ] `reports/two_die_interposer_fill_density.json` - metal-fill density report (per-metal coverage and deck state; present when metal fill is inserted)
 
 ## logs/
 
