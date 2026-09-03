@@ -50,11 +50,11 @@ adk tests/test_chiplet2dbx.py::test_macro_naming_matches_generator
 adk tests/test_chiplet2dbx.py::test_unknown_manifest_method_fails_loudly
 adk tests/test_chiplet2dbx.py::test_vendored_reader_matches_spec_reference
 
-# ---- interposer (19) ----
+# ---- interposer (18) ----
 # The chiplet-mode tests freed by the interposer M3(a) change (lazy PinList
 # import). On a bare interposer clone they skip, because the sibling roots are
-# absent; they run here where both are on disk. TestCuPillarGenerator and the
-# pcell parity need INTERCONNECT_PDK_ROOT; the CLI and validation ones need
+# absent; they run here where both are on disk. TestCuPillarGenerator needs
+# INTERCONNECT_PDK_ROOT; the CLI and validation ones need
 # GDS_TO_KICAD_ROOT; two need both. Measured by the interposer session, not read
 # off the markers. Assumes the interposer pin carries the M3(a) skip guards.
 # libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py
@@ -76,8 +76,11 @@ interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestCLI::test_f
 interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestCLI::test_default_auto_resolve_recovers_and_writes_gds
 interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestRobustness::test_bump3d_signature_contract
 interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestRobustness::test_diameter_no_table_match_errors
-# libs.tech/klayout/intm4tm2_tests/test_cupillar_pcell_parity.py
-interposer libs.tech/klayout/intm4tm2_tests/test_cupillar_pcell_parity.py::test_pcell_matches_generator
+# test_cupillar_pcell_parity.py::test_pcell_matches_generator is NOT listed: it is
+# skipif(shutil.which('klayout') is None), and per the KLayout-CLI note above the
+# hosted suites job ships the pip wheel with no binary, so it would skip and a skip
+# is a failure. The PCell-vs-generator parity is enforced in the interposer repo's
+# own decks job, which installs the deb. Restore here only if suites gains a binary.
 
 # ---- plugin (158) ----
 # tests/test_boundary_annotations.py
