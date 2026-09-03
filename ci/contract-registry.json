@@ -44,7 +44,7 @@
       "consumers": [],
       "declarations": [],
       "packages": {},
-      "why": "the reference .chiplet reader and its two vendored copies. Judged by the reader release it declares rather than by bytes, so a copy is allowed to sit at an older same-major minor while the reference moves; it is never allowed to carry different bytes under one declared version, which is the in-place edit no other gate in this ecosystem can see. Neither hosted copy declares a version at the commits pinned today, so this artifact is red until chiplet-spec publishes the reader that exports __version__ and both copies are re-synced from it."
+      "why": "the reference .chiplet reader and its two vendored copies. Judged by the reader release it declares rather than by bytes, so a copy is allowed to sit at an older same-major minor while the reference moves; it is never allowed to carry different bytes under one declared version, which is the in-place edit no other gate in this ecosystem can see. At the pinned commits the reference exports __version__ and both copies are byte-identical to it, so this artifact is green by identity; the version-comparison path is exercised only by the self-test until a copy first diverges legitimately by version, so landing this policy is not yet governing a versioned divergence in production."
     },
     {
       "id": "chiplet_pads_vocabulary",
@@ -164,7 +164,8 @@
         ["plugin", "plugins/resizer_passive_elements/requirements.txt", null, null, "the second plugin in the same repository, with its own file and therefore its own way to drift"],
         ["gds2kicad", "requirements.txt", null, null, "the converter's Qt and parsing dependencies"],
         ["docs", "docs/requirements.txt", null, null, "the documentation build, which is also where the KLayout pin is declared"],
-        ["spec", "reference/python/pyproject.toml", null, null, "the reference reader's distribution metadata, read as a dependency list rather than through a TOML parser"]
+        ["spec", "reference/python/pyproject.toml", null, null, "the reference reader's distribution metadata, read as a dependency list rather than through a TOML parser"],
+        ["spec", "conformance/requirements.txt", null, null, "the conformance and schema-gate suite's own pins (jsonschema, PyYAML); present at the pinned spec commit, so it is checked rather than exempted"]
       ],
       "packages": {
         "klayout": "KLAYOUT_PIP",
@@ -195,7 +196,5 @@
     }
   ],
   "twin_exempt": [],
-  "pins_exempt": [
-    ["spec", "conformance/requirements.txt", "the conformance runner's own pins. The file does not exist at the chiplet-spec commit this repository pins, so declaring it as a pip constraint file today would make the pinned run red on a file that is not there. It becomes a declaration in the same commit that bumps the spec pin."]
-  ]
+  "pins_exempt": []
 }
