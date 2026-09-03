@@ -196,12 +196,18 @@ jobs:
           INTERCONNECT_PDK_ROOT: ${{ github.workspace }}/interconnect_pdk
           ADK_ROOT: ${{ github.workspace }}/adk
           INTERPOSER_LYP: ${{ github.workspace }}/interposer/libs.tech/klayout/tech/intm4tm2.lyp
+          GDS_TO_KICAD_ROOT: ${{ github.workspace }}/gds_to_kicad
         run: |
           test -f "$INTERPOSER_LYP"
           (cd adk && python -m pytest tests -q -ra \
              -o junit_family=xunit1 --junitxml=../adk.xml) || true
           (cd chiplet_kicad_plugin && python -m pytest plugins/chiplet_export/tests -q -ra \
              -o junit_family=xunit1 --junitxml=../plugin.xml) || true
+          # The interposer's chiplet-mode tests skip on a lone clone (M3(a) lazy
+          # import) and run here with both sibling roots on disk. Only the ids in
+          # required-tests.txt must pass; the KLayout-CLI decks self-skip.
+          (cd interposer && python -m pytest libs.tech/klayout/intm4tm2_tests -q -ra \
+             -o junit_family=xunit1 --junitxml=../interposer.xml) || true
 
       - name: Self-test the manifest checker
         run: python3 adk-tools/ci/check_required_tests.py --self-test
@@ -210,7 +216,7 @@ jobs:
         run: |
           python3 adk-tools/ci/check_required_tests.py \
             adk-tools/ci/required-tests.txt \
-            --junit adk=adk.xml --junit plugin=plugin.xml
+            --junit adk=adk.xml --junit plugin=plugin.xml --junit interposer=interposer.xml
 
   # The second required context on this repository, alongside ci-gate. Same
   # shape and same reason: `needs` alone does not gate, so each result is

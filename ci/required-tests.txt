@@ -50,6 +50,35 @@ adk tests/test_chiplet2dbx.py::test_macro_naming_matches_generator
 adk tests/test_chiplet2dbx.py::test_unknown_manifest_method_fails_loudly
 adk tests/test_chiplet2dbx.py::test_vendored_reader_matches_spec_reference
 
+# ---- interposer (19) ----
+# The chiplet-mode tests freed by the interposer M3(a) change (lazy PinList
+# import). On a bare interposer clone they skip, because the sibling roots are
+# absent; they run here where both are on disk. TestCuPillarGenerator and the
+# pcell parity need INTERCONNECT_PDK_ROOT; the CLI and validation ones need
+# GDS_TO_KICAD_ROOT; two need both. Measured by the interposer session, not read
+# off the markers. Assumes the interposer pin carries the M3(a) skip guards.
+# libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestValidation::test_gds_output_has_expected_layers
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestValidation::test_validate_only_no_gds
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestCuPillarGenerator::test_cell_hierarchy
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestCuPillarGenerator::test_bump_count
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestCuPillarGenerator::test_custom_bodies_select_method_layers
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestCuPillarGenerator::test_written_gds_rereads_static_without_library_context
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestCuPillarGenerator::test_foreign_lyp_env_cannot_poison_fab_layers
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestCuPillarGenerator::test_write_infers_format_from_suffix
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestCuPillarGenerator::test_manifest_opening_enables_non_table_diameter
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestAdditionalValidation::test_rotation_transform
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestPerDeviceDimensions::test_mixed_option_gds_has_two_pillar_cells
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestPerDeviceDimensions::test_pillar_cell_caching
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestPerDeviceDimensions::test_nocap_creates_separate_cell
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestCLI::test_validation_failure_blocks_gds
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestCLI::test_full_generation
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestCLI::test_default_auto_resolve_recovers_and_writes_gds
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestRobustness::test_bump3d_signature_contract
+interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestRobustness::test_diameter_no_table_match_errors
+# libs.tech/klayout/intm4tm2_tests/test_cupillar_pcell_parity.py
+interposer libs.tech/klayout/intm4tm2_tests/test_cupillar_pcell_parity.py::test_pcell_matches_generator
+
 # ---- plugin (158) ----
 # tests/test_boundary_annotations.py
 plugin tests/test_boundary_annotations.py::test_annotation_does_not_alter_manifest
