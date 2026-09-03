@@ -34,8 +34,8 @@
       "kind": "reader_py",
       "owner": "spec",
       "path": "reference/python/chiplet_format_io/__init__.py",
-      "identity": "bytes",
-      "version_policy": null,
+      "identity": "version_policy",
+      "version_policy": {"rule": "additive_minor", "current": "1.1.0", "floor": "1.1", "locator": ["py_assign", "__version__"]},
       "mirrors": [
         ["adk", "vendor/chiplet_format_io/__init__.py", "the vendored Python .chiplet reader. adk's own suite cross-checks this when a chiplet-spec sibling happens to be discoverable, which on a bare runner it never is"],
         ["plugin", "plugins/chiplet_export/vendor/chiplet_format_io/__init__.py", "the vendored Python .chiplet reader inside the KiCad plugin. H-A added it so hyp_to_gds and the clobber guard read through the shared loader; H-B keeps it byte-identical to the reference and this pins that"]
@@ -44,7 +44,7 @@
       "consumers": [],
       "declarations": [],
       "packages": {},
-      "why": "the reference .chiplet reader and its two vendored copies. Judged by bytes today because the copies in the two hosted trees carry no reader release constant at the pinned commit; the flip to a version policy is the next wave and needs both copies re-synced first."
+      "why": "the reference .chiplet reader and its two vendored copies. Judged by the reader release it declares rather than by bytes, so a copy is allowed to sit at an older same-major minor while the reference moves; it is never allowed to carry different bytes under one declared version, which is the in-place edit no other gate in this ecosystem can see. Neither hosted copy declares a version at the commits pinned today, so this artifact is red until chiplet-spec publishes the reader that exports __version__ and both copies are re-synced from it."
     },
     {
       "id": "chiplet_pads_vocabulary",
@@ -85,18 +85,18 @@
     {
       "id": "interconnect_methods_schema",
       "kind": "schema",
-      "owner": "spec",
-      "path": "schemas/interconnect_methods.schema.json",
+      "owner": "interconnect",
+      "path": "manifest/schema/interconnect_methods.schema.json",
       "identity": "bytes",
       "version_policy": null,
       "mirrors": [
-        ["interconnect", "manifest/schema/interconnect_methods.schema.json", "the interconnect method registry. The PDK owns the file and the spec publishes it"]
+        ["spec", "schemas/interconnect_methods.schema.json", "the interconnect method registry. The PDK owns the file and the spec publishes it"]
       ],
       "producers": [],
       "consumers": [],
       "declarations": [],
       "packages": {},
-      "why": "the schema the interconnect method registry validates against. The interconnect PDK is the authoritative author and chiplet-spec is the publisher; the row keeps the publisher as `owner` while the identity is `bytes`, where the two sides are symmetric, and the orientation is revisited in the wave that gives this row a version policy."
+      "why": "the schema the interconnect method registry validates against. The interconnect PDK authors it, next to the registry file it governs, and chiplet-spec publishes a copy; the row now says so, so a failure names the PDK first and the publisher second. Under `bytes` the two sides are symmetric and the orientation costs nothing today; it decides which side wins the moment this row gets a version policy, which is why it is settled before then rather than during."
     },
     {
       "id": "interconnect_schema",

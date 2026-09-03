@@ -25,10 +25,16 @@ The contracts, and what each one is for:
 
   identical-files       declared byte-identity pairs, derived from the mirrors of
                         every artifact the registry judges by bytes. A hand-synced
-                        copy is a copy that drifts; the only question is when. The
-                        vendored `.chiplet` readers are here too, so an in-place
-                        edit to a vendored file fails rather than becoming a
-                        third dialect of the format.
+                        copy is a copy that drifts; the only question is when.
+  version-policy        the copies of every artifact the registry judges by the
+                        version it declares rather than by its bytes. A vendored
+                        reader is allowed to sit at an older same-major minor
+                        while the reference moves on; it is never allowed to
+                        carry different bytes under one declared version, which
+                        is the in-place edit no per-repository gate can see. The
+                        owner's own file is judged too, because a floor and a
+                        `current` that nothing reads back are two numbers in a
+                        file.
   undeclared-twins      a basename living in two trees without a declared pair.
                         Without this, the check above covers exactly the files
                         somebody remembered to list, and a new shared schema
@@ -276,11 +282,58 @@ def contract_identical_files(trees):
     return out
 
 
+def version_policy_artifacts():
+    """The artifacts whose copies are judged by the version they declare.
+
+    Tool pins are excluded and not forgotten: a pin is judged against the
+    declarations the `klayout` and `pip-constraints` contracts already read, and
+    running it here as well would report one disagreement twice.
+    """
+    return [a for a in REGISTRY.artifacts
+            if a.identity == "version_policy" and a.kind != "tool_pin"]
+
+
+def contract_version_policy(trees):
+    """Copies judged by the version they declare rather than by their bytes.
+
+    `owner_head` is None throughout: this runs over the pinned checkouts, so the
+    owner's branch head is not on disk and `AHEAD_OF_PIN` is simply out of
+    reach. That is the honest shape. A copy that has been re-synced ahead of the
+    pin is reported here as drifted until the pin bump lands, and the
+    producer-side conformance run, which does fetch the head, is where that
+    distinction is made.
+    """
+    out = []
+    for art in version_policy_artifacts():
+        owner_blob = trees.read(art.owner, art.path)
+        state, clauses = contract_registry.judge_owner(art, owner_blob)
+        if state not in contract_registry.GREEN_STATES:
+            for c in clauses:
+                out.append("%s: %s:%s, which owns the artifact, is %s. %s"
+                           % (art.id, art.owner, art.path, state, c))
+        for m in art.mirrors:
+            state, clauses = contract_registry.judge_mirror(
+                art, owner_blob, None, trees.read(m.repo, m.path))
+            if state in contract_registry.GREEN_STATES:
+                continue
+            for c in clauses:
+                out.append("%s: %s:%s is %s against %s:%s. %s (%s)"
+                           % (art.id, m.repo, m.path, state, art.owner,
+                              art.path, c, m.why))
+    return out
+
+
 def contract_undeclared_twins(trees):
+    # Every declared path, whatever mode the artifact is judged in. Built from
+    # the registry rather than from the byte-identity pairs: an artifact that
+    # moves to a version policy leaves that list, and a scan that then reported
+    # its two copies as an undeclared twin would be reporting the one
+    # relationship this file knows most about.
     declared = set()
-    for lrid, lrel, rrid, rrel, _ in D.identical:
-        declared.add(os.path.basename(lrel))
-        declared.add(os.path.basename(rrel))
+    for art in REGISTRY.artifacts:
+        declared.add(os.path.basename(art.path))
+        for m in art.mirrors:
+            declared.add(os.path.basename(m.path))
 
     seen = {}
     for rid, rel in D.twin_scan:
@@ -553,6 +606,7 @@ def contract_pip_constraints(trees):
 
 CONTRACTS = [
     ("identical-files", lambda t, ctx: contract_identical_files(t)),
+    ("version-policy", lambda t, ctx: contract_version_policy(t)),
     ("undeclared-twins", lambda t, ctx: contract_undeclared_twins(t)),
     ("gitmodules-track", lambda t, ctx: contract_gitmodules_track(t, ctx["track"])),
     ("ci-gate", lambda t, ctx: contract_ci_gate(ctx["fetch"], ctx["load_yaml"])),
@@ -811,6 +865,22 @@ INTEGRATION_REFS = json.dumps({
 })
 
 
+def _declaring_blob(locator, version):
+    """A file that declares `version` where `locator` says to look for it."""
+    kind, arg = locator
+    if kind == "py_assign":
+        return '"""a reference reader."""\n%s = "%s"\nbody = 1\n' % (arg, version)
+    if kind == "json_pointer":
+        tokens = [t for t in arg.split("/") if t]
+        doc = version
+        for token in reversed(tokens):
+            doc = {token.replace("~1", "/").replace("~0", "~"): doc}
+        return json.dumps(doc, indent=2) + "\n"
+    if kind == "dockerfile_arg":
+        return "ARG %s=%s\n" % (arg, version)
+    raise ValueError("the self-test cannot synthesise a %r declaration" % (kind,))
+
+
 def _base_files():
     files = {
         ("tools", "Dockerfile"): DOCKERFILE,
@@ -832,6 +902,17 @@ def _base_files():
     for lrid, lrel, rrid, rrel, _ in D.identical:
         files[(lrid, lrel)] = "same\n"
         files[(rrid, rrel)] = "same\n"
+    # The version-judged artifacts start out at the state the ecosystem is
+    # working towards: the reference and every copy carrying one reader release,
+    # byte for byte. Every negative case below moves one of them off it.
+    for art in version_policy_artifacts():
+        current = art.version_policy.current
+        if current == contract_registry.FROM_OWNER:
+            current = art.version_policy.floor
+        blob = _declaring_blob(art.version_policy.locator, current)
+        files[(art.owner, art.path)] = blob
+        for m in art.mirrors:
+            files[(m.repo, m.path)] = blob
     for rid, rel in D.ci_gate_workflow.items():
         files.setdefault((rid, rel), GATE_OK)
     return files
@@ -839,10 +920,12 @@ def _base_files():
 
 # --------------------------------------------------------------------------
 # The five lists as they stood before the registry existed, frozen here so the
-# re-encoding is asserted rather than eyeballed. This block and the case that
-# uses it are deleted in the wave that first changes one of these values on
-# purpose; until then a transcription slip is a failing self-test rather than a
-# contract quietly covering one pair fewer.
+# re-encoding is asserted rather than eyeballed. The frozen text below is never
+# edited: a wave that changes one of these values on purpose declares the change
+# underneath instead, as a named delta, so the baseline stays the state before
+# the registry existed and every row nobody meant to touch is still compared
+# against it verbatim. A transcription slip is then a failing self-test rather
+# than a contract quietly covering one pair fewer.
 # --------------------------------------------------------------------------
 
 
@@ -956,6 +1039,59 @@ def legacy_lists():
 #: registry was in none of the pairs.
 TWIN_SCAN_ADDED = {("interconnect", "manifest"): "interconnect_methods_registry"}
 
+# --------------------------------------------------------------------------
+# W1: the two rows of the frozen list that changed on purpose, and nothing else.
+#
+# Both are written out here rather than edited into the frozen text above, so
+# the baseline is still the state before the registry existed and the diff a
+# reviewer reads is exactly the change that was intended. Anything else that
+# moves fails the equivalence case, which is the only thing standing between a
+# deliberate two-row edit and a re-encoding slip that looks like one.
+# --------------------------------------------------------------------------
+
+#: The vendored `.chiplet` reader left the byte-identity list, because it is now
+#: judged by the reader release it declares. It did not stop being checked: the
+#: pair-coverage clause below asserts that both copies are covered by the
+#: version-policy contract instead, and the cases in the self-test assert that it
+#: is red there until chiplet-spec publishes a reader that declares a version and
+#: both copies are re-synced from it.
+W1_LEFT_THE_BYTE_LIST = ("spec", "reference/python/chiplet_format_io/__init__.py")
+
+#: The interconnect method schema changed hands. The PDK authors the file, next
+#: to the method registry it governs, and chiplet-spec publishes a copy; the row
+#: now says so. The pair is the same pair and the reason is the same reason, so
+#: the only observable difference is which side a failure names first.
+W1_TRANSPOSED_BEFORE = (
+    "spec", "schemas/interconnect_methods.schema.json",
+    "interconnect", "manifest/schema/interconnect_methods.schema.json",
+    "the interconnect method registry. The PDK owns the file and the spec "
+    "publishes it")
+W1_TRANSPOSED_AFTER = (
+    "interconnect", "manifest/schema/interconnect_methods.schema.json",
+    "spec", "schemas/interconnect_methods.schema.json",
+    "the interconnect method registry. The PDK owns the file and the spec "
+    "publishes it")
+
+
+def expected_identical():
+    """The frozen hand list with W1's two changes applied, and no others."""
+    out = []
+    for row in (tuple(x) for x in legacy_lists()["IDENTICAL"]):
+        if row[:2] == W1_LEFT_THE_BYTE_LIST:
+            continue
+        out.append(W1_TRANSPOSED_AFTER if row == W1_TRANSPOSED_BEFORE else row)
+    return out
+
+
+def _pair(lrid, lrel, rrid, rrel):
+    """One copy relationship, with the two sides in a fixed order.
+
+    Which side is the owner is a property of the row; which two files have to
+    agree is a property of the ecosystem. This is the second one, so a
+    transposed row is the same pair and a dropped row is not.
+    """
+    return tuple(sorted([(lrid, lrel), (rrid, rrel)]))
+
 
 def equivalence_failures():
     """[] when the registry re-encodes the hand-lists exactly.
@@ -969,13 +1105,30 @@ def equivalence_failures():
     legacy = legacy_lists()
     out = []
 
-    if sorted(D.identical) != sorted(tuple(x) for x in legacy["IDENTICAL"]):
-        out.append("the derived byte-identity pairs are not the ones the hand "
-                   "list carried: only in the registry %r; only in the hand list "
-                   "%r" % (sorted(set(D.identical)
-                                  - {tuple(x) for x in legacy["IDENTICAL"]}),
-                           sorted({tuple(x) for x in legacy["IDENTICAL"]}
-                                  - set(D.identical))))
+    want = expected_identical()
+    if sorted(D.identical) != sorted(want):
+        out.append("the derived byte-identity pairs are not the frozen hand list "
+                   "with W1's two declared changes applied: only in the registry "
+                   "%r; only in the expectation %r"
+                   % (sorted(set(D.identical) - set(want)),
+                      sorted(set(want) - set(D.identical))))
+
+    # Coverage, which is the thing the two declared changes must not have cost.
+    # A row that left the byte-identity list has to be covered by the
+    # version-policy contract instead; a transposed row is the same pair. If
+    # either of those is not true, a pair the ecosystem used to check is
+    # unchecked and every contract is still green.
+    covered = {_pair(l, lr, r, rr) for l, lr, r, rr, _ in D.identical}
+    for art in version_policy_artifacts():
+        for m in art.mirrors:
+            covered.add(_pair(art.owner, art.path, m.repo, m.path))
+    was_covered = {_pair(*row[:4]) for row in legacy["IDENTICAL"]}
+    if covered != was_covered:
+        out.append("the pairs the contracts cover are no longer the pairs the "
+                   "hand list carried: covered now and not then %r; covered then "
+                   "and not now %r"
+                   % (sorted(covered - was_covered),
+                      sorted(was_covered - covered)))
 
     got, want = set(D.twin_scan), {tuple(x) for x in legacy["TWIN_SCAN"]}
     if not want <= got:
@@ -1051,8 +1204,101 @@ def self_test(load_yaml):
            True, "drifted apart")
     expect("a deleted copy fails rather than passing vacuously",
            "identical-files",
-           mutate(**{"adk|vendor/chiplet_format_io/__init__.py": None}),
+           mutate(**{"adk|config/schema/rule_params.schema.json": None}),
            True, "does not exist")
+
+    # version-policy. The artifact behind every case below is the vendored
+    # `.chiplet` reader, which is the only one judged this way today; the
+    # fixtures are built from the registry rather than typed out, so a case
+    # cannot keep passing after the row it is about has gone.
+    cfio = {a.id: a for a in REGISTRY.artifacts}.get("cfio_python_reader")
+
+    def reader(version=None, body="body = 1\n"):
+        head = "" if version is None else '__version__ = "%s"\n' % version
+        return '"""the .chiplet reader."""\n%s%s' % (head, body)
+
+    def cfio_files(owner_blob, mirror_blob):
+        files = _base_files()
+        if owner_blob is None:
+            files.pop((cfio.owner, cfio.path), None)
+        else:
+            files[(cfio.owner, cfio.path)] = owner_blob
+        for m in cfio.mirrors:
+            if mirror_blob is None:
+                files.pop((m.repo, m.path), None)
+            else:
+                files[(m.repo, m.path)] = mirror_blob
+        return files
+
+    def cfio_result(owner_blob, mirror_blob):
+        trees = DictTrees(cfio_files(owner_blob, mirror_blob))
+        ctx = {"track": "dev", "load_yaml": load_yaml,
+               "fetch": lambda rid, rel: None}
+        return dict(run(trees, ctx, only={"version-policy"}))["version-policy"]
+
+    def vpcase(name, ok, detail=None):
+        cases.append((name, ok, detail))
+
+    expect("copies carrying the reference's reader release pass",
+           "version-policy", base, False)
+
+    vpcase("the vendored .chiplet reader is judged by the version it declares",
+           cfio is not None and cfio.identity == "version_policy"
+           and cfio.version_policy is not None
+           and cfio.version_policy.rule == "additive_minor"
+           and cfio.version_policy.current == "1.1.0"
+           and cfio.version_policy.floor == "1.1"
+           and cfio.version_policy.locator == ("py_assign", "__version__")
+           and len(cfio.mirrors) == 2,
+           cfio and (cfio.identity, cfio.version_policy, len(cfio.mirrors)))
+
+    # The state the ecosystem is actually in: the reference at the pinned commit
+    # and both hosted copies are the reader that has no release constant at all.
+    got = cfio_result(reader(None, body="reference = 1\n"),
+                      reader(None, body="vendored = 1\n"))
+    vpcase("at the commits pinned today the reader is red on three clauses: the "
+           "reference and both copies declare no version",
+           len(got) == 3 and all(g.startswith("cfio_python_reader:") for g in got)
+           and any("owns the artifact" in g for g in got), got)
+
+    got = cfio_result(reader("1.1.0"), reader(None))
+    vpcase("publishing the reference alone does not turn it green; both copies "
+           "have to be re-synced from it", len(got) == 2, got)
+
+    got = cfio_result(reader("1.1.0"), reader("1.1.0"))
+    vpcase("it goes green only once the reference and both copies carry one "
+           "reader release, byte for byte", got == [], got)
+
+    got = cfio_result(reader("1.1.0"), reader("1.1.0", body="body = 99\n"))
+    vpcase("a copy edited in place under the same declared version stays red",
+           len(got) == 2 and all("never different bytes" in g for g in got), got)
+
+    got = cfio_result(reader("1.1.0"), reader("1.0.0"))
+    vpcase("a copy below the declared floor is red, so 1.0 is not grandfathered",
+           len(got) == 2 and all("below the floor" in g for g in got), got)
+
+    got = cfio_result(reader("1.1.0"), reader("1.2.0"))
+    vpcase("a copy ahead of the reference is red rather than tolerated",
+           len(got) == 2 and all("ahead of the owner" in g for g in got), got)
+
+    got = cfio_result(reader("1.1.0"), reader("2.0.0"))
+    vpcase("a copy in another major is red", len(got) == 2
+           and all("different majors" in g for g in got), got)
+
+    got = cfio_result(reader("1.1.0"), None)
+    vpcase("a deleted copy is red rather than passing vacuously",
+           len(got) == 2 and all("not there" in g for g in got), got)
+
+    got = cfio_result(None, reader("1.1.0"))
+    vpcase("a missing reference is reported about the reference, and no copy is "
+           "declared fine on the strength of it",
+           len(got) == 3 and any("owns the artifact" in g for g in got)
+           and sum("nothing is known about the copy" in g for g in got) == 2, got)
+
+    got = cfio_result(reader("1.0.0"), reader("1.0.0"))
+    vpcase("a reference that disagrees with the version this registry declares "
+           "is red, because two declarations of one number move together",
+           any("move in one commit" in g for g in got), got)
 
     # undeclared-twins
     expect("no undeclared twin passes", "undeclared-twins", base, False)
@@ -1178,8 +1424,11 @@ def self_test(load_yaml):
     fmt = contract_registry.fmt_check(contract_registry.REGISTRY_PATH)
     vcase("the registry is in canonical layout", not fmt, fmt)
     eq = equivalence_failures()
-    vcase("the registry re-encodes the hand-lists it replaced, exactly",
-          not eq, eq)
+    vcase("the registry re-encodes the hand-lists it replaced, with W1's two "
+          "declared changes and nothing else", not eq, eq)
+    vcase("the interconnect method schema is owned by the PDK that authors it",
+          {a.id: a.owner for a in REGISTRY.artifacts}.get(
+              "interconnect_methods_schema") == "interconnect")
     tw = tripwire()
     vcase("nothing has grown a second copy of the registry", not tw, tw)
     vcase("the tripwire notices a hand-list growing back",
