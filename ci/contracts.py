@@ -12,23 +12,37 @@ sensible change there and silently means the decks are now tested against a
 KLayout the image does not ship. The failure mode is uniform: both suites stay
 green while the combination stops being the thing anyone tested.
 
+What each contract covers is no longer written here. It is declared once, as
+data, in `ci/contract-registry.json`, read by `ci/contract_registry.py`, and
+every list below is derived from it. The lists used to be nine Python literals
+in this file, which is nine places to forget: a new mirror had to be added to
+the pair list, its directory to the twin scan, and the repository it lives in to
+three more. The registry states the artifact once and this file derives the rest,
+so a mirror that is declared is scanned, and a scan cannot go stale relative to
+the pairs it is supposed to be guarding.
+
 The contracts, and what each one is for:
 
-  identical-files       declared byte-identity pairs. A hand-synced copy is a
-                        copy that drifts; the only question is when. The
+  identical-files       declared byte-identity pairs, derived from the mirrors of
+                        every artifact the registry judges by bytes. A hand-synced
+                        copy is a copy that drifts; the only question is when. The
                         vendored `.chiplet` readers are here too, so an in-place
                         edit to a vendored file fails rather than becoming a
                         third dialect of the format.
   undeclared-twins      a basename living in two trees without a declared pair.
                         Without this, the check above covers exactly the files
                         somebody remembered to list, and a new shared schema
-                        escapes on the day it is added.
+                        escapes on the day it is added. The directories scanned
+                        are derived from the registry, so a mirror in a new
+                        directory brings that directory into the scan with it.
   gitmodules-track      every pin, in `.gitmodules` and in
                         `ci/integration-refs.json`, names the branch this
                         superproject is on. `git submodule update --remote`
                         follows that declaration, and the plugin's `main` and
                         `dev` have no common ancestor, so a stale declaration
-                        moves a pin onto a disjoint history.
+                        moves a pin onto a disjoint history. Also asserts that
+                        the registry's repository table and the set of pins are
+                        the same set, in both directions.
   ci-gate               every repository publishes the one required context, its
                         `needs` is non-empty, and the job compares every result
                         it depends on. A `ci-gate` with `if: always()` and no
@@ -47,156 +61,66 @@ The contracts, and what each one is for:
                         any repository declares on that package. Catches a floor
                         raised above the pin, which turns an install that
                         resolves into an install that resolves to something else.
+                        Also scans every checked-out tree for a tracked
+                        dependency file that is in neither the registry nor its
+                        exemptions, which closes the class rather than the
+                        instance: a repository that grows a second requirements
+                        file is otherwise unchecked and looks identical to one
+                        that has none.
 
 Usage:
     contracts.py --root DIR [--track dev]
     contracts.py --root DIR --dir kicad=/elsewhere/kicad
     contracts.py --self-test
 
-`--root` holds one checkout per repository, named as in the table below; the
-integration workflow lays them out that way and this umbrella working directory
-already is that layout. A repository that is missing is a failure and never a
-skip: a contract that quietly covers nine repositories reads exactly like one
-that covers ten.
+`--root` holds one checkout per repository, named as in the registry's repos
+table; the integration workflow lays them out that way and this umbrella working
+directory already is that layout. A repository that is missing is a failure and
+never a skip: a contract that quietly covers nine repositories reads exactly like
+one that covers ten.
 """
 
 import argparse
+import ast
 import base64
 import json
 import os
 import pathlib
 import re
+import subprocess
 import sys
 
+import contract_registry
 import resolve_refs
 
-# Logical id -> directory name under --root. The ids are what the failure
-# messages name, so they are short and stable; the directory names are what
-# both this working directory and the workflow use.
-LAYOUT = {
-    "adk": "adk",
-    "spec": "chiplet-spec",
-    "interposer": "interposer",
-    "interconnect": "interconnect_pdk",
-    "plugin": "chiplet_kicad_plugin",
-    "gds2kicad": "gds_to_kicad",
-    "studio": "chiplet-studio",
-    "docs": "adk-docs",
-    "kicad": "kicad",
-    "tools": "adk-tools",
-}
+HERE = pathlib.Path(__file__).resolve().parent
 
-# Byte-identity pairs. Each entry is (left repo, left path, right repo, right
-# path, why it matters if they differ).
-IDENTICAL = [
-    ("spec", "schemas/boundary_manifest.schema.json",
-     "adk", "config/schema/boundary_manifest.schema.json",
-     "the assembly-DRC boundary manifest is the PDK-agnostic contract between "
-     "the exporters and the deck"),
-    ("spec", "schemas/interconnect.schema.json",
-     "adk", "config/schema/interconnect.schema.json",
-     "the interconnect block of a .chiplet document"),
-    ("spec", "schemas/layers.schema.json",
-     "adk", "config/schema/layers.schema.json",
-     "the layer registry every consumer validates against"),
-    ("spec", "schemas/rule_params.schema.json",
-     "adk", "config/schema/rule_params.schema.json",
-     "the JSON-parameterised DRC rule values"),
-    ("spec", "schemas/chiplet_pads.json",
-     "adk", "config/chiplet_pads.json",
-     "the black-box chiplet pad vocabulary. adk has a strict-version gate that "
-     "forces its copy forward, so the spec copy goes stale by construction "
-     "unless something outside both repositories says otherwise"),
-    ("spec", "schemas/interconnect_methods.schema.json",
-     "interconnect", "manifest/schema/interconnect_methods.schema.json",
-     "the interconnect method registry. The PDK owns the file and the spec "
-     "publishes it"),
-    ("spec", "reference/python/chiplet_format_io/__init__.py",
-     "adk", "vendor/chiplet_format_io/__init__.py",
-     "the vendored Python .chiplet reader. adk's own suite cross-checks this "
-     "when a chiplet-spec sibling happens to be discoverable, which on a bare "
-     "runner it never is"),
-    ("spec", "reference/python/chiplet_format_io/__init__.py",
-     "plugin", "plugins/chiplet_export/vendor/chiplet_format_io/__init__.py",
-     "the vendored Python .chiplet reader inside the KiCad plugin. H-A added it "
-     "so hyp_to_gds and the clobber guard read through the shared loader; H-B "
-     "keeps it byte-identical to the reference and this pins that"),
-]
+# The registry is loaded once, here, and every list this file used to carry is a
+# view onto it. A registry that does not validate is exit 2 and not exit 1: the
+# contracts were not evaluated, which is a different fact from any of them
+# failing, and reporting the second when the first happened sends somebody to
+# look at the repositories.
+try:
+    REGISTRY = contract_registry.load_default()
+except contract_registry.RegistryError as _e:          # pragma: no cover
+    print("NO VERDICT: the contract registry does not validate, so nothing was "
+          "checked with it:", file=sys.stderr)
+    for _clause in _e.clauses:
+        print("  %s" % _clause, file=sys.stderr)
+    raise SystemExit(2)
 
-# Directories scanned for a basename that appears in two trees without a
-# declared pair above. Deliberately not recursive and deliberately short: this
-# is the guard on the list, not a second contract.
-TWIN_SCAN = [
-    ("spec", "schemas"),
-    ("adk", "config/schema"),
-    ("adk", "config"),
-    ("interconnect", "manifest/schema"),
-]
+#: Every derived view: the repository layout, the byte-identity pairs, the
+#: directories the twin scan covers, the ci-gate workflow per repository, the
+#: KLayout consumers, the pinned packages and the files that constrain them.
+D = contract_registry.derived(REGISTRY)
 
-# Basenames that legitimately exist in two of the scanned directories and are
-# not copies of each other. Each needs a reason, because the alternative to a
-# reason is a list that grows every time the check is inconvenient.
-TWIN_EXEMPT = {
-    # adk's `ixn_methods.schema.json` and the spec's `interconnect_methods`
-    # one validate different documents, and their basenames differ, so neither
-    # is here. Empty on purpose; an entry is a claim that two files with one
-    # name are two different things.
-}
-
-# The repositories that have to be on disk. chiplet-studio and the KiCad fork
-# are absent on purpose: nothing here reads a file of theirs, only their gate
-# workflow, which is fetched from the branch, so neither a 349 MB nor a 2.1 GB
-# checkout has to happen for a check that reads one file.
-FILE_REPOS = ("adk", "spec", "interposer", "interconnect", "plugin",
-              "gds2kicad", "docs", "tools")
-
-# The workflow file that publishes `ci-gate`, per repository. Named rather than
-# globbed: a repository that moves its gate into a second workflow should have
-# to say so here, since two workflows publishing one context is how a gate ends
-# up reporting a job nobody meant to be gating.
-CI_GATE_WORKFLOW = {
-    "adk": ".github/workflows/tests.yml",
-    "spec": ".github/workflows/tests.yml",
-    "interposer": ".github/workflows/tests.yml",
-    "interconnect": ".github/workflows/tests.yml",
-    "plugin": ".github/workflows/tests.yml",
-    "gds2kicad": ".github/workflows/tests.yml",
-    "studio": ".github/workflows/ci.yml",
-    "docs": ".github/workflows/docs.yml",
-    "kicad": ".github/workflows/ci.yml",
-    "tools": ".github/workflows/ci.yml",
-}
-
-# KLayout, sourced from `ARG KLAYOUT_PIP` in this repository's Dockerfile. Each
-# consumer says where its copy lives and how to read it.
-KLAYOUT_CONSUMERS = [
-    ("adk", ".github/workflows/tests.yml", r'KLAYOUT_VERSION:\s*"([0-9.]+)"', "=="),
-    ("interposer", ".github/workflows/tests.yml", r'KLAYOUT_VERSION:\s*"([0-9.]+)"', "=="),
-    ("docs", "docs/requirements.txt", r'(?mi)^klayout==([0-9.]+)\s*$', "=="),
-    ("plugin", "plugins/chiplet_export/requirements.txt",
-     r'(?mi)^klayout>=([0-9.]+)\s*$', ">="),
-]
-
-# Packages the image pins, by the ARG that pins them. The key is the normalised
-# distribution name as it appears in a requirements file.
-PIP_ARGS = {
-    "klayout": "KLAYOUT_PIP",
-    "pyyaml": "PYYAML_PIP",
-    "pyqt6": "PYQT6_PIP",
-    "jinja2": "JINJA2_PIP",
-    "jsonschema": "JSONSCHEMA_PIP",
-    "psutil": "PSUTIL_PIP",
-    "pytest": "PYTEST_PIP",
-}
-
-# Where any repository declares a constraint on a Python package.
-REQUIREMENT_FILES = [
-    ("plugin", "plugins/chiplet_export/requirements.txt"),
-    ("plugin", "plugins/resizer_passive_elements/requirements.txt"),
-    ("gds2kicad", "requirements.txt"),
-    ("docs", "docs/requirements.txt"),
-    ("spec", "reference/python/pyproject.toml"),
-]
+# Moved to contract_registry.py with the rest of the version handling, and named
+# here so this file reads the same as it did. `packaging` is not in the standard
+# library and this runs before anything is installed, so comparison is done by
+# hand; anything not understood is reported as a failure rather than passed over.
+parse_version = contract_registry.parse_version
+compare = contract_registry.compare
+satisfies = contract_registry.satisfies
 
 
 class Trees:
@@ -205,13 +129,14 @@ class Trees:
     def __init__(self, root, overrides=None):
         self.root = pathlib.Path(root)
         self.paths = {}
-        for rid, name in LAYOUT.items():
+        self._tracked = {}
+        for rid, name in D.layout.items():
             self.paths[rid] = self.root / name
         for rid, path in (overrides or {}).items():
             self.paths[rid] = pathlib.Path(path)
 
     def missing(self):
-        return [r for r in sorted(FILE_REPOS) if not self.paths[r].is_dir()]
+        return [r for r in sorted(D.file_repos) if not self.paths[r].is_dir()]
 
     def read(self, rid, rel):
         """Bytes, or None if the file is not there."""
@@ -227,6 +152,26 @@ class Trees:
             return sorted(x.name for x in p.iterdir() if x.is_file())
         except (OSError, KeyError):
             return []
+
+    def tracked(self, rid):
+        """Every path git tracks in that checkout.
+
+        Tracked rather than walked: a walk finds virtual environments, build
+        directories and whatever else a developer left behind, and a check that
+        reports those is a check people turn off.
+        """
+        if rid in self._tracked:
+            return self._tracked[rid]
+        p = self.paths.get(rid)
+        try:
+            out = subprocess.run(["git", "-C", str(p), "ls-files"],
+                                 capture_output=True, text=True, check=True).stdout
+        except (OSError, subprocess.CalledProcessError, TypeError) as e:
+            raise RuntimeError("the tracked files of %s could not be listed "
+                               "(%s), so the scan for undeclared dependency "
+                               "files covers less than it claims" % (rid, e))
+        self._tracked[rid] = [line for line in out.splitlines() if line]
+        return self._tracked[rid]
 
 
 class DictTrees:
@@ -254,58 +199,17 @@ class DictTrees:
                     out.add(tail)
         return sorted(out)
 
+    def tracked(self, rid):
+        return sorted(path for r, path in self.files if r == rid)
+
 
 # --------------------------------------------------------------------------
-# version handling
-#
-# `packaging` is not in the standard library and this runs before anything is
-# installed, so comparison is done here. Anything not understood is reported as
-# a failure rather than passed over: an unparsed constraint that reads as
-# satisfied is the same defect as no check at all, arriving with a green tick.
+# requirement parsing
 # --------------------------------------------------------------------------
 
-OPS = ("===", "==", ">=", "<=", "!=", "~=", ">", "<")
-
-
-def parse_version(text):
-    parts = text.strip().split(".")
-    out = []
-    for p in parts:
-        if not p.isdigit():
-            raise ValueError("version %r has a non-numeric component %r" % (text, p))
-        out.append(int(p))
-    return tuple(out)
-
-
-def compare(a, b):
-    """-1, 0 or 1, zero-padding the shorter side so 0.30 == 0.30.0."""
-    n = max(len(a), len(b))
-    a = a + (0,) * (n - len(a))
-    b = b + (0,) * (n - len(b))
-    return (a > b) - (a < b)
-
-
-def satisfies(version, op, bound):
-    v, b = parse_version(version), parse_version(bound)
-    c = compare(v, b)
-    if op in ("==", "==="):
-        return c == 0
-    if op == "!=":
-        return c != 0
-    if op == ">=":
-        return c >= 0
-    if op == "<=":
-        return c <= 0
-    if op == ">":
-        return c > 0
-    if op == "<":
-        return c < 0
-    if op == "~=":
-        # `~= X.Y.Z` is `>= X.Y.Z, == X.Y.*`.
-        if len(b) < 2:
-            raise ValueError("~= needs at least two components, got %r" % bound)
-        return c >= 0 and compare(v[: len(b) - 1], b[: len(b) - 1]) == 0
-    raise ValueError("unsupported operator %r" % op)
+#: A tracked file that declares Python dependencies. Anything matching this in a
+#: checked-out tree is either a registered declaration or a defect.
+DEPENDENCY_FILE = re.compile(r"(?:^|/)(requirements[^/]*\.txt|pyproject\.toml)$")
 
 
 def split_requirement(line):
@@ -327,7 +231,7 @@ def split_requirement(line):
         return name.lower().replace("-", "").replace("_", ""), []
     specs = []
     for chunk in filter(None, (c.strip() for c in rest.split(","))):
-        for op in OPS:
+        for op in contract_registry.OPS:
             if chunk.startswith(op):
                 specs.append((op, chunk[len(op):].strip()))
                 break
@@ -356,7 +260,7 @@ def requirement_lines(rid, rel, blob):
 
 def contract_identical_files(trees):
     out = []
-    for lrid, lrel, rrid, rrel, why in IDENTICAL:
+    for lrid, lrel, rrid, rrel, why in D.identical:
         left, right = trees.read(lrid, lrel), trees.read(rrid, rrel)
         if left is None:
             out.append("%s:%s does not exist, so the pair it forms with %s:%s "
@@ -374,24 +278,53 @@ def contract_identical_files(trees):
 
 def contract_undeclared_twins(trees):
     declared = set()
-    for lrid, lrel, rrid, rrel, _ in IDENTICAL:
+    for lrid, lrel, rrid, rrel, _ in D.identical:
         declared.add(os.path.basename(lrel))
         declared.add(os.path.basename(rrel))
 
     seen = {}
-    for rid, rel in TWIN_SCAN:
+    for rid, rel in D.twin_scan:
         for name in trees.listdir(rid, rel):
             seen.setdefault(name, []).append("%s:%s/%s" % (rid, rel, name))
 
     out = []
     for name, where in sorted(seen.items()):
-        if len(where) < 2 or name in declared or name in TWIN_EXEMPT:
+        if len(where) < 2 or name in declared or name in D.twin_exempt:
             continue
         out.append("%s exists in more than one tree (%s) and no pair declares "
                    "the relationship. Either they are copies, in which case add "
                    "the pair, or they are different documents that happen to "
                    "share a name, in which case say so in TWIN_EXEMPT."
                    % (name, ", ".join(where)))
+    return out
+
+
+def repos_vs_declared(entries, repos_ids):
+    """The registry's repository table and the set of pins are one set.
+
+    Both directions, because they fail differently. A pin with no row is a tree
+    the integration job checks out and no contract looks at. A row with no pin is
+    a repository named in a public file that this superproject does not check
+    out, which is also the shape a private repository would take if one ever
+    reached this table.
+    """
+    out = []
+    declared_ids = set()
+    for rid, slug, _branch, _pin in entries:
+        if rid is None:
+            out.append("the submodule at %r has no logical id, so nothing in the "
+                       "contract registry can name the repository it pins"
+                       % (slug,))
+            continue
+        declared_ids.add(rid)
+    for rid in sorted(declared_ids - repos_ids):
+        out.append("%s is pinned by this superproject and has no row in the "
+                   "contract registry, so every contract passes over it while "
+                   "the integration job checks it out" % rid)
+    for rid in sorted(repos_ids - declared_ids - {"tools"}):
+        out.append("%s has a row in the contract registry and nothing here pins "
+                   "it. Every row has to be a repository this superproject "
+                   "actually checks out." % rid)
     return out
 
 
@@ -444,12 +377,15 @@ def contract_gitmodules_track(trees, track):
         if not re.fullmatch(r"[0-9a-f]{40}", str(entry.get("pin", ""))):
             out.append("ci/integration-refs.json gives %s the pin %r, which is "
                        "not a 40-hex sha" % (rid, entry.get("pin")))
+
+    out.extend(repos_vs_declared(resolve_refs.declared(text, extra),
+                                 set(D.layout)))
     return out
 
 
 def contract_ci_gate(fetch, load_yaml):
     out = []
-    for rid, rel in sorted(CI_GATE_WORKFLOW.items()):
+    for rid, rel in sorted(D.ci_gate_workflow.items()):
         try:
             text = fetch(rid, rel)
         except RuntimeError as e:
@@ -503,14 +439,15 @@ def contract_klayout(trees):
     if blob is None:
         return ["adk-tools has no Dockerfile, so the KLayout version has no "
                 "single source of truth to compare against"]
-    m = re.search(r"(?m)^ARG KLAYOUT_PIP=([0-9.]+)\s*$", blob.decode())
+    m = re.search(r"(?m)^ARG %s=([0-9.]+)\s*$" % re.escape(D.klayout_arg),
+                  blob.decode())
     if not m:
-        return ["adk-tools Dockerfile has no `ARG KLAYOUT_PIP=`, which is where "
-                "the ecosystem's KLayout version is declared"]
+        return ["adk-tools Dockerfile has no `ARG %s=`, which is where "
+                "the ecosystem's KLayout version is declared" % D.klayout_arg]
     pin = m.group(1)
 
     out = []
-    for rid, rel, pattern, op in KLAYOUT_CONSUMERS:
+    for rid, rel, pattern, op in D.klayout_consumers:
         cblob = trees.read(rid, rel)
         if cblob is None:
             out.append("%s:%s is missing, and it is one of the places the "
@@ -536,6 +473,34 @@ def contract_klayout(trees):
     return out
 
 
+def undeclared_dependency_files(trees):
+    """Tracked dependency files nothing compares against the image pins.
+
+    The registered files close the instance; this closes the class. A repository
+    that grows a second requirements file is unchecked from the moment it lands
+    and looks exactly like a repository that has none.
+    """
+    out = []
+    known = set(D.requirement_files) | set(D.pins_exempt)
+    for rid in D.file_repos:
+        try:
+            tracked = trees.tracked(rid)
+        except RuntimeError as e:
+            out.append(str(e))
+            continue
+        for rel in tracked:
+            if not DEPENDENCY_FILE.search(rel):
+                continue
+            if (rid, rel) in known:
+                continue
+            out.append("%s:%s declares Python dependencies and the contract "
+                       "registry neither reads it nor exempts it, so nothing "
+                       "compares it against the versions the image ships. "
+                       "Either add it to the pin declarations or exempt it with "
+                       "a reason." % (rid, rel))
+    return out
+
+
 def contract_pip_constraints(trees):
     blob = trees.read("tools", "Dockerfile")
     if blob is None:
@@ -543,7 +508,7 @@ def contract_pip_constraints(trees):
     text = blob.decode()
 
     pins = {}
-    for pkg, arg in PIP_ARGS.items():
+    for pkg, arg in D.pip_args.items():
         m = re.search(r"(?m)^ARG %s=([0-9A-Za-z.\-]+)\s*$" % re.escape(arg), text)
         if not m:
             return ["adk-tools Dockerfile has no `ARG %s=`, so the pin for %s "
@@ -552,7 +517,7 @@ def contract_pip_constraints(trees):
         pins[pkg] = m.group(1)
 
     out = []
-    for rid, rel in REQUIREMENT_FILES:
+    for rid, rel in D.requirement_files:
         rblob = trees.read(rid, rel)
         if rblob is None:
             out.append("%s:%s is missing; it is listed as a place this "
@@ -582,6 +547,7 @@ def contract_pip_constraints(trees):
                                "repository is exercised against a version it "
                                "declares it does not support."
                                % (rid, rel, name, op, bound, pins[name]))
+    out.extend(undeclared_dependency_files(trees))
     return out
 
 
@@ -602,6 +568,156 @@ def run(trees, ctx, only=None):
         for name, fn in CONTRACTS
         if only is None or name in only
     ]
+
+
+# --------------------------------------------------------------------------
+# the tripwire
+#
+# The registry only helps while it is the only copy. These four checks are about
+# this directory rather than about the ecosystem: they fail when a second reader
+# of the data appears, when one of the hand-lists grows back, when the version
+# comparator is copied somewhere it can diverge, or when a workflow file starts
+# carrying its own copy of what the registry already says.
+# --------------------------------------------------------------------------
+
+#: The names the hand-lists had. A module-level assignment of one of these to
+#: anything other than a plain constant is one of them growing back.
+FORMER_HAND_LISTS = ("IDENTICAL", "TWIN_SCAN", "TWIN_EXEMPT", "CI_GATE_WORKFLOW",
+                     "KLAYOUT_CONSUMERS", "PIP_ARGS", "REQUIREMENT_FILES",
+                     "LAYOUT", "FILE_REPOS")
+
+#: Names that may exist in exactly one module, because two implementations of a
+#: comparison rule is two rules.
+SINGLE_HOME = ("parse_version", "compare", "satisfies")
+
+
+def _code_strings(tree):
+    """Every string literal that is not a docstring.
+
+    A docstring naming the registry file is documentation; a string literal in
+    code that names it is a second parser waiting to happen, and only the second
+    one is a finding.
+    """
+    docstrings = set()
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                 ast.AsyncFunctionDef)) or not body:
+            continue
+        first = body[0]
+        if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
+                and isinstance(first.value.value, str)):
+            docstrings.add(id(first.value))
+    return [n.value for n in ast.walk(tree)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str)
+            and id(n) not in docstrings]
+
+
+def _module_level_names(tree):
+    """{name: value node} for every module-level assignment, and every def."""
+    assigns, defs = {}, set()
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            defs.add(node.name)
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    assigns[target.id] = node.value
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            assigns[node.target.id] = node.value
+    return assigns, defs
+
+
+def tripwire(ci_dir=None, workflow_dir=None):
+    """[failure, ...]; empty when this directory still has one of everything."""
+    ci_dir = pathlib.Path(ci_dir or HERE)
+    workflow_dir = pathlib.Path(workflow_dir or (ci_dir.parent / ".github" / "workflows"))
+    out = []
+
+    sources = {}
+    for path in sorted(ci_dir.glob("*.py")):
+        try:
+            sources[path.name] = path.read_text()
+        except OSError as e:
+            out.append("%s could not be read (%s), so the tripwire covers less "
+                       "than it claims" % (path.name, e))
+
+    trees = {}
+    for name, text in sorted(sources.items()):
+        try:
+            trees[name] = ast.parse(text)
+        except SyntaxError as e:
+            out.append("%s does not parse (%s)" % (name, e))
+
+    # (a) one reader of the registry file, and it is the reader.
+    needle = contract_registry.REGISTRY_FILENAME
+    holders = sorted(name for name, tree in trees.items()
+                     if any(needle in s for s in _code_strings(tree)))
+    if holders != ["contract_registry.py"]:
+        out.append("the registry file is named in %s. It is data with exactly "
+                   "one reader; a second one is a second parser, and the second "
+                   "parser is the one that goes stale."
+                   % (", ".join(holders) if holders else "no module at all"))
+
+    # (b) none of the hand-lists has grown back.
+    for name, tree in sorted(trees.items()):
+        assigns, defs = _module_level_names(tree)
+        for former in FORMER_HAND_LISTS:
+            value = assigns.get(former)
+            if value is None or isinstance(value, ast.Constant):
+                continue
+            out.append("%s assigns a top-level %s. That list is derived from the "
+                       "registry now; a second copy of it is the thing this "
+                       "migration removed." % (name, former))
+        # (c) one home for the comparator and for the judgements.
+        for fname in sorted(defs):
+            if name == "contract_registry.py":
+                continue
+            if fname in SINGLE_HOME or fname.startswith("judge_"):
+                out.append("%s defines %s, which lives in contract_registry.py. "
+                           "Two implementations of one comparison rule is two "
+                           "rules." % (name, fname))
+
+    # (d) the workflows do not carry their own copy of what the registry says.
+    want_paths = {D.layout[rid] for rid in D.file_repos}
+    for wf in ("integration.yml", "integration-floating.yml"):
+        path = workflow_dir / wf
+        if not path.is_file():
+            out.append("%s is not there, and it is one of the two workflows that "
+                       "have to lay out exactly the trees the registry names" % wf)
+            continue
+        text = path.read_text()
+        got = set(re.findall(r"(?m)^\s+path:\s*(\S+)\s*$", text))
+        if got != want_paths:
+            out.append("%s checks out %s and the registry names %s as the trees "
+                       "that are read from disk. A workflow that lays out a "
+                       "different set is a run that checks something else."
+                       % (wf, ", ".join(sorted(got)) or "nothing",
+                          ", ".join(sorted(want_paths))))
+        for name, arg in _pins_heredoc(text):
+            key = name.lower().replace("-", "").replace("_", "")
+            if key not in D.pip_args:
+                out.append("%s installs %s from ARG %s and the registry pins no "
+                           "such package. The list of pins in a workflow is the "
+                           "sixth copy of this table; it has to be a subset of "
+                           "the one in the registry." % (wf, name, arg))
+            elif D.pip_args[key] != arg:
+                out.append("%s installs %s from ARG %s while the registry reads "
+                           "it from ARG %s" % (wf, name, arg, D.pip_args[key]))
+    return out
+
+
+def _pins_heredoc(text):
+    """[(package, ARG), ...] out of the `PINS` heredoc, or [] if there is none."""
+    m = re.search(r"(?ms)<<'PINS'\n(.*?)\n\s*PINS\s*$", text)
+    if not m:
+        return []
+    out = []
+    for line in m.group(1).splitlines():
+        parts = line.split()
+        if len(parts) == 2:
+            out.append((parts[0], parts[1]))
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -653,27 +769,53 @@ ARG PSUTIL_PIP=7.2.2
 ARG PYTEST_PIP=9.1.0
 """
 
+# Every submodule, not two of them: the repository table and the set of pins are
+# now asserted to be the same set, so a fixture that pins a subset would be a
+# fixture that fails for a reason the case is not about.
 GITMODULES_DEV = """
-[submodule "tools/adk"]
-\tpath = tools/adk
-\turl = https://github.com/IHP-GmbH/IHP-Open-ADK.git
-\tbranch = dev
 [submodule "tools/kicad"]
 \tpath = tools/kicad
 \turl = https://github.com/IHP-GmbH/KiCad-ADK-MOD.git
 \tbranch = dev
+[submodule "tools/chiplet-studio"]
+\tpath = tools/chiplet-studio
+\turl = https://github.com/IHP-GmbH/chiplet-studio.git
+\tbranch = dev
+[submodule "tools/chiplet_kicad_plugin"]
+\tpath = tools/chiplet_kicad_plugin
+\turl = https://github.com/IHP-GmbH/Chiplets-KiCad-Plugin.git
+\tbranch = dev
+[submodule "tools/gds_to_kicad"]
+\tpath = tools/gds_to_kicad
+\turl = https://github.com/IHP-GmbH/gds2kicad.git
+\tbranch = dev
+[submodule "tools/adk"]
+\tpath = tools/adk
+\turl = https://github.com/IHP-GmbH/IHP-Open-ADK.git
+\tbranch = dev
+[submodule "tools/interposer"]
+\tpath = tools/OpenIntM4TM2
+\turl = https://github.com/IHP-GmbH/OpenIntM4TM2.git
+\tbranch = dev
+[submodule "tools/interconnect_pdk"]
+\tpath = tools/IHP-Interconnect-IntM4TM2
+\turl = https://github.com/IHP-GmbH/IHP-Interconnect-IntM4TM2.git
+\tbranch = dev
 """
+
+INTEGRATION_REFS = json.dumps({
+    "_comment": ["ignored"],
+    "spec": {"slug": "IHP-GmbH/chiplet-spec", "branch": "dev", "pin": "c" * 40},
+    "docs": {"slug": "IHP-GmbH/IHP-Open-ADK-docs", "branch": "dev",
+             "pin": "d" * 40},
+})
 
 
 def _base_files():
     files = {
         ("tools", "Dockerfile"): DOCKERFILE,
         ("tools", ".gitmodules"): GITMODULES_DEV,
-        ("tools", "ci/integration-refs.json"): json.dumps({
-            "_comment": ["ignored"],
-            "spec": {"slug": "IHP-GmbH/chiplet-spec", "branch": "dev",
-                     "pin": "c" * 40},
-        }),
+        ("tools", "ci/integration-refs.json"): INTEGRATION_REFS,
         ("adk", ".github/workflows/tests.yml"):
             'env:\n  KLAYOUT_VERSION: "0.30.5"\n' + GATE_OK,
         ("interposer", ".github/workflows/tests.yml"):
@@ -687,12 +829,188 @@ def _base_files():
         ("spec", "reference/python/pyproject.toml"):
             'requires-python = ">=3.8"\ndependencies = ["PyYAML>=5.1"]\n',
     }
-    for lrid, lrel, rrid, rrel, _ in IDENTICAL:
+    for lrid, lrel, rrid, rrel, _ in D.identical:
         files[(lrid, lrel)] = "same\n"
         files[(rrid, rrel)] = "same\n"
-    for rid, rel in CI_GATE_WORKFLOW.items():
+    for rid, rel in D.ci_gate_workflow.items():
         files.setdefault((rid, rel), GATE_OK)
     return files
+
+
+# --------------------------------------------------------------------------
+# The five lists as they stood before the registry existed, frozen here so the
+# re-encoding is asserted rather than eyeballed. This block and the case that
+# uses it are deleted in the wave that first changes one of these values on
+# purpose; until then a transcription slip is a failing self-test rather than a
+# contract quietly covering one pair fewer.
+# --------------------------------------------------------------------------
+
+
+def legacy_lists():
+    layout = {
+        "adk": "adk",
+        "spec": "chiplet-spec",
+        "interposer": "interposer",
+        "interconnect": "interconnect_pdk",
+        "plugin": "chiplet_kicad_plugin",
+        "gds2kicad": "gds_to_kicad",
+        "studio": "chiplet-studio",
+        "docs": "adk-docs",
+        "kicad": "kicad",
+        "tools": "adk-tools",
+    }
+    identical = [
+        ("spec", "schemas/boundary_manifest.schema.json",
+         "adk", "config/schema/boundary_manifest.schema.json",
+         "the assembly-DRC boundary manifest is the PDK-agnostic contract between "
+         "the exporters and the deck"),
+        ("spec", "schemas/interconnect.schema.json",
+         "adk", "config/schema/interconnect.schema.json",
+         "the interconnect block of a .chiplet document"),
+        ("spec", "schemas/layers.schema.json",
+         "adk", "config/schema/layers.schema.json",
+         "the layer registry every consumer validates against"),
+        ("spec", "schemas/rule_params.schema.json",
+         "adk", "config/schema/rule_params.schema.json",
+         "the JSON-parameterised DRC rule values"),
+        ("spec", "schemas/chiplet_pads.json",
+         "adk", "config/chiplet_pads.json",
+         "the black-box chiplet pad vocabulary. adk has a strict-version gate that "
+         "forces its copy forward, so the spec copy goes stale by construction "
+         "unless something outside both repositories says otherwise"),
+        ("spec", "schemas/interconnect_methods.schema.json",
+         "interconnect", "manifest/schema/interconnect_methods.schema.json",
+         "the interconnect method registry. The PDK owns the file and the spec "
+         "publishes it"),
+        ("spec", "reference/python/chiplet_format_io/__init__.py",
+         "adk", "vendor/chiplet_format_io/__init__.py",
+         "the vendored Python .chiplet reader. adk's own suite cross-checks this "
+         "when a chiplet-spec sibling happens to be discoverable, which on a bare "
+         "runner it never is"),
+        ("spec", "reference/python/chiplet_format_io/__init__.py",
+         "plugin", "plugins/chiplet_export/vendor/chiplet_format_io/__init__.py",
+         "the vendored Python .chiplet reader inside the KiCad plugin. H-A added it "
+         "so hyp_to_gds and the clobber guard read through the shared loader; H-B "
+         "keeps it byte-identical to the reference and this pins that"),
+    ]
+    twin_scan = [
+        ("spec", "schemas"),
+        ("adk", "config/schema"),
+        ("adk", "config"),
+        ("interconnect", "manifest/schema"),
+    ]
+    twin_exempt = {}
+    file_repos = ("adk", "spec", "interposer", "interconnect", "plugin",
+                  "gds2kicad", "docs", "tools")
+    ci_gate_workflow = {
+        "adk": ".github/workflows/tests.yml",
+        "spec": ".github/workflows/tests.yml",
+        "interposer": ".github/workflows/tests.yml",
+        "interconnect": ".github/workflows/tests.yml",
+        "plugin": ".github/workflows/tests.yml",
+        "gds2kicad": ".github/workflows/tests.yml",
+        "studio": ".github/workflows/ci.yml",
+        "docs": ".github/workflows/docs.yml",
+        "kicad": ".github/workflows/ci.yml",
+        "tools": ".github/workflows/ci.yml",
+    }
+    klayout_consumers = [
+        ("adk", ".github/workflows/tests.yml", r'KLAYOUT_VERSION:\s*"([0-9.]+)"', "=="),
+        ("interposer", ".github/workflows/tests.yml", r'KLAYOUT_VERSION:\s*"([0-9.]+)"', "=="),
+        ("docs", "docs/requirements.txt", r'(?mi)^klayout==([0-9.]+)\s*$', "=="),
+        ("plugin", "plugins/chiplet_export/requirements.txt",
+         r'(?mi)^klayout>=([0-9.]+)\s*$', ">="),
+    ]
+    pip_args = {
+        "klayout": "KLAYOUT_PIP",
+        "pyyaml": "PYYAML_PIP",
+        "pyqt6": "PYQT6_PIP",
+        "jinja2": "JINJA2_PIP",
+        "jsonschema": "JSONSCHEMA_PIP",
+        "psutil": "PSUTIL_PIP",
+        "pytest": "PYTEST_PIP",
+    }
+    requirement_files = [
+        ("plugin", "plugins/chiplet_export/requirements.txt"),
+        ("plugin", "plugins/resizer_passive_elements/requirements.txt"),
+        ("gds2kicad", "requirements.txt"),
+        ("docs", "docs/requirements.txt"),
+        ("spec", "reference/python/pyproject.toml"),
+    ]
+    return {
+        "LAYOUT": layout,
+        "IDENTICAL": identical,
+        "TWIN_SCAN": twin_scan,
+        "TWIN_EXEMPT": twin_exempt,
+        "FILE_REPOS": file_repos,
+        "CI_GATE_WORKFLOW": ci_gate_workflow,
+        "KLAYOUT_CONSUMERS": klayout_consumers,
+        "PIP_ARGS": pip_args,
+        "REQUIREMENT_FILES": requirement_files,
+    }
+
+
+#: The one directory the derived twin scan covers that the hand list did not, and
+#: the artifact it comes from. Named rather than tolerated: the delta is the
+#: interconnect method registry, which the hand list never scanned because a data
+#: registry was in none of the pairs.
+TWIN_SCAN_ADDED = {("interconnect", "manifest"): "interconnect_methods_registry"}
+
+
+def equivalence_failures():
+    """[] when the registry re-encodes the hand-lists exactly.
+
+    Order is compared as a multiset for the pair list and the scan, because the
+    registry is sorted by artifact id and the hand list was in the order somebody
+    happened to add rows in; every contract that reads either one sorts or
+    aggregates, so the order was never observable. Everything else is compared
+    for equality, including the strings, because those are printed.
+    """
+    legacy = legacy_lists()
+    out = []
+
+    if sorted(D.identical) != sorted(tuple(x) for x in legacy["IDENTICAL"]):
+        out.append("the derived byte-identity pairs are not the ones the hand "
+                   "list carried: only in the registry %r; only in the hand list "
+                   "%r" % (sorted(set(D.identical)
+                                  - {tuple(x) for x in legacy["IDENTICAL"]}),
+                           sorted({tuple(x) for x in legacy["IDENTICAL"]}
+                                  - set(D.identical))))
+
+    got, want = set(D.twin_scan), {tuple(x) for x in legacy["TWIN_SCAN"]}
+    if not want <= got:
+        out.append("the derived twin scan no longer covers %r" % sorted(want - got))
+    if (got - want) != set(TWIN_SCAN_ADDED):
+        out.append("the derived twin scan covers %r, which is not the declared "
+                   "difference %r" % (sorted(got - want), sorted(TWIN_SCAN_ADDED)))
+    if len(D.twin_scan) != len(set(D.twin_scan)):
+        out.append("the derived twin scan repeats a directory")
+
+    if set(D.twin_exempt) != set(legacy["TWIN_EXEMPT"]):
+        out.append("the derived twin exemptions are %r, not %r"
+                   % (sorted(D.twin_exempt), sorted(legacy["TWIN_EXEMPT"])))
+    if dict(D.layout) != legacy["LAYOUT"]:
+        out.append("the derived layout is %r, not %r"
+                   % (dict(D.layout), legacy["LAYOUT"]))
+    if D.file_repos != legacy["FILE_REPOS"]:
+        out.append("the derived file repositories are %r, not %r"
+                   % (D.file_repos, legacy["FILE_REPOS"]))
+    if dict(D.ci_gate_workflow) != legacy["CI_GATE_WORKFLOW"]:
+        out.append("the derived ci-gate workflows are %r, not %r"
+                   % (dict(D.ci_gate_workflow), legacy["CI_GATE_WORKFLOW"]))
+    if list(D.klayout_consumers) != [tuple(x) for x in legacy["KLAYOUT_CONSUMERS"]]:
+        out.append("the derived KLayout consumers are %r, not %r"
+                   % (list(D.klayout_consumers), legacy["KLAYOUT_CONSUMERS"]))
+    if D.klayout_arg != "KLAYOUT_PIP":
+        out.append("the derived KLayout ARG is %r, not 'KLAYOUT_PIP'"
+                   % (D.klayout_arg,))
+    if dict(D.pip_args) != legacy["PIP_ARGS"]:
+        out.append("the derived package pins are %r, not %r"
+                   % (dict(D.pip_args), legacy["PIP_ARGS"]))
+    if list(D.requirement_files) != [tuple(x) for x in legacy["REQUIREMENT_FILES"]]:
+        out.append("the derived constraint files are %r, not %r"
+                   % (list(D.requirement_files), legacy["REQUIREMENT_FILES"]))
+    return out
 
 
 def self_test(load_yaml):
@@ -761,15 +1079,28 @@ def self_test(load_yaml):
     expect("a non-submodule pin left on the other track fails",
            "gitmodules-track",
            mutate(**{"tools|ci/integration-refs.json": json.dumps({
-               "spec": {"branch": "main", "pin": "c" * 40}})}),
+               "spec": {"branch": "main", "pin": "c" * 40},
+               "docs": {"branch": "dev", "pin": "d" * 40}})}),
            True, "while this superproject is on")
     expect("a non-submodule pin that is not a sha fails", "gitmodules-track",
            mutate(**{"tools|ci/integration-refs.json": json.dumps({
-               "spec": {"branch": "dev", "pin": "dev"}})}),
+               "spec": {"branch": "dev", "pin": "dev"},
+               "docs": {"branch": "dev", "pin": "d" * 40}})}),
            True, "not a 40-hex sha")
     expect("a missing integration-refs.json fails", "gitmodules-track",
            mutate(**{"tools|ci/integration-refs.json": None}),
            True, "are unpinned")
+    expect("a repository in the registry that nothing pins fails",
+           "gitmodules-track",
+           mutate(**{"tools|.gitmodules": GITMODULES_DEV.split(
+               '[submodule "tools/adk"]')[0]}),
+           True, "nothing here pins it")
+    expect("a pin with no row in the registry fails", "gitmodules-track",
+           mutate(**{"tools|ci/integration-refs.json": json.dumps({
+               "spec": {"branch": "dev", "pin": "c" * 40},
+               "docs": {"branch": "dev", "pin": "d" * 40},
+               "newthing": {"branch": "dev", "pin": "e" * 40}})}),
+           True, "has no row in the contract registry")
 
     # ci-gate
     expect("a gate that compares its needs passes", "ci-gate", base, False)
@@ -821,10 +1152,16 @@ def self_test(load_yaml):
     expect("a missing requirements file fails", "pip-constraints",
            mutate(**{"gds2kicad|requirements.txt": None}),
            True, "silently shrinks this check")
+    expect("a dependency file nobody registered fails", "pip-constraints",
+           mutate(**{"adk|requirements-dev.txt": "pytest>=9.1.0\n"}),
+           True, "neither reads it nor exempts it")
+    expect("an exempted dependency file passes", "pip-constraints",
+           mutate(**{"spec|conformance/requirements.txt": "jsonschema>=4.26.0\n"}),
+           False)
 
     # the version comparator itself
-    def vcase(name, ok):
-        cases.append((name, ok, None))
+    def vcase(name, ok, detail=None):
+        cases.append((name, ok, detail))
 
     vcase("0.30 equals 0.30.0", satisfies("0.30", "==", "0.30.0"))
     vcase("0.30.10 is above 0.30.9", satisfies("0.30.10", ">=", "0.30.9"))
@@ -837,6 +1174,24 @@ def self_test(load_yaml):
     except ValueError:
         vcase("a non-numeric bound is refused, not guessed at", True)
 
+    # the registry itself: layout, re-encoding, and the tripwire
+    fmt = contract_registry.fmt_check(contract_registry.REGISTRY_PATH)
+    vcase("the registry is in canonical layout", not fmt, fmt)
+    eq = equivalence_failures()
+    vcase("the registry re-encodes the hand-lists it replaced, exactly",
+          not eq, eq)
+    tw = tripwire()
+    vcase("nothing has grown a second copy of the registry", not tw, tw)
+    vcase("the tripwire notices a hand-list growing back",
+          any("IDENTICAL" in f for f in _tripwire_on(
+              "IDENTICAL = [('spec', 'a', 'adk', 'b', 'why')]\n")))
+    vcase("the tripwire notices a second comparator",
+          any("satisfies" in f for f in _tripwire_on(
+              "def satisfies(v, op, b):\n    return True\n")))
+    vcase("the tripwire notices a second reader of the registry file",
+          any("one reader" in f for f in _tripwire_on(
+              "PATH = 'ci/%s'\n" % contract_registry.REGISTRY_FILENAME)))
+
     ok = True
     for name, passed, got in cases:
         print("%-62s %s" % (name, "ok" if passed else "FAILED"))
@@ -845,6 +1200,33 @@ def self_test(load_yaml):
             if got is not None:
                 print("   contract returned: %r" % (got,))
     return 0 if ok else 1
+
+
+def _tripwire_on(source):
+    """Run the tripwire over a scratch copy of ci/ with one extra module.
+
+    The negative case for a check about a directory has to be a directory, or
+    the check is asserted against its own author's memory of it.
+    """
+    import shutil
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        ci = root / "ci"
+        ci.mkdir()
+        for path in sorted(HERE.glob("*.py")):
+            shutil.copy2(path, ci / path.name)
+        shutil.copy2(contract_registry.REGISTRY_PATH,
+                     ci / contract_registry.REGISTRY_FILENAME)
+        (ci / "scratch_module.py").write_text(source)
+        wf = root / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        for name in ("integration.yml", "integration-floating.yml"):
+            src = HERE.parent / ".github" / "workflows" / name
+            if src.is_file():
+                shutil.copy2(src, wf / name)
+        return tripwire(ci_dir=ci, workflow_dir=wf)
 
 
 def make_fetch(trees, targets, api):
@@ -901,11 +1283,23 @@ def main():
                     help="run only the named contract; repeatable")
     ap.add_argument("--json", action="store_true",
                     help="emit the result as JSON for the floating run's issue body")
+    ap.add_argument("--table", action="store_true",
+                    help="print the registry, one line per artifact, and stop")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args()
 
     if args.self_test:
         return self_test(load_yaml_or_die())
+
+    if args.table:
+        for art in REGISTRY.artifacts:
+            version = art.version_policy.current if art.version_policy else "-"
+            print("%-30s [%s/%s] %s:%s v%s  mirrors=%d"
+                  % (art.id, art.kind, art.identity, art.owner, art.path,
+                     version, len(art.mirrors)))
+        for note in REGISTRY.notes:
+            print("NOTE %s" % note)
+        return 0
 
     if not args.root:
         ap.error("--root is required unless --self-test is given")
@@ -915,9 +1309,9 @@ def main():
         if "=" not in item:
             ap.error("--dir wants ID=PATH, got %r" % item)
         rid, path = item.split("=", 1)
-        if rid not in LAYOUT:
+        if rid not in D.layout:
             ap.error("unknown repository id %r; known ids are %s"
-                     % (rid, ", ".join(sorted(LAYOUT))))
+                     % (rid, ", ".join(sorted(D.layout))))
         overrides[rid] = path
 
     trees = Trees(args.root, overrides)

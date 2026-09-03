@@ -1,0 +1,201 @@
+{
+  "registry_version": 1,
+  "repos": [
+    ["adk", "adk", "tree", ".github/workflows/tests.yml", "the ADK itself: decks, configuration and the schemas it validates against"],
+    ["spec", "chiplet-spec", "tree", ".github/workflows/tests.yml", "the .chiplet format, the published schemas and the reference readers. Not a submodule of anything, which is why it is pinned in integration-refs.json instead"],
+    ["interposer", "interposer", "tree", ".github/workflows/tests.yml", "the IntM4TM2 interposer PDK, whose decks are tested against the KLayout the image ships"],
+    ["interconnect", "interconnect_pdk", "tree", ".github/workflows/tests.yml", "the interconnect PDK, which owns the method registry the assembly flow reads"],
+    ["plugin", "chiplet_kicad_plugin", "tree", ".github/workflows/tests.yml", "the KiCad plugin, which vendors the .chiplet reader and declares its own Python pins"],
+    ["gds2kicad", "gds_to_kicad", "tree", ".github/workflows/tests.yml", "the GDS to KiCad converter, which reads the black-box pad vocabulary and declares its own Python pins"],
+    ["studio", "chiplet-studio", "api", ".github/workflows/ci.yml", "the assembly editor. Read through the API and never checked out: the only thing any contract reads from it is its gate workflow, and a 349 MB clone buys nothing"],
+    ["docs", "adk-docs", "tree", ".github/workflows/docs.yml", "the documentation build, whose requirements file is one of the places the ecosystem's KLayout version is declared"],
+    ["kicad", "kicad", "api", ".github/workflows/ci.yml", "the KiCad fork. Read through the API and never checked out, for the same reason as the studio and 2.1 GB more of it"],
+    ["tools", "adk-tools", "tree", ".github/workflows/ci.yml", "this repository: the lockfile, the image that declares every pin, and the only place where more than one repository exists at once"]
+  ],
+  "artifacts": [
+    {
+      "id": "boundary_manifest_schema",
+      "kind": "schema",
+      "owner": "spec",
+      "path": "schemas/boundary_manifest.schema.json",
+      "identity": "bytes",
+      "version_policy": null,
+      "mirrors": [
+        ["adk", "config/schema/boundary_manifest.schema.json", "the assembly-DRC boundary manifest is the PDK-agnostic contract between the exporters and the deck"]
+      ],
+      "producers": [],
+      "consumers": [],
+      "declarations": [],
+      "packages": {},
+      "why": "chiplet-spec publishes the schema and the ADK validates against it. The two trees are only ever correct together, and no per-repository gate can see the other one."
+    },
+    {
+      "id": "cfio_python_reader",
+      "kind": "reader_py",
+      "owner": "spec",
+      "path": "reference/python/chiplet_format_io/__init__.py",
+      "identity": "bytes",
+      "version_policy": null,
+      "mirrors": [
+        ["adk", "vendor/chiplet_format_io/__init__.py", "the vendored Python .chiplet reader. adk's own suite cross-checks this when a chiplet-spec sibling happens to be discoverable, which on a bare runner it never is"],
+        ["plugin", "plugins/chiplet_export/vendor/chiplet_format_io/__init__.py", "the vendored Python .chiplet reader inside the KiCad plugin. H-A added it so hyp_to_gds and the clobber guard read through the shared loader; H-B keeps it byte-identical to the reference and this pins that"]
+      ],
+      "producers": [],
+      "consumers": [],
+      "declarations": [],
+      "packages": {},
+      "why": "the reference .chiplet reader and its two vendored copies. Judged by bytes today because the copies in the two hosted trees carry no reader release constant at the pinned commit; the flip to a version policy is the next wave and needs both copies re-synced first."
+    },
+    {
+      "id": "chiplet_pads_vocabulary",
+      "kind": "vocabulary",
+      "owner": "spec",
+      "path": "schemas/chiplet_pads.json",
+      "identity": "bytes",
+      "version_policy": {"rule": "additive_minor", "current": "@owner", "floor": "0.2", "locator": ["json_pointer", "/version"]},
+      "mirrors": [
+        ["adk", "config/chiplet_pads.json", "the black-box chiplet pad vocabulary. adk has a strict-version gate that forces its copy forward, so the spec copy goes stale by construction unless something outside both repositories says otherwise"]
+      ],
+      "producers": [],
+      "consumers": [
+        ["adk", "checks/pads_vs_pillars.py", "the pads-versus-pillars alignment check reads the vocabulary to know which layers are pads"],
+        ["gds2kicad", "blackbox_chiplet.py", "the black-box importer assumes exactly these layers when a commercial chiplet ships no .lyp"]
+      ],
+      "declarations": [],
+      "packages": {},
+      "why": "the one vocabulary a closed-PDK chiplet is described in. `current` is read from the owner's file rather than declared here, so an ADK release that bumps the vocabulary does not need an edit in this repository in the same hour to stay green; the floor is what this ecosystem still reads."
+    },
+    {
+      "id": "interconnect_methods_registry",
+      "kind": "data_registry",
+      "owner": "interconnect",
+      "path": "manifest/interconnect_methods.json",
+      "identity": "bytes",
+      "version_policy": {"rule": "additive_minor", "current": "@owner", "floor": "1.0", "locator": ["json_pointer", "/schema_version"]},
+      "mirrors": [],
+      "producers": [],
+      "consumers": [
+        ["adk", "klayout/drc/run_drc.py", "the deck runner passes the method registry into the assembly DRC as a rule parameter"],
+        ["plugin", "plugins/chiplet_export/pipeline/orchestrator.py", "the export pipeline derives the per-connection interconnect method from this file"]
+      ],
+      "declarations": [],
+      "packages": {},
+      "why": "the single source of truth for the post-fabrication interconnect elements. It had no row anywhere until now, so a schema_version bump had no registered consumer to notify; the consumers listed are the ones this superproject pins, which is deliberately not the whole set."
+    },
+    {
+      "id": "interconnect_methods_schema",
+      "kind": "schema",
+      "owner": "spec",
+      "path": "schemas/interconnect_methods.schema.json",
+      "identity": "bytes",
+      "version_policy": null,
+      "mirrors": [
+        ["interconnect", "manifest/schema/interconnect_methods.schema.json", "the interconnect method registry. The PDK owns the file and the spec publishes it"]
+      ],
+      "producers": [],
+      "consumers": [],
+      "declarations": [],
+      "packages": {},
+      "why": "the schema the interconnect method registry validates against. The interconnect PDK is the authoritative author and chiplet-spec is the publisher; the row keeps the publisher as `owner` while the identity is `bytes`, where the two sides are symmetric, and the orientation is revisited in the wave that gives this row a version policy."
+    },
+    {
+      "id": "interconnect_schema",
+      "kind": "schema",
+      "owner": "spec",
+      "path": "schemas/interconnect.schema.json",
+      "identity": "bytes",
+      "version_policy": null,
+      "mirrors": [
+        ["adk", "config/schema/interconnect.schema.json", "the interconnect block of a .chiplet document"]
+      ],
+      "producers": [],
+      "consumers": [],
+      "declarations": [],
+      "packages": {},
+      "why": "chiplet-spec publishes the schema and the ADK validates against it. The two trees are only ever correct together, and no per-repository gate can see the other one."
+    },
+    {
+      "id": "klayout_pin",
+      "kind": "tool_pin",
+      "owner": "tools",
+      "path": "Dockerfile",
+      "identity": "version_policy",
+      "version_policy": {"rule": "satisfies", "current": "@owner", "floor": null, "locator": ["dockerfile_arg", "KLAYOUT_PIP"]},
+      "mirrors": [],
+      "producers": [],
+      "consumers": [],
+      "declarations": [
+        ["adk", ".github/workflows/tests.yml", ["regex", "KLAYOUT_VERSION:\\s*\"([0-9.]+)\""], "==", "the ADK suite runs the decks against this KLayout, so it has to be the one the image ships"],
+        ["interposer", ".github/workflows/tests.yml", ["regex", "KLAYOUT_VERSION:\\s*\"([0-9.]+)\""], "==", "the interposer decks are the ones most sensitive to a KLayout change, and they run on their own runner"],
+        ["docs", "docs/requirements.txt", ["regex", "(?mi)^klayout==([0-9.]+)\\s*$"], "==", "the documentation build imports KLayout to generate figures from the same decks"],
+        ["plugin", "plugins/chiplet_export/requirements.txt", ["regex", "(?mi)^klayout>=([0-9.]+)\\s*$"], ">=", "the plugin declares a floor rather than a pin, and a floor raised above the image pin is an install that resolves to something else"]
+      ],
+      "packages": {},
+      "why": "one KLayout across the ecosystem, sourced from the image ARG. Testing a deck against a different KLayout than the one that ships proves the deck works somewhere other than where it runs. `current` is the image, because the image is the only declaration there is."
+    },
+    {
+      "id": "layers_schema",
+      "kind": "schema",
+      "owner": "spec",
+      "path": "schemas/layers.schema.json",
+      "identity": "bytes",
+      "version_policy": null,
+      "mirrors": [
+        ["adk", "config/schema/layers.schema.json", "the layer registry every consumer validates against"]
+      ],
+      "producers": [],
+      "consumers": [],
+      "declarations": [],
+      "packages": {},
+      "why": "chiplet-spec publishes the schema and the ADK validates against it. The two trees are only ever correct together, and no per-repository gate can see the other one."
+    },
+    {
+      "id": "pip_pins",
+      "kind": "tool_pin",
+      "owner": "tools",
+      "path": "Dockerfile",
+      "identity": "version_policy",
+      "version_policy": {"rule": "satisfies", "current": "@owner", "floor": null, "locator": null},
+      "mirrors": [],
+      "producers": [],
+      "consumers": [],
+      "declarations": [
+        ["plugin", "plugins/chiplet_export/requirements.txt", null, null, "the export plugin's own dependencies, installed into the KiCad scripting environment"],
+        ["plugin", "plugins/resizer_passive_elements/requirements.txt", null, null, "the second plugin in the same repository, with its own file and therefore its own way to drift"],
+        ["gds2kicad", "requirements.txt", null, null, "the converter's Qt and parsing dependencies"],
+        ["docs", "docs/requirements.txt", null, null, "the documentation build, which is also where the KLayout pin is declared"],
+        ["spec", "reference/python/pyproject.toml", null, null, "the reference reader's distribution metadata, read as a dependency list rather than through a TOML parser"]
+      ],
+      "packages": {
+        "klayout": "KLAYOUT_PIP",
+        "pyyaml": "PYYAML_PIP",
+        "pyqt6": "PYQT6_PIP",
+        "jinja2": "JINJA2_PIP",
+        "jsonschema": "JSONSCHEMA_PIP",
+        "psutil": "PSUTIL_PIP",
+        "pytest": "PYTEST_PIP"
+      },
+      "why": "every Python package the image pins, and every file in the ecosystem that declares a constraint on one of them. The declarations carry no locator because the whole file is read line by line, not at one point; the pin is what actually runs, so a floor raised above it means a repository is exercised against a version it says it does not support."
+    },
+    {
+      "id": "rule_params_schema",
+      "kind": "schema",
+      "owner": "spec",
+      "path": "schemas/rule_params.schema.json",
+      "identity": "bytes",
+      "version_policy": null,
+      "mirrors": [
+        ["adk", "config/schema/rule_params.schema.json", "the JSON-parameterised DRC rule values"]
+      ],
+      "producers": [],
+      "consumers": [],
+      "declarations": [],
+      "packages": {},
+      "why": "chiplet-spec publishes the schema and the ADK validates against it. The two trees are only ever correct together, and no per-repository gate can see the other one."
+    }
+  ],
+  "twin_exempt": [],
+  "pins_exempt": [
+    ["spec", "conformance/requirements.txt", "the conformance runner's own pins. The file does not exist at the chiplet-spec commit this repository pins, so declaring it as a pip constraint file today would make the pinned run red on a file that is not there. It becomes a declaration in the same commit that bumps the spec pin."]
+  ]
+}
