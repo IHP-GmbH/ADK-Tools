@@ -1,0 +1,239 @@
+name: integration
+
+# The pinned cross-repo run. It compiles nothing and it is the only place in the
+# ecosystem where more than one repository exists at once, which is the whole
+# reason it exists: every contract it checks spans two trees, so no per-repo gate
+# can see any of them.
+#
+# Pinned means pinned. Every ref comes from ci/pin-set.json (the gitlinks,
+# chiplet-spec's staged pin and the docs pin, joined by ci/pin_set.py), so this
+# check goes red because somebody changed something here, never because
+# somebody pushed to another repository while a pull request was open. An
+# entry the pin set records as local-only is refused by name: while
+# chiplet-spec's pin is not on its remote, this run is red rather than green on
+# another commit. The run that follows the branch heads is the weekly
+# one in integration-floating.yml, and it is never allowed to block anything.
+#
+# Two workflows rather than one with a mode switch, because a job name is a
+# status context: a floating run sharing this file would post `integration` on
+# the default branch head and a red tick nobody can act on is how a required
+# check gets ignored and then deleted.
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    outputs:
+      refs: ${{ steps.refs.outputs.refs }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Self-test the resolver
+        run: python3 ci/resolve_refs.py --self-test
+
+      - name: Resolve every ref and prove it exists before anything uses it
+        id: refs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 ci/resolve_refs.py --pinned --github-output
+
+  contracts:
+    needs: resolve
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: adk-tools
+
+      # Nine explicit checkouts. Not `submodules: recursive`: chiplet-spec is
+      # not a submodule of anything, and it is precisely where the vendored
+      # readers have to be compared.
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Open-ADK
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).adk }}
+          path: adk
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/chiplet-system-spec
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).spec }}
+          path: chiplet-spec
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/OpenIntM4TM2
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).interposer }}
+          path: interposer
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Interconnect-IntM4TM2
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).interconnect }}
+          path: interconnect_pdk
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/Chiplets-KiCad-Plugin
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).plugin }}
+          path: chiplet_kicad_plugin
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/gds2kicad
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).gds2kicad }}
+          path: gds_to_kicad
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Open-ADK-docs
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).docs }}
+          path: adk-docs
+
+      # chiplet-studio and the KiCad fork are not checked out at all. The only
+      # thing read from them is the gate workflow, and the ci-gate contract
+      # reads that from the branch through the API, so 349 MB and 2.1 GB of
+      # clone buy nothing.
+
+      - name: Install the YAML reader at the version the image pins
+        run: |
+          pin=$(sed -n 's/^ARG PYYAML_PIP=\(.*\)$/\1/p' adk-tools/Dockerfile)
+          test -n "$pin"
+          pip install "PyYAML==${pin}"
+
+      - name: Self-test the contracts
+        run: python3 adk-tools/ci/contracts.py --self-test
+
+      - name: Assert the contracts across every checked-out tree
+        # --track is the branch the superproject is on, which .gitmodules has to
+        # declare. On a pull request that is the base, not the head: the head is
+        # a feature branch and no submodule ever declares one.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 adk-tools/ci/contracts.py \
+            --root . \
+            --dir tools=adk-tools \
+            --track "${{ github.base_ref || github.ref_name }}"
+
+  # The suites that only run here. Every per-repo gate is honest when it skips,
+  # because on a lone checkout the capability really is absent; this is the one
+  # place all six checkouts exist at once, so 163 tests that execute nowhere
+  # else execute here, and ci/required-tests.txt makes a skip a failure.
+  suites:
+    needs: resolve
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: adk-tools
+
+      # The same six trees the manifest was measured against, laid out as
+      # siblings because that is how the plugin discovers a dependency root
+      # when no environment variable names one.
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Open-ADK
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).adk }}
+          path: adk
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/chiplet-system-spec
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).spec }}
+          path: chiplet-spec
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/OpenIntM4TM2
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).interposer }}
+          path: interposer
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/IHP-Interconnect-IntM4TM2
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).interconnect }}
+          path: interconnect_pdk
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/Chiplets-KiCad-Plugin
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).plugin }}
+          path: chiplet_kicad_plugin
+      - uses: actions/checkout@v4
+        with:
+          repository: IHP-GmbH/gds2kicad
+          ref: ${{ fromJSON(needs.resolve.outputs.refs).gds2kicad }}
+          path: gds_to_kicad
+
+      - name: Install every dependency at the version the image pins
+        # Read out of the Dockerfile rather than written here, so this job
+        # cannot drift into testing against a different set than the one that
+        # ships. tkinter is not a pip package and the plugin's PCell path
+        # imports it.
+        run: |
+          set -euo pipefail
+          args=()
+          while read -r name arg; do
+            pin=$(sed -n "s/^ARG ${arg}=\(.*\)$/\1/p" adk-tools/Dockerfile)
+            test -n "$pin" || { echo "no ARG ${arg} in the Dockerfile"; exit 1; }
+            args+=("${name}==${pin}")
+          done <<'PINS'
+          pytest PYTEST_PIP
+          klayout KLAYOUT_PIP
+          PyYAML PYYAML_PIP
+          jinja2 JINJA2_PIP
+          jsonschema JSONSCHEMA_PIP
+          psutil PSUTIL_PIP
+          PINS
+          echo "installing: ${args[*]}"
+          sudo apt-get update -qq && sudo apt-get install -y -qq python3-tk
+          pip install "${args[@]}"
+
+      - name: Run the suites with every sibling root on disk
+        # `|| true` on purpose: a suite is allowed to have skips that are not in
+        # the manifest, and the verdict is the manifest check below, which is
+        # strictly stronger than the exit code. A genuine failure still shows,
+        # because a failing required test fails there too.
+        env:
+          INTERPOSER_PDK_ROOT: ${{ github.workspace }}/interposer
+          INTERCONNECT_PDK_ROOT: ${{ github.workspace }}/interconnect_pdk
+          ADK_ROOT: ${{ github.workspace }}/adk
+          INTERPOSER_LYP: ${{ github.workspace }}/interposer/libs.tech/klayout/tech/intm4tm2.lyp
+          GDS_TO_KICAD_ROOT: ${{ github.workspace }}/gds_to_kicad
+        run: |
+          test -f "$INTERPOSER_LYP"
+          (cd adk && python -m pytest tests -q -ra \
+             -o junit_family=xunit1 --junitxml=../adk.xml) || true
+          (cd chiplet_kicad_plugin && python -m pytest plugins/chiplet_export/tests -q -ra \
+             -o junit_family=xunit1 --junitxml=../plugin.xml) || true
+          # The interposer's chiplet-mode tests skip on a lone clone (M3(a) lazy
+          # import) and run here with both sibling roots on disk. Only the ids in
+          # required-tests.txt must pass; the KLayout-CLI decks self-skip.
+          (cd interposer && python -m pytest libs.tech/klayout/intm4tm2_tests -q -ra \
+             -o junit_family=xunit1 --junitxml=../interposer.xml) || true
+
+      - name: Self-test the manifest checker
+        run: python3 adk-tools/ci/check_required_tests.py --self-test
+
+      - name: Every test the siblings unlock actually ran and passed
+        run: |
+          python3 adk-tools/ci/check_required_tests.py \
+            adk-tools/ci/required-tests.txt \
+            --junit adk=adk.xml --junit plugin=plugin.xml --junit interposer=interposer.xml
+
+  # The second required context on this repository, alongside ci-gate. Same
+  # shape and same reason: `needs` alone does not gate, so each result is
+  # compared explicitly.
+  integration:
+    needs: [resolve, contracts, suites]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every cross-repo job to have succeeded
+        run: |
+          echo "resolve:   ${{ needs.resolve.result }}"
+          echo "contracts: ${{ needs.contracts.result }}"
+          echo "suites:    ${{ needs.suites.result }}"
+          test "${{ needs.resolve.result }}" = "success"
+          test "${{ needs.contracts.result }}" = "success"
+          test "${{ needs.suites.result }}" = "success"

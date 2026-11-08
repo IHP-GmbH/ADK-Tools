@@ -1,0 +1,46 @@
+# The ihp-sg13g2 files a mixed co-simulation case reads for a transistor-level sg13g2 die
+# (Dockerfile, stage sg13g2-models). The case names the corner sections the root lines below
+# name, and the stdcell spice. ngspice reads each named library whole and resolves every include
+# in it, in every section, so the list is the closure of every .include, .inc and .lib reference
+# in every reached file, all sections, recursively, from these roots; ci/check_sg13g2_models.py
+# recomputes it at SG13G2_REF and requires this list to equal it. sha256 and path under the
+# IHP-Open-PDK checkout, as sha256sum prints them, sorted by path (C order). The stage fetches
+# exactly these at SG13G2_REF and checks each.
+# root: ihp-sg13g2/libs.tech/ngspice/models/cornerMOSlv.lib mos_tt
+# root: ihp-sg13g2/libs.tech/ngspice/models/cornerMOSlv.lib mos_ss
+# root: ihp-sg13g2/libs.tech/ngspice/models/cornerMOShv.lib mos_tt
+# root: ihp-sg13g2/libs.tech/ngspice/models/cornerMOShv.lib mos_ss
+# root: ihp-sg13g2/libs.tech/ngspice/models/cornerDIO.lib dio_tt
+# root: ihp-sg13g2/libs.tech/ngspice/models/cornerRES.lib res_typ
+# root: ihp-sg13g2/libs.tech/ngspice/models/cornerCAP.lib cap_typ
+# root: ihp-sg13g2/libs.ref/sg13g2_stdcell/spice/sg13g2_stdcell.spice
+e9d9d5f58f118326588323dbb7a0c669ddfc19af700d838d0772e0e31f0841ac  ihp-sg13g2/libs.ref/sg13g2_stdcell/spice/sg13g2_stdcell.spice
+410001def252a236f221442efcea6353874d1614db593db4142ea3b8a499a207  ihp-sg13g2/libs.tech/ngspice/models/cap_cmomf.lib
+ae6270ea4abf6ad409065d6d24df2a9aa5b121cba3d6facbc14d6a3ceb7b424f  ihp-sg13g2/libs.tech/ngspice/models/cap_cmomi.lib
+ff9eb4cc9fdccc0645d9db0bd37e25e9fee2a633765910a7f55ac2084c49695f  ihp-sg13g2/libs.tech/ngspice/models/capacitors_mod.lib
+6c550362c762362e276f0ed0a4f875616ab6a9de853f1a8f6851b52676ea6f77  ihp-sg13g2/libs.tech/ngspice/models/capacitors_mod_mismatch.lib
+68d2ef41174bcfae5997b355c4fd3dbe4f2b8ec4be30ff79d474052b3be1715a  ihp-sg13g2/libs.tech/ngspice/models/capacitors_stat.lib
+4fc4a0f17ca2aef66ca38c2d2e7cead3307b69508d304ed073129565ec1c3e56  ihp-sg13g2/libs.tech/ngspice/models/cornerCAP.lib
+28e747e8f7437a3f539c5cc36f50c9d17c57c03ed463a4c9ee8f0a93a823fe0b  ihp-sg13g2/libs.tech/ngspice/models/cornerDIO.lib
+5a1f862dc304fdfe2fb9758b15d54809a688d83c3ce981dad2e8473b3e93481a  ihp-sg13g2/libs.tech/ngspice/models/cornerMOShv.lib
+03d505847c880d233b341be115a1e5460edf4d8e9b3e8a7df791a52fa4455d67  ihp-sg13g2/libs.tech/ngspice/models/cornerMOSlv.lib
+c6d749e72cfa2e06e4a14fac3f5662541bf6197b89265ecbedd632fd3503c425  ihp-sg13g2/libs.tech/ngspice/models/cornerRES.lib
+66fa37819fa8a5c8af4dbb85f11208c3e38faa49c117de55c35a1538786715e8  ihp-sg13g2/libs.tech/ngspice/models/diodes.lib
+7c77da0c0419c8a332550da3f934f530262bd452734090db827b68ff88d09c43  ihp-sg13g2/libs.tech/ngspice/models/resistors_mod.lib
+ce5ea8559df174fbdad8192e45e5d65772ae3af90af61ba295419b2cb5154b29  ihp-sg13g2/libs.tech/ngspice/models/resistors_mod_mismatch.lib
+9e34411ed09a569323adec8181e4bdd6832af279c9e05b181f00cb2e5d696db6  ihp-sg13g2/libs.tech/ngspice/models/resistors_stat.lib
+c3552c165acd21524043ff9a9b3938c71565722466e9568cf6b109408d5ff6da  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_dschottky_nbl1_mod.lib
+730c857bbaabb0c7876eb21b9b60a6882955db388956d082615763559c61d262  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_dschottky_nbl1_stat.lib
+4a4fb26a87f64bc6ed807f161cc7b3afaeb8d5ca7230b08ebba728e805caa925  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_esd.lib
+2e9612bdb8252c281f422511039dc9b3ea983892aec89f8ef3361592e68fed09  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_moshv_mismatch.lib
+58ce3084c253f2d3753c3b95386e8f4b81dcadfed4f4503dce56862a556c3328  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_moshv_mod.lib
+75c30f6975aad4cfe95af7c80fcea142ab0df6c9d7667c09120c7d0c9b814801  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_moshv_mod_mismatch.lib
+eea5bbed39184cb1e2654ae29425a9ed6ee2f2341d6cb76c472591c75237bd35  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_moshv_parm.lib
+cd30f22637e41fdbbaba506ebe0f17746b8438027e4651a7a87b241a39d68903  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_moshv_stat.lib
+2d3251e2d42eadb0f8af152a4915fdc60a68bceb95a2d17a52f90cfb34b7e63e  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_moslv_mismatch.lib
+84ec57080b9dd4666417f05db6f7b34c8dd3f12118929f9b308018613bece16e  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_moslv_mod.lib
+fac66b4344da4e31dece9a95c32d7af5aac7b40a60b4e029201e1904fb4e8acd  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_moslv_mod_mismatch.lib
+cbf10b8453a18bb70b8ad0d6e40faa0937338e699b5460947a94900db6c92a6e  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_moslv_parm.lib
+8d807e0ae41be381e655bf51f0eecf72269c8eaa022a2da59a1c90b0772e229a  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_moslv_stat.lib
+b6ae39c7334c75c222ecdee9d6b04c9be48657e91351429aebac47d1192a9abb  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_svaricaphv_mod.lib
+509495437667afc2ee96ebb9fe5836ffeb7d18df1db24245c90662fbf09283cd  ihp-sg13g2/libs.tech/ngspice/models/sg13g2_svaricaphv_mod_mismatch.lib

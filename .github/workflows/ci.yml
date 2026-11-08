@@ -1,0 +1,305 @@
+name: ci
+
+# adk-tools is a lockfile plus a build recipe. The build itself takes about an
+# hour, needs a shared Docker cache and stays on the machine that has it, so
+# hosted CI here is not a smaller version of the build: it is the set of
+# questions that can be answered without one.
+#
+# Both jobs below answer a question the build answers too, an hour later, and
+# both of them are questions this repository has already got wrong once.
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pins:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Self-test the checker
+        run: python3 ci/check_pins.py --self-test
+
+      - name: Every pin is publicly reachable and on its declared branch
+        env:
+          # Two API calls per submodule. Anonymous requests are rate-limited
+          # per IP, and hosted runners share theirs.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 ci/check_pins.py
+
+  pin-set:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Self-test the generator and the exporter
+        run: |
+          python3 -B ci/pin_set.py --self-test
+          python3 -B ci/export-pins --self-test
+
+      - name: ci/pin-set.json is what its sources give at this commit
+        # Every pin consumer outside staging.pin's own readers reads the
+        # generated file, so a pin bumped without regenerating it would record
+        # one combination and stage another.
+        run: python3 -B ci/pin_set.py --check --rev HEAD
+
+  paths:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Self-test the checker
+        run: python3 ci/check_paths.py --self-test
+
+      - name: Nothing here reaches into packaging-flow's examples
+        # The examples live in their own repository and are checked there;
+        # a path into the staged tree's examples/ would read a copy that no
+        # longer ships with them.
+        run: |
+          if git grep -n -e 'staging/packaging-flow/example[s]'; then
+            echo "a tracked file reaches into the staged packaging-flow's examples" >&2
+            exit 1
+          fi
+
+      - name: Self-test the vendored-reader check
+        run: python3 -B ci/check_vendored_reader.py --self-test
+
+      - name: Self-test the co-simulation engine check
+        run: python3 -B ci/check_cosim_engine.py --self-test
+
+      - name: Self-test the mixed-signal engine check
+        run: python3 -B ci/check_mixsim_engine.py --self-test
+
+      - name: Self-test the waveform viewer check
+        run: python3 -B ci/check_viewers.py --self-test
+
+      - name: Self-test the Verilog-AMS engine check
+        run: python3 -B ci/check_vams_engine.py --self-test
+
+      - name: Self-test the late-write check
+        run: python3 -B ci/check_late_writes.py --self-test
+
+      - name: Nothing late moves the tool identity table, and verify checks it first
+        run: python3 -B ci/check_late_writes.py Dockerfile
+
+      - name: Self-test the layer-depth check
+        run: python3 -B ci/check_layer_depth.py --self-test
+
+      - name: Every target stays under the overlay layer limit
+        run: python3 -B ci/check_layer_depth.py
+
+      - name: Self-test the tools image key
+        run: python3 -B ci/tools_key.py --self-test
+
+      - name: Self-test the thin-layer check
+        run: python3 -B ci/check_thin_layer.py --self-test
+
+      - name: Below the thin-layer line nothing installs from apt or downloads
+        run: python3 -B ci/check_thin_layer.py Dockerfile
+
+      - name: Self-test the layer sheet and stackup check
+        run: python3 -B ci/check_tech_files.py --self-test
+
+      - name: Test the Dockerfile and shell reader and what a command leaves
+        run: |
+          python3 -B ci/test_dockerfile.py
+          python3 -B ci/test_leave_policy.py
+
+      - name: Self-test the PDK slice check against the Dockerfile
+        run: python3 -B ci/test_slice_tech_files.py
+
+      - name: Self-test the KiCad template copies check
+        run: python3 -B ci/check_kicad_templates.py --self-test
+
+      - name: Self-test the die views check
+        run: python3 -B ci/check_die_views.py --self-test
+
+      - name: Self-test the interposer label check
+        run: python3 -B ci/check_interposer_label.py --self-test
+
+      - name: Self-test the ihp-sg13g2 model list check
+        run: python3 -B ci/check_sg13g2_models.py --self-test
+
+      - name: Self-test the staging overlay check
+        run: python3 -B ci/check_overlay.py --self-test
+
+      - name: Self-test the gf180mcuD deck check
+        run: python3 -B ci/check_gf180_deck.py --self-test
+
+      - name: Self-test the co-simulation mixed entries check
+        run: python3 -B ci/check_cosim_mixed_entries.py --self-test
+
+      - name: Self-test the die build environment check
+        run: bash ci/check_die_build_env.sh --self-test
+
+      - name: Self-test the host closure check
+        run: python3 -B ci/check_store_closure.py --self-test
+
+      - name: Self-test the store tools check
+        run: bash ci/check_store_tools.sh --self-test
+
+      - name: The ihp-sg13g2 model list is the include closure at SG13G2_REF
+        # A blobless fetch of the PDK at the Dockerfile's ref and a checkout of
+        # the two folders the list lives in, as the sg13g2-models stage does;
+        # the check reads git objects and fetches nothing itself. No PDK at
+        # the ref is its exit 3 (no verdict), which fails this step like any
+        # other non-zero exit.
+        run: |
+          ref="$(sed -n 's/^ARG SG13G2_REF=\([0-9a-f]\{40\}\)$/\1/p' Dockerfile)"
+          pdk="$RUNNER_TEMP/ihp-open-pdk"
+          git init -q "$pdk"
+          git -C "$pdk" remote add origin https://github.com/IHP-GmbH/IHP-Open-PDK.git
+          git -C "$pdk" fetch -q --depth 1 --filter=blob:none origin "$ref"
+          git -C "$pdk" checkout -q FETCH_HEAD -- \
+            ihp-sg13g2/libs.tech/ngspice/models ihp-sg13g2/libs.ref/sg13g2_stdcell/spice
+          python3 -B ci/check_sg13g2_models.py --git "$pdk" --dockerfile Dockerfile \
+            sg13g2-models.sha256
+
+      - name: The die views listing is the one staging.pin pins
+        # The records are not in git, so only the listing is checked here; the
+        # stager and the runtime stage check the bytes against it.
+        run: |
+          python3 -B ci/check_die_views.py --listing die-views.sha256 \
+            --expect-sha256 "$(bash -euo pipefail -c '. ./staging.pin >/dev/null; printf %s "$STAGE_DIE_VIEWS_SHA256"')"
+
+      - name: Test installed-prefix wrappers without EDA tools
+        run: python3 -B -m unittest discover -s tests/wrappers -v
+
+      - name: Test the launchers' image ID rule against a stub docker
+        run: python3 -B -m unittest discover -s tests/run_sh -v
+
+      - name: Test bin/flow against the same stub docker
+        run: python3 -B -m unittest discover -s tests/flow -v
+
+      - name: Test the release archive's checks against a stub docker
+        run: python3 -B -m unittest discover -s tests/save_image -v
+
+      - name: Test bin/adk-vscode against a fake code and docker
+        run: python3 -B -m unittest discover -s tests/adk_vscode -v
+
+      - name: Test that /work is written only when asked
+        run: python3 -B -m unittest discover -s tests/adk_example -v
+
+      - name: Test the demo gate's GDS digest on hand-written streams
+        run: python3 -B -m unittest discover -s tests/demo_gate -v
+
+      - name: Test the carrier DRC gate's flags against a fake deck
+        run: python3 -B -m unittest discover -s tests/carrier_drc -v
+
+      - name: Test the tool identity table, its image write and its verify
+        run: python3 -B nix/test_tool_identity.py -v
+
+      - name: Test the tracked-tree digest against packaging-flow's recorded answers
+        run: python3 -B nix/test_tracked_tree.py -v
+
+      - name: Check out the submodules the build addresses by path
+        # Not chiplet-studio (349 MB) and not the KiCad fork (2.1 GB): nothing
+        # in a RUN or a wrapper resolves into their sources, only into build
+        # products, and the checker reports an uninitialised submodule as a
+        # failure rather than passing over it, so this list cannot silently
+        # become too short.
+        run: |
+          git submodule update --init \
+            tools/adk \
+            tools/gds_to_kicad \
+            tools/OpenIntM4TM2 \
+            tools/IHP-Interconnect-IntM4TM2 \
+            tools/chiplet_kicad_plugin
+
+      - name: Every path the build reaches for exists in the pinned tree
+        run: python3 ci/check_paths.py
+
+      - name: The pinned interposer PDK reads its stamped commit back
+        # The image build's check on a copy of the submodule without .git,
+        # as the image has it.
+        run: |
+          tree="$RUNNER_TEMP/OpenIntM4TM2"
+          mkdir "$tree"
+          git -C tools/OpenIntM4TM2 archive HEAD | tar -x -C "$tree"
+          python3 -B ci/check_interposer_label.py --tree "$tree" \
+            --pin "$(git rev-parse HEAD:tools/OpenIntM4TM2)"
+
+  attach-plane:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the trees the plane check walks and the two PDKs
+        # Studio without its KLayout submodule: the check reads Studio's
+        # .chiplet files and stackups, never the build.
+        run: |
+          git submodule update --init --depth 1 tools/chiplet-studio
+          git submodule update --init \
+            tools/chiplet_kicad_plugin \
+            tools/OpenIntM4TM2 \
+            tools/IHP-Interconnect-IntM4TM2
+
+      - name: Install PyYAML at the image's pin
+        run: |
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/pip install --quiet PyYAML==6.0.3
+
+      - name: Self-test the plane check
+        run: /tmp/venv/bin/python3 -B ci/check_attach_plane.py --self-test
+
+      - name: Every IntM4TM2 .chiplet sits on the PDK's plane
+        # No --pdk-copy here. The image build also compares the staged
+        # repositories' copies of the key file; those trees are fetched by
+        # staging.pin, not submodules, so this job does not have them.
+        run: |
+          /tmp/venv/bin/python3 -B ci/check_attach_plane.py \
+            --pdk tools/OpenIntM4TM2 \
+            --interconnect tools/IHP-Interconnect-IntM4TM2 \
+            --tree tools/chiplet_kicad_plugin=tools/chiplet_kicad_plugin \
+            --tree tools/chiplet-studio=tools/chiplet-studio \
+            --tree examples=examples \
+            --exemptions ci/attach-plane-exemptions.txt
+
+  rulesets:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Self-test the comparison
+        run: python3 ci/rulesets/apply_rulesets.py --self-test
+
+      - name: The tracked ruleset payloads are well formed
+        # Offline on purpose. Comparing against what GitHub actually holds needs
+        # admin on all ten repositories and this token has admin on one, so
+        # drift detection stays a deliberate local run. What is caught here is
+        # the hand edit that puts a ruleset in a shape nobody can merge through:
+        # an empty context list, a bypass list that locks the maintainer out, or
+        # an integration_id copied in from the web UI.
+        run: python3 ci/rulesets/apply_rulesets.py --validate
+
+  # The one required status check. A single collector context per repository
+  # means a ruleset names `ci-gate` everywhere and never has to be edited when
+  # the job list inside a workflow changes.
+  ci-gate:
+    needs: [pins, pin-set, paths, attach-plane, rulesets]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every gating job to have succeeded
+        # `needs` alone does not gate: with `if: always()` this job runs even
+        # when a dependency failed, so each result has to be compared
+        # explicitly. Without the comparison the gate reports green after its
+        # dependencies went red.
+        run: |
+          echo "pins:     ${{ needs.pins.result }}"
+          echo "pin-set:  ${{ needs.pin-set.result }}"
+          echo "paths:    ${{ needs.paths.result }}"
+          echo "attach-plane: ${{ needs.attach-plane.result }}"
+          echo "rulesets: ${{ needs.rulesets.result }}"
+          test "${{ needs.pins.result }}" = "success"
+          test "${{ needs.pin-set.result }}" = "success"
+          test "${{ needs.paths.result }}" = "success"
+          test "${{ needs.attach-plane.result }}" = "success"
+          test "${{ needs.rulesets.result }}" = "success"

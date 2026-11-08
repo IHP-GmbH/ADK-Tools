@@ -1,9 +1,9 @@
 {
   "format": "gds-to-kicad-project",
   "version": 1,
-  "gds_path": "/opt/adk-tools/examples/two_die_interposer/chiplets/Metal_Test.gds",
+  "gds_path": "Metal_Test.gds",
   "lyp_path": "/opt/adk-tools/gds_to_kicad/pdks/sg13g2.lyp",
-  "stripped_gds_path": "/opt/adk-tools/examples/two_die_interposer/chiplets/Metal_Test_stripped.gds",
+  "stripped_gds_path": "Metal_Test_stripped.gds",
   "pad_layer": "TopMetal2.drawing (134/0)",
   "text_layer": "TopMetal2.text (134/25)",
   "extraction_source": 1,

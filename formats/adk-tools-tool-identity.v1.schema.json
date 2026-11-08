@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "SPDX-License-Identifier: Apache-2.0. SPDX-FileCopyrightText: 2026 IHP GmbH",
+  "title": "Tool identity table",
+  "description": "Each tool an adk-tools image runs, named by its content. The image build writes it once, as /opt/adk-tools/tool-identity.json, with nix/tool_identity.py. Byte form: one line of compact JSON, object keys sorted, no whitespace, separators ',' and ':', followed by exactly one newline; the same bytes as Python's json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=False) plus '\\n', UTF-8. A reader that keeps a copy keeps these bytes unedited and names the copy by their sha256. The table holds no image ID: an image ID is a digest over the image's layers, this file included, so the build cannot write it. A reader pairs the table's digest with the image ID the launcher gives (run.sh sets ADK_TOOLS_IMAGE, sha256:<64 hex>, in every container it starts); when that variable is absent or not an image ID it records no image ID and never derives one. What identifies a tool is its digests and its version; a path is where it sat in that image, recorded as provenance. Every digest is a sha256 in 64 lowercase hex digits.",
+  "type": "object",
+  "required": ["closure_sha256", "format", "tools"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "description": "This format and its version.",
+      "type": "string",
+      "const": "adk-tools-tool-identity/v1"
+    },
+    "closure_sha256": {
+      "description": "The closure digest over every Nix store path any tool needs, each counted once: the sha256 of the UTF-8 text made of one line '<NAR sha256>\\n' per path, the lines sorted. Store paths do not enter it, only contents.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "tools": {
+      "description": "One entry per tool, sorted by name, each name once.",
+      "type": "array",
+      "items": {
+        "description": "One tool. A pinned Nix tool (from image-store or host-store) has path, nar_sha256 and closure_sha256, and null version, binary and binary_sha256. A tool no pin names (from image), outside Nix or a single store binary the Nix lane's shell names, has version, binary and binary_sha256, and null closure_sha256; its path and nar_sha256 are both set or both null.",
+        "type": "object",
+        "required": ["binary", "binary_sha256", "closure_sha256", "from", "name", "nar_sha256", "path", "version"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "The tool's name, stable across images. A pinned Nix tool is named after its staging.pin pin, NIX_<X>_OUTPATH, as <x> in lower case with '-' for '_', which is also the adk-tools flake's package name (openroad, librelane, sg13g2-pdk, cosim-python, mixsim-ngspice, ...).",
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "from": {
+            "description": "image-store: a Nix store path the image carries in its own /nix/store. host-store: a Nix store path the image names in a label and run.sh mounts from the host's store at run time; its digests are the build host's, so a run on another host has the same tool only if that host's narHash for the path is the same. image: a tool no pin names, keyed by its version and its binary's bytes: one installed outside Nix in the run's own file system (the image's, or the host's in the Nix lane), or a single store binary the Nix lane's shell names, such as its git.",
+            "type": "string",
+            "enum": ["image-store", "host-store", "image"]
+          },
+          "path": {
+            "description": "Provenance, not identity. A pinned Nix tool: its store path. A tool no pin names: the directory that holds it and its own libraries, or null when it has none of its own.",
+            "type": ["string", "null"],
+            "pattern": "^/.*[^/]$"
+          },
+          "nar_sha256": {
+            "description": "The sha256 of path's NAR serialisation, as Nix serialises a path (a regular file is executable when its owner may execute it; directory entries in byte order of their names). For a store path it equals the narHash nix path-info reports, decoded from base64. Null exactly when path is null.",
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "closure_sha256": {
+            "description": "A pinned Nix tool's closure digest: as the top-level closure_sha256, over the store path and every path it requires. Null for a tool no pin names.",
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "version": {
+            "description": "A tool no pin names: the version it reports, as it prints it (kicad-cli version, klayout -v, python3 -V, git --version). One that prints none carries 'commit <commit>', the commit it was built from. A single script of adk-tools itself, with no release of its own, carries 'sha256 <digest>', the sha256 of its bytes. One run from a staged checkout carries 'commit <HEAD> tracked <digest>': the commit the checkout's HEAD names, and the sha256 of the canonical JSON (keys sorted, separators ',' and ':', ASCII, no newline) of the sorted [path, sha256] rows of every file its .git/index tracks, each by its bytes on disk. Null for a pinned Nix tool, whose store path names its version.",
+            "type": ["string", "null"],
+            "pattern": "^[\\s\\S]+$"
+          },
+          "binary": {
+            "description": "Provenance, not identity. A tool no pin names: the file its command runs, symlinks resolved. Null for a pinned Nix tool.",
+            "type": ["string", "null"],
+            "pattern": "^/.*[^/]$"
+          },
+          "binary_sha256": {
+            "description": "The sha256 of binary's bytes. Null for a pinned Nix tool.",
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

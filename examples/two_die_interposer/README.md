@@ -1,5 +1,10 @@
 # two_die_interposer
 
+This folder is the test fixture of the image's own checks (the gds2kicad prior
+steps, the writers, adk-smoke, carrier DRC, the reproducibility check). It is
+not an example for users: those live in the adk-examples repository, and
+`run.sh --examples` mounts them.
+
 Reference heterogeneous-design project for the adk-tools flow: two dies mounted
 on an IntM4TM2 interposer, connected through cu-pillar / micro-bump interconnect
 (2.5D), with wire-bond I/O pads at the interposer edge. It doubles as the
@@ -53,9 +58,21 @@ against the committed footprint, and the footprint converter is run on
 
 ## Open it
 
+The runtime image does not carry this project. Copy it on the host from the
+adk-tools clone you run `run.sh` from, into the folder mounted at `/work`
+(`/work/example` is the disposable spot; for persistent work use your own area):
+
 ```bash
-chiplet-studio example/outputs/two_die_interposer.chiplet
-kicad          example/kicad/two_die_interposer.kicad_pro
+cp -r "$ADK_TOOLS_ROOT/examples/two_die_interposer" "$ADK_WORK/example"
+mkdir -p "$ADK_WORK/heterogenic-designs"
+cp -r "$ADK_TOOLS_ROOT/examples/two_die_interposer" "$ADK_WORK/heterogenic-designs/"
+```
+
+Then open the copy:
+
+```bash
+chiplet-studio /work/example/outputs/two_die_interposer.chiplet
+kicad          /work/example/kicad/two_die_interposer.kicad_pro
 gds-to-kicad   # unified symbol + footprint GUI; load chiplets/Metal_Test.gds to reproduce the die library
 ```
 
@@ -65,7 +82,7 @@ The verify build regenerates `outputs/` from `kicad/` on every image build and
 gates it through the assembly DRC. To do it by hand:
 
 ```bash
-python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.py \
+python3 /opt/adk-tools/chiplet_kicad_plugin/plugins/chiplet_export/tests/regenerate_wirebond_demo.py \
     --require-drc \
     --board   example/kicad/two_die_interposer.kicad_pcb \
     --output-dir example/outputs

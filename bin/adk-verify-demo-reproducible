@@ -24,11 +24,13 @@ non-zero on any semantic difference:
   * `*.boundaries.json` is compared with `assembly_gds_sha256` dropped: that
     field only fingerprints the GDS, whose header carries a build timestamp, so
     it changes every run while the boundary geometry does not.
-  * `*.gds` is compared by a geometry digest: the stream is hashed with the
-    BGNLIB/BGNSTR timestamps zeroed, so a real geometry / layer / cell change is
-    caught while klayout's per-run header timestamp is not. (The
-    `.boundaries.json` polygons only fingerprint die placement, not the
-    interposer routing, so the GDS itself must be gated too.)
+  * `*.gds` is compared by a geometry digest: the BGNLIB/BGNSTR timestamps are
+    zeroed and the order of the cells, and of the elements inside each cell, is
+    ignored, so a real geometry / layer / cell change is caught while
+    klayout's per-run header timestamp and a writer that emits the same shapes
+    in another sequence are not. Each element is still compared record for
+    record. (The `.boundaries.json` polygons only fingerprint die placement,
+    not the interposer routing, so the GDS itself must be gated too.)
 
 Per-run and non-baked artifacts are ignored: `logs/`, `reports/assembly_drc/`,
 `*.lyrdb` (klayout DRC results DB -- embeds an absolute run path and a run
@@ -63,36 +65,119 @@ def _is_ignored(rel):
 _GDS_BGNLIB = 0x01
 _GDS_BGNSTR = 0x05
 _GDS_ENDLIB = 0x04
+_GDS_ENDSTR = 0x07
+_GDS_ENDEL = 0x11
+# ENDSTR carries no data, and the digest keeps only the fact of it; any other
+# form refuses the stream rather than being hashed away.
+_GDS_ENDSTR_REC = b"\x00\x04\x07\x00"
+# Records that open an element: BOUNDARY, PATH, SREF, AREF, TEXT, NODE, BOX.
+# Each element runs to its ENDEL.
+_GDS_ELEMENTS = frozenset((0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x15, 0x2D))
 
 
-def _gds_geometry_digest(path):
-    """SHA-256 of a GDSII stream with the BGNLIB/BGNSTR timestamps zeroed.
+def _gds_records(data):
+    """(record type, record bytes) pairs up to ENDLIB, or None if malformed.
 
     GDSII is a stream of records: a 2-byte big-endian length (header included),
-    a 1-byte record type, a 1-byte data type, then the data. Only BGNLIB and
-    BGNSTR carry wall-clock timestamps, so zeroing just those data bytes yields
-    a digest that is stable across regenerations yet still flips on any real
-    geometry / layer / cell change. Returns None on a malformed or truncated
-    stream so the caller can fall back to a raw byte compare rather than
-    silently declaring a match.
+    a 1-byte record type, a 1-byte data type, then the data. The BGNLIB and
+    BGNSTR data, the only wall-clock timestamps, come back zeroed. Anything
+    after ENDLIB is block padding and is dropped.
     """
-    data = Path(path).read_bytes()
-    h = hashlib.sha256()
+    out = []
     i, n = 0, len(data)
     while i + 4 <= n:
         rec_len = (data[i] << 8) | data[i + 1]
         if rec_len < 4 or i + rec_len > n:
             return None  # malformed / truncated
         rectype = data[i + 2]
-        h.update(data[i:i + 4])  # length + record type + data type
-        payload = data[i + 4:i + rec_len]
+        rec = data[i:i + rec_len]
         if rectype in (_GDS_BGNLIB, _GDS_BGNSTR):
-            h.update(b"\x00" * len(payload))
-        else:
-            h.update(payload)
+            rec = rec[:4] + b"\x00" * (rec_len - 4)
+        out.append((rectype, rec))
         i += rec_len
         if rectype == _GDS_ENDLIB:
-            break  # ignore any block padding written after ENDLIB
+            return out
+    return None  # no ENDLIB: truncated
+
+
+def _gds_geometry_digest(path):
+    """SHA-256 of a GDSII stream that ignores timestamps and emission order.
+
+    The library is read as its header, its cells and ENDLIB. A cell is its
+    BGNSTR/STRNAME records plus the multiset of its elements, each element
+    kept as the exact bytes of its records (layer, datatype, coordinates,
+    properties), so any change inside an element, an element added, removed
+    or moved to another cell, a cell renamed, added or removed, or a header
+    change (units, library name) flips the digest, while the same elements in
+    another order, or the same cells in another order, do not. A polygon
+    written from a different start vertex still counts as a change.
+
+    Returns None on a malformed or truncated stream, or one whose elements
+    and cells do not nest (an element outside a cell, a cell inside a cell,
+    an element that never ends), or one with a record where this reading
+    would lose its position (a cell record after the cell's first element,
+    a library record between or after the cells other than ENDLIB), or an
+    ENDSTR other than the empty record (the one record whose bytes the
+    digest does not keep), so the caller can fall back to a raw byte compare
+    rather than silently declaring a match.
+    """
+    records = _gds_records(Path(path).read_bytes())
+    if records is None:
+        return None
+
+    header, cells = [], []
+    cell = element = None
+    for rectype, rec in records:
+        if element is not None:
+            element.append(rec)
+            if rectype == _GDS_ENDEL:
+                cell["elements"].append(b"".join(element))
+                element = None
+            elif rectype in _GDS_ELEMENTS or rectype in (
+                    _GDS_BGNSTR, _GDS_ENDSTR, _GDS_ENDLIB):
+                return None  # an element that never ends
+        elif cell is not None:
+            if rectype in _GDS_ELEMENTS:
+                element = [rec]
+            elif rectype == _GDS_ENDSTR:
+                if rec != _GDS_ENDSTR_REC:
+                    return None  # an ENDSTR with a datatype or data
+                cells.append(cell)
+                cell = None
+            elif rectype in (_GDS_BGNSTR, _GDS_ENDEL, _GDS_ENDLIB):
+                return None  # a cell inside a cell, or an unopened element
+            elif cell["elements"]:
+                return None  # a cell record after its first element
+            else:
+                cell["head"].append(rec)  # STRNAME and the like
+        elif rectype == _GDS_BGNSTR:
+            cell = {"head": [rec], "elements": []}
+        elif rectype in _GDS_ELEMENTS or rectype in (_GDS_ENDSTR, _GDS_ENDEL):
+            return None  # an element or a cell end outside any cell
+        elif cells and rectype != _GDS_ENDLIB:
+            return None  # a library record between or after the cells
+        else:
+            header.append(rec)  # HEADER, BGNLIB, LIBNAME, UNITS, ..., ENDLIB
+    if cell is not None or element is not None:
+        return None
+
+    def frame(h, blob):
+        h.update(len(blob).to_bytes(8, "big"))
+        h.update(blob)
+
+    canon = []
+    for c in cells:
+        ch = hashlib.sha256()
+        frame(ch, b"".join(c["head"]))
+        ch.update(len(c["elements"]).to_bytes(8, "big"))
+        for e in sorted(c["elements"]):
+            frame(ch, e)
+        canon.append(ch.digest())
+    h = hashlib.sha256()
+    frame(h, b"".join(header))
+    h.update(len(canon).to_bytes(8, "big"))
+    for d in sorted(canon):
+        h.update(d)
     return h.hexdigest()
 
 
@@ -150,7 +235,8 @@ def compare(tracked, fresh):
                                  "byte compare): %s" % rel)
             elif dt != df:
                 diffs.append("GDS geometry differs from a fresh regen "
-                             "(timestamp-normalized digest): %s" % rel)
+                             "(digest without timestamps or emission order): "
+                             "%s" % rel)
         else:
             if tp.read_bytes() != fp.read_bytes():
                 diffs.append("content differs from a fresh regen: %s" % rel)

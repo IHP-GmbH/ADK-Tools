@@ -1,0 +1,23 @@
+# The mixed-signal engine the image ships, apart from what the co-simulation engine already
+# brings: the runtime closure of staging.pin's NIX_MIXSIM_NGSPICE_OUTPATH,
+# NIX_MIXSIM_IVERILOG_OUTPATH and NIX_SG13G2_OSDI_OUTPATH, less every path
+# nix/cosim-closure.txt lists, one store path per line, sorted. build.sh refuses unless this
+# equals that difference as the host store records it, and packs exactly these paths; the
+# verify stage checks /nix/store holds exactly the two lists together.
+/nix/store/0fn1q1birh10d095wijy1j11490g1rq1-libxaw-1.0.16
+/nix/store/1yiaq2pxhwmrpwb00cc7vmqiwqr4ddg5-libxcb-1.17.0
+/nix/store/53piyc8pm2bnh4fgsaq14503xx8nxcx8-libice-1.1.2
+/nix/store/6p48z0mqlj7cb3b6dwnr5vwp20g3ip1k-libx11-1.8.12
+/nix/store/8rw2jkhwpq54fps752d6fnjchrrvhq3c-libsm-1.2.6
+/nix/store/9l2yamjmbxy4dvb8i7mpgpfsijzlnlvs-libxext-1.3.6
+/nix/store/anybmg3w0nlzrl57xms9r9hpai93x4sl-sg13g2-osdi-22f4335
+/nix/store/b1dsw4p8nqs0dj7a5jdknd7w34559g86-fftw-double-3.3.10
+/nix/store/d471xb7sfbah076s8rx02i68zpxc2r5n-gzip-1.14
+/nix/store/iq86b3fc5p6837scfmqv7vjis47ib7qi-libxmu-1.2.1
+/nix/store/j00mkcq37jwplkzk9r8r0snh4cvxb0k0-libxdmcp-1.1.5
+/nix/store/jpwwmlkdfc6cph6dbrkqypvb0gcmdhk4-ncompress-5.0
+/nix/store/k7c25042pnppz6zri2icylj4carrglqi-libxau-1.0.12
+/nix/store/mjipfrxz15vc3ls2m9yiy0zw987vp38m-ngspice-45
+/nix/store/r95n1sqiyfmpnw4jy3znxb91a8khy84g-iverilog-libvvp-s20250103-60-gdb82380ce
+/nix/store/x2m53bbs9cspbc6labpk1pn8c81cf5kc-libxpm-3.5.17
+/nix/store/x76xcayijdinfafyjx8sz03gach9z9sc-libxt-1.3.1

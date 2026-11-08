@@ -1,0 +1,1662 @@
+# Sibling sources staged into the build context, plus the pins in the "LibreLane" and
+# "OpenROAD, for the Nix shell" sections. The file is sourced as shell under set -euo pipefail
+# (by stage-sources.sh, and by nix/cli-env.sh in a fresh bash to read one value), so it must
+# source cleanly. flake.nix, nix/check-build-pins.sh and nix/check-openroad-pin.sh also match
+# some assignments as whole lines and refuse unless exactly one line matches; the two checks
+# also refuse a value the shell reads differently from the literal. So keep every assignment
+# on one line, a plain literal quoted as it is now, with nothing after it.
+#
+# adk-tools is a lockfile. Every tool it ships is normally a submodule under
+# tools/, pinned by sha, and build.sh writes those shas into manifest.json.
+# The repositories in the "Staged repositories" section cannot enter that way
+# today, and the test is whether a second person can OBTAIN THE PINNED COMMIT,
+# not whether the repository is public. Two different things fail it:
+#
+#   - the remote is personal or private, or the checkout has no remote at all,
+#     so there is no URL a second person can use (seven of the eight entries);
+#   - the remote exists but does not have that commit, because it has not been
+#     pushed there (chiplet-spec; see the chiplet-spec entry).
+#
+# Either way a submodule URL would point at something a second person cannot
+# resolve, which is worse than no pin at all.
+#
+# So they are STAGED instead: stage-sources.sh, which build.sh runs before the image
+# build, fetches the pinned commit from a local sibling checkout into a new, shallow
+# repository under staging/ and checks it out; it never copies the working tree. The
+# difference is the whole point. A fetch takes a commit, so uncommitted edits,
+# untracked .venv directories and __pycache__ cannot ride along, and what lands in
+# the image is exactly what the recorded sha says. The staged tree keeps its .git,
+# which packaging-flow and chiplet-flow need to derive each package's identity;
+# stage-sources.sh has the full reason. build.sh reads each staged tree's HEAD back
+# and records it in manifest.json under its own "staged" key, beside the submodule
+# shas.
+#
+# What this costs: the image is not rebuildable from this repository alone.
+# Rebuilding it requires these commits to exist in a local checkout. That is a
+# real reduction in provenance and it was an explicit decision, not an
+# oversight. It is still strictly better than copying a working tree, where
+# "what is in the image" has no name at all.
+#
+# Each STAGE_*_PATH is relative to this repository's parent directory, or to
+# STAGE_SIBLINGS when that is set.
+
+# ----------------------------------------------------------------------
+# Staged repositories
+# ----------------------------------------------------------------------
+
+# Assembly-stage LVS engine: distribution `assembly-lvs` 0.8.0, console script `assembly-lvs`. In
+# the image, the `assembly-lvs` on PATH is bin/assembly-lvs, which execs the venv's script. It
+# reads an assembly-lvs.resolved/v2, /v3, /v4 or /v5 document and answers a v2 input with an
+# assembly-lvs.report/v3 report, a v3 input with a report/v4, a v4 input with a report/v5 and a
+# v5 input with a report/v6. v3 is
+# v2 plus an optional per-die footprint policy (an unselected frame on the pad layer, admitted
+# only if proved isolated), and report/v4 adds that isolation. v4 is v3 plus `purpose: fill` on a
+# layer mapping: fill is merged with the drawn metal of its layer first, then a carrier polygon
+# made only of declared fill is removed when it provably cannot join a net (dies are never
+# pruned), and report/v5 records what was removed per carrier and layer. For a v2 or v3 input
+# 0.6.0 changes only engine.version and the run id against 0.5.0; the nine states and their exit
+# codes are 0.5.0's. The staged packaging-flow writes a v4 input for every run with a carrier,
+# the carrier's FILL mappings declared fill, so it needs 0.6.0. packaging-flow's assembly-LVS
+# gate runs `assembly-lvs` from PATH by default (CHIPLET_FLOW_ASSEMBLY_LVS overrides it) and
+# accepts only the report schema that pairs with its input and this version's state table, so
+# this entry moves with the packaging-flow entry.
+#
+# It requires klayout>=0.30,<0.31, PyYAML>=6,<7 and z3-solver>=4.15,<4.16, and uses KLayout
+# through the Python module (klayout.db), not a klayout binary. In the image, the Dockerfile's
+# KLAYOUT_PIP (0.30.5) and PYYAML_PIP (6.0.3) are in range; z3-solver has no pin there, so pip
+# resolves it within that range when it installs the staged trees. The Nix shell installs this
+# tree with --no-deps and then runs pip check, so the KLayout and z3 it takes from Nix must meet
+# the same ranges (flake.nix adds the z3-solver metadata that check reads). KLayout 0.31 is
+# outside the range: moving KLAYOUT_PIP or the Nix KLayout to 0.31 needs an assembly-lvs
+# revision that admits it, in the same change.
+#
+# The repository's history has been started again twice, each time from one commit whose tree is
+# the old history's last commit. The first brought GPL-2.0-or-later, its docs pages and an
+# allowlist image context, with setuptools>=77 as the build backend, which the wheelhouse's 84.0.0
+# meets. Five commits on it then make the fill checks cheaper (a component's
+# translation taken once per region, the geometric fill checks repeated only when their inputs
+# change) and write test layouts without GDS timestamps; the reports and the state table do not
+# change. Version 0.7.0 then also writes a KLayout LVS database, <report stem>.lvsdb, beside a
+# report written to a file; the arguments are the same, and the report changes only in
+# engine.version and the run id. The second start holds the tree of
+# that 0.7.0 commit plus three commits: pyproject.toml drops the tier runner's table, the reference
+# reproduction record is regenerated for 0.7.0 and the test fixtures are renamed. Under src/ only a
+# comment moves, so the version (0.7.0), the arguments and the reports are 0.7.0's.
+#
+# An earlier move adds four commits: the repository licence moves to GPL-3.0-or-later, the
+# README becomes a short page for a newcomer, the docs say when verify writes an LVS database and
+# tabulate the format versions, and CI gates on the host tier, generated by the CI runner from the
+# tier row. Under src/ only the SPDX lines move, so the version (0.7.0), the arguments and the
+# reports are 0.7.0's.
+#
+# An earlier move adds one CI commit: the .github/ci/read_pins.py reader, regenerated by the CI
+# runner, which can also name the image's IHP-Open-PDK and gf180mcu commits (SG13G2_REF,
+# GF180MCU_REF). No package or test file changes.
+#
+# This ref (32d4739, 0.8.0) adds three commits on the previous pin: resolved/v5 is v4 plus a declared pin
+# tie, a group of pads a die declares as one pin (evidence kind declared_component_contract, an
+# assembly-lvs.component-certificate/v3 naming the declaration it was read from). A declared tie
+# joins nothing: each pad is still judged as its own terminal, and report/v6 lists the declared
+# groups and says they are not verified. v2, v3 and v4 inputs keep their report versions with
+# unchanged content apart from engine.version and the run id, so the staged packaging-flow's v4
+# runs read as before. The dependency ranges do not move.
+STAGE_ASSEMBLY_LVS_PATH=assembly-lvs
+STAGE_ASSEMBLY_LVS_REF=32d4739590a136dd35f13d53455c223c05fd4dde
+
+# 2.5D place/route engine, distribution interposer-pnr 0.5.0. Console script `interposer-pnr`
+# (interposer_pnr.cli:main), a headless subcommand CLI, not a GUI: place, place-check, bumps,
+# io-pads, route, pdn, check-mesh, check-requirements, export, board-revision, report, signoff.
+# In the image, the `interposer-pnr` on PATH is bin/interposer-pnr, which execs the venv's script. Its two requirements, jsonschema>=4.18
+# and pyyaml>=6.0, are met by the venv pins, and pip check runs after the install. klayout appears
+# only in its test extra, which the image does not install, so it puts no constraint on KLAYOUT_PIP.
+# The adk-tools Nix shell (nix/cli-env.sh) installs it editable with --no-deps and then runs pip
+# check, so flake.nix's Python packages must meet the same two requirements.
+#
+# Its cross-repo inputs (the ADK's rule parameters, the interconnect method manifest) come from
+# an option or the environment, never from the checkout layout; with neither it refuses (exit 5)
+# rather than use its built-in numbers, unless --allow-builtin-rules opts in. The image sets
+# ADK_ROOT and INTERCONNECT_PDK_ROOT for them. A synthesized board also reads the interposer
+# PDK's libs.tech/intm4tm2_stack.json (--interposer-pdk-root, else INTERPOSER_PDK_ROOT, which
+# the image sets) for its body thickness and stackup; that key has no built-in, so synthesis
+# refuses without it even under --allow-builtin-rules. It reads the key at schema_version 1.1,
+# which adds beol.passivation, a block it does not read; a 1.0 key still reads. The
+# tools/OpenIntM4TM2 gitlink carries the key, so this pin and that gitlink move together. It
+# checks each file's declared version with chiplet_format_io.check_contract_version when that
+# imports, which in the image is the staged chiplet-spec reader (see the chiplet-spec entry), and
+# with an identical local rule otherwise.
+#
+# OpenROAD. The image carries the build NIX_OPENROAD_OUTPATH names in its own /nix/store and sets
+# OPENROAD in its ENV (an image built before that has none, and run.sh supplies one at run time):
+# interposer-pnr takes $OPENROAD first (a value that does not resolve is an error, not a fallback),
+# then `openroad` on PATH, and with neither `route` exits 2 and writes nothing. `adk-tools` reports
+# whether $OPENROAD or PATH has one. The build is not interchangeable. interposer-pnr documents its
+# routing as proven on one OpenROAD build, the one its tools_manifest.json names as the routing
+# reference (probed through its own lookup, $OPENROAD then PATH, under the live_openroad marker;
+# drift there warns, never fails). Its docs record that on ad9e7248, the build
+# openroad/openroad.pin pins for the 3Dblox sidecar image, rdl_route over its own fixture spins at
+# 100% CPU for over 13 minutes where that build finishes in seconds; tools_manifest.json keeps that
+# build for 3Dblox work only. The Nix shell exports OPENROAD as dcf36133, the build LibreLane
+# packages (see the "OpenROAD, for the Nix shell" section). dcf36133's detailed_route aborts on
+# -bottom/-top_routing_layer (DRT-0509/0510); this rev's routing Tcl drops those flags only when
+# detailed_route's own proc body rejects both, and any probe error keeps them, so the routing
+# reference still gets them. This rev's Tcl also corrects dcf36133's rdl_route, which drops every
+# net given by name. Moving the routing reference to dcf36133 is interposer-pnr's work, not
+# adk-tools'.
+#
+# Why this rev. It routes each die endpoint against the drawn top-metal landing rather than the
+# pillar body, derived per method from the interconnect manifest's fab_params as the
+# passivation opening plus twice the TopMetal2 enclosure. In the manifest at the image's
+# IHP-Interconnect-IntM4TM2 gitlink that is 50 um against a 44 um body for cupillar_opt1;
+# landing minus body is 6 um for all three cupillar options, 0 for sbump_sac305 and 10 for
+# vendorx_microbump. A router clearing from the body believes it has half that difference more
+# room per side than exists (3 um on a cupillar), and the shortfall is invisible to any check
+# that does not know the landing. A method without a complete fab_params pair falls back to the
+# body, and the route says so in its notes.
+#
+# It also carries what the flow around it uses: the KiCad round trip (export with --chiplet and
+# --bumps records what was sent in its --report, and signoff --sign --report checks that a board
+# edited in KiCad still carries that copper; for a host that signs on someone's behalf,
+# --expect-sha256 refuses a board other than the one whose fingerprint was confirmed and
+# --refuse-existing refuses when anything is already at --ack, both with exit 3 before anything is
+# written, and without them the record bytes are unchanged); die footprints from --pins, whose
+# electrical pads are the carrier landing circles, with --layout binding each die's GDS (with
+# --board-relative-layout a relative one is read from the board's folder and written as given, so
+# two runs of one design write the same board); carrier io_pad footprints; the board-revision
+# subcommand; a pad exit keepout (routability.pad_exit_um, 7.0 um from rule Pad.fR in both IntM4TM2
+# descriptors, written as DEF blockages per routed I/O pad on multi-layer routes); and a
+# routing-only access view for circular pads (pin_access.py) that changes no exported geometry.
+# Each die footprint carries a CHIPLET_PAD_DOMAINS record (format chiplet_kicad.pad_domains,
+# version 1), the one the image's KiCad export plugin validates.
+#
+# packaging-flow runs it as `python -m interposer_pnr` from its own interpreter (the image's
+# venv, unless CHIPLET_FLOW_ENGINE_PYTHON names another) and never imports it. It passes
+# --adk-root and --interconnect-pdk-root on every call, uses export --pins/--layout (a layout
+# inside the run folder with --board-relative-layout, which an older rev rejects as an unknown
+# option) and board-revision, reads exits 5 and 6 as a source it could not use or a source
+# version it must not read, and accepts the export report's round_trip record at versions 1 to 5
+# (3 and 5 follow a sheet, 4 and 5 carry reserved copper); a change to any of these moves with the
+# packaging-flow entry. The signoff acknowledgment it writes is version 2 of
+# interposer_pnr.signoff (a version 1 ack still reads, as unstated); the packaging-flow ref reads
+# both versions through one loader. `signoff --check` writes its own record and signs nothing.
+# The die flow (chiplet-flow) does not run it. In this repository only nix/capture_context.py
+# imports it, to record its file and version. The verify stage checks that the staged tree reads
+# back this commit as a user that does not own it, as for every staged tree, and its step 0c holds
+# the tree's frozen copy of the interposer PDK's key file,
+# tests/data/frozen/interposer_pdk/libs.tech/intm4tm2_stack.json, to the PDK this image carries
+# (check_attach_plane.py --pdk-copy). interposer-pnr's own suite reports a frozen file that drifted
+# as a skip, so a PDK pin that moves the file fails the build until interposer-pnr refreshes its
+# copy. Nothing the verify stage runs imports interposer_pnr.
+#
+# The repository's history has been started again twice. A KiCad draft decides each of its rule files once, acts on one only while it is as
+# the plan found it, writes it through a temporary file, and stops on an unreadable one (--force
+# does not get past it); a template's clearance reaches KiCad through its .kicad_dru. The licence is
+# GPL-3.0-or-later AND Apache-2.0, with the Apache-2.0 schemas and routing descriptors named in a
+# REUSE.toml the wheel ships. The version is 0.5.0. Its own .chiplet reader (ir.py) accepts format
+# 1.1, refuses a source document (a top-level system block) on the assembly read path and any
+# assembly.units other than um, as the reference reader from 1.14.0 does; an inventory refusal names
+# its footprints; and `signoff --sign` takes --channel terminal|form|script and writes ack version
+# 3. Its suite reads each sibling through its own variable before the shared root and declares its
+# T2 skips. A bare pytest starts no tool binary and no container, and tools_manifest.json reads the
+# klayout and Python versions from this repository's ci/pin-set.json. Nothing the verify stage runs
+# imports interposer_pnr.
+#
+# An earlier move adds seven commits: live routing inputs come from an explicit run
+# directory, declared skip totals are accepted for optional run inputs, the frozen run provenance
+# drops private directory labels, the repository licence moves to GPL-3.0-or-later, and the
+# README becomes a short page with the detail under docs/. The version stays 0.5.0.
+#
+# An earlier move adds eleven commits. The reader accepts format 1.3 and, as the
+# reference reader from 1.16.0 does, refuses an assembly that carries a source's unplaced key. A
+# new place command decides the dies a source leaves open, holding fixed dies and boxing them
+# from their pin lists; with --keep-all it keeps every die and only checks them. The two IHP routing
+# descriptors (schema 1.2) name the technology's fab layer set, fab.layer_set, a path under the
+# interposer PDK root that the tools/OpenIntM4TM2 gitlink carries; packaging-flow's fab-file reads
+# it, so this entry, that one and the gitlink move together. The lambdapdk descriptor stays at 1.1
+# without one, so fab-file refuses that technology. CI gates on the host tier. The version stays
+# 0.5.0.
+#
+# An earlier move adds 25 commits. export --form draws the board against the designer's KiCad
+# sheet: die footprints take their symbol's identity and units, carrier pads their sheet EXT_PAD
+# identity in a hidden IO_PAD_ID property, every pad a die joins is netted, and routed copper takes
+# the sheet's net names. With --form the export report's round_trip is version 3 and states the way
+# back (net_names, planner to sheet, and sheet_nets, the pads no routed net binds); a form board is
+# checked against its sheet as KiCad's Update PCB from Schematic would, and the gate refuses
+# jumpers. src/interposer_pnr/round_trip_names.py is the one reader of that record: gds_to_kicad
+# and the plugin vendor it byte-identical, each beside a SOURCE file naming the commit it came from, so when the
+# file changes the two gitlinks and this entry move together. chiplet-spec's reader (__init__.py
+# and footprint_ids.py) is vendored under src/interposer_pnr/_vendor. The version stays 0.5.0.
+#
+# An earlier move adds three commits, and a CI commit. signoff --report and
+# board_revision check a round_trip 3 report's net names through read_round_trip_names, so a net
+# map no export writes (one board net for two planner nets, at any version; at version 3, also a
+# sheet net that is a routed net's board name) is refused as an unreadable receipt (usage exit),
+# not reported as a source-net-map finding. round_trip_names.py is unchanged, so its vendored
+# copies and their SOURCE files stay current. place --rotations names the turns a die may
+# end at (of 0, 90, 180 and 270; all four by default): placed dies turn only by those, a kept die
+# at another turn is not_legal rather than turned, and the placement records them. The CI commit is
+# the .github/ci/read_pins.py reader, regenerated by the CI runner, which can also name the image's
+# IHP-Open-PDK and gf180mcu commits (SG13G2_REF, GF180MCU_REF). The version stays 0.5.0.
+#
+# An earlier move adds three commits. OpenROAD 02c5d66d9a lost the list variable in
+# rdl_route's net-name loop, so every net given by name is appended to nothing and the command ends
+# in PAD-0042; dcf36133, the build this image ships, has that body, so interposer-pnr's
+# single-layer backend routed no net in the image. The rdl Tcl now reads the proc body first: a
+# broken loop has the proc redefined with only that line corrected, either known correct spelling
+# (the restored foreach or the later lmap) is left alone, and anything else stops before rdl_route
+# and route() refuses. The verify stage's step 0g runs its three live_openroad route cases on
+# $OPENROAD (ci/ipnr-route-tests.txt), so this entry and that list move together. No vendored file
+# moves. The version stays 0.5.0.
+#
+# An earlier move adds 24 commits. It reads format 1.4 and vendors chiplet_format_io
+# 1.18.0 from chiplet-spec (its SOURCE names the commit), and the loader's accepted minor
+# is held to the vendored reader's, so this entry moves with STAGE_CHIPLET_SPEC_REF. A
+# net_requirements v1 file states per-net trace widths, checked before a route and reported per
+# net after it. Each routing layer's width-dependent spacing is stated in the descriptor and the
+# tech LEF (no longer an NDR), and interposer-pnr measures every routed gap between nets with its
+# own spacing check, keeping every finding of a refused route. A routed DEF's TAPER run heads are
+# read, and the DIEAREA sits on the manufacturing grid. Every pad of a rail pin is an endpoint (V18
+# step 3): a rail group is read as one assignment at every round_trip version, board_revision folds
+# a repeated rail connection per net, and a rail group on rdl, or a repeat on another layer, is
+# refused before routing. The three route cases in ci/ipnr-route-tests.txt are unchanged. No
+# pyproject dependency moves. The version stays 0.5.0.
+#
+# An earlier move adds five commits. A route names each system net on every backend:
+# traces.json and route.json's unrouted[].net carry the design's net name whether rdl decomposed
+# the nets or grt+drt routed them whole (unrouted[].subnet keeps the DEF name), through one
+# DEF-to-system map, and a routed net missing from that map is refused. export writes net names
+# verbatim, on a new board and onto a designer's (--board), and refuses before writing a name
+# outside letters, digits, '_', '.' and a bracketed digit index after the first character. That
+# is gds_to_kicad's shape without its '+' and '-', which the board side has not measured, so a
+# net gds_to_kicad draws can still be refused here. A --form export carries KiCad's sheet names
+# and is not held to it. The vendored chiplet_format_io moves to 1.19.0 from chiplet-spec
+# (its SOURCE names the commit; only __version__ changes), so this entry moves with
+# STAGE_CHIPLET_SPEC_REF. round_trip_names.py does not change, so its vendored copies and their
+# SOURCE files stay current. The three route cases in ci/ipnr-route-tests.txt are
+# unchanged. No pyproject dependency moves. The version stays 0.5.0.
+#
+# An earlier move adds 18 commits. A route takes reserved copper (--reserved stripes
+# and tiled via arrays, planned against the design and reported per owner), and round_trip versions
+# 4 and 5 record it. read_round_trip_names reads the reserved block at every version, so
+# round_trip_names.py moves and its vendored copies move with this entry: the
+# tools/chiplet_kicad_plugin and tools/gds_to_kicad gitlinks carry it byte-equal, their SOURCE
+# files naming that commit, and packaging-flow's entry accepts versions 4 and 5. check-requirements
+# prints route's requirement refusals for a net_requirements file before any route, reading no
+# design and running no OpenROAD; packaging-flow's entry runs it, so this entry and that one move
+# together. It also freezes the intm4tm2 0.2.0 KiCad rule templates (rules TM2_bR and Slt_c) as
+# test data, byte-equal to the interposer PDK's interposer_template files (096c681's, which the
+# tools/OpenIntM4TM2 gitlink's 096c681 keeps), which export copies beside the board unread; a
+# change to that pair moves this entry and that gitlink together. Step 0c's
+# check_kicad_templates.py holds the pair, and packaging-flow's fixture copy, to the gitlink's
+# bytes. That move reads format 1.5 and vendors chiplet_format_io 1.20.0 from
+# chiplet-spec (its SOURCE names the commit; footprint_ids.py does not change), so this
+# entry moves with STAGE_CHIPLET_SPEC_REF.
+# The three route cases in ci/ipnr-route-tests.txt are unchanged. No pyproject dependency moves.
+# The version stays 0.5.0.
+#
+# An earlier move adds six commits. A pdn stage plans a rail mesh from its spec and
+# the prepared route, draws it with pdngen, reads every drawn shape back, refuses copper the spec
+# did not ask for or a rail that falls apart, and writes a reserved file owned by pdn, which route
+# takes like any reserved geometry. Its tests run a stand-in openroad; no image step runs pdngen
+# yet, so pdn is not proven live here. route's code is reworked to share with pdn (rdl_route runs
+# through openroad.run_script, the endpoint LEF and the die area move into shared helpers, and
+# plan_reserved accepts a stripe width float-close to its bounds), but its arguments are one set
+# with pdn's and unchanged, and check-requirements keeps its own. No vendored file,
+# round_trip_names.py or tests/test_router.py moves, so the three route cases in
+# ci/ipnr-route-tests.txt are unchanged and step 0g runs them on the reworked route. packaging-flow
+# 9ec146d runs no pdn, and no template or reader copy moves, so packaging-flow, chiplet-spec and
+# the gitlinks stay. No pyproject dependency moves. The version stays 0.5.0.
+#
+# An earlier move adds 19 commits. A net_requirements row on a reserved net is held to
+# the reserved copper's cross-section, the copper a cut meets summed per direction at the narrowest
+# cut, and route reports it as met_by_reserved instead of drawing a rule for it. A new check-mesh
+# subcommand refuses a pdn mesh spec (interposer_pnr.mesh_spec v1, or v2 with a span per stripe)
+# before any build, against the tech's rules, declared rails (interposer_pnr.rails v1), the voltage
+# domain, the keep-in and that cross-section rule, and writes interposer_pnr.mesh_check v1;
+# check-requirements --judged-by leaves to it only the rows it judged. round_trip moves to version
+# 6, a self-describing record whose features list names the blocks it holds (pad_domains, sheet,
+# reserved, widths). Given route's report through the new --route-report, export writes it with a
+# widths block: each required net's per-layer width and the taper boxes route judged it by, or the
+# cross-section of a met_by_reserved net. The draft's .kicad_dru is no longer the PDK template
+# copied unread: its bytes are the PDK's interposer_template.kicad_dru as an unchanged prefix
+# followed by one NetName track_width rule per widened net and layer (the pin layer and
+# cross-section nets left out), an early warning in KiCad only. signoff refuses a board whose copper
+# on a required net is narrower than the record states, outside route's own taper boxes, as one more
+# reason line; the signoff_check record stays at version 1. round_trip_names.py moves (blob
+# be50250), so its vendored copies move with this entry: the tools/chiplet_kicad_plugin and
+# tools/gds_to_kicad gitlinks carry it byte-equal with SOURCE files naming that commit, and
+# packaging-flow's entry vendors it too and passes --route-report, which only this ref takes. The
+# vendored chiplet_format_io moves to 1.21.0 from chiplet-spec (its SOURCE names the
+# commit; only __version__ changes, footprint_ids.py does not), so this entry moves with
+# STAGE_CHIPLET_SPEC_REF. The frozen interposer PDK key file and KiCad rule pair do not move; the
+# tools/OpenIntM4TM2 gitlink's 096c681 keeps 096c681's bytes for both. The image runs neither pdn
+# nor check-mesh on a live OpenROAD; tests/test_ndr_known_limit.py holds detailed_route's spacing
+# miss under a non-default rule as a strict xfail that no image step runs. tests/test_router.py does
+# not change, so the three route cases in ci/ipnr-route-tests.txt are unchanged. No pyproject
+# dependency moves. The version stays 0.5.0.
+#
+# An earlier move adds 14 commits. A routing-tech descriptor that breaks its own
+# schema version is refused at load (DescriptorRefused, through one check_descriptor gate the
+# library loader uses too), and other routed metals keep off an I/O pad, not only the pin layer
+# (the schema's pad_exit_um text says so; no schema version moves). pdn takes the pad footprint
+# blockages out of its run, keeps pin-layer stripes off every pad, its own rail's too, and keeps
+# the clearance pdngen keeps beside pads and pad-exit keep-outs. A new pdn-plan subcommand proposes
+# a mesh spec from the floorplan's pads, reads it back with the mesh check, needs no OpenROAD and
+# writes a report with stable refusal ids. A test runs pdn through the real openroad on the two-die
+# fixture; it skips without one, and ci-runner's T2 entry interposer-pnr-openroad runs it on the
+# image. The frozen KiCad rule pair moves to intm4tm2 0.3.1 (TM2.bR on a pad becomes a
+# warning), byte-equal to the interposer PDK's interposer_template files at the tools/OpenIntM4TM2
+# gitlink's 096c681 (they moved at 096c681), so this entry and that gitlink move together and
+# step 0c's check_kicad_templates.py holds them. No vendored file, round_trip_names.py or
+# tests/test_router.py moves, so the three route cases in ci/ipnr-route-tests.txt are unchanged and
+# the vendored chiplet_format_io stays at 1.21.0. No pyproject dependency moves. The version stays
+# 0.5.0.
+#
+# An earlier move adds 82 commits. A power-check stage judges each rail's IR drop
+# and EM through OpenROAD's psm, with its own report, refusal ids and exit codes; escape-capacity
+# measures how many pillar rows a die edge escapes; a draft board is paired with and checked
+# against the draft sheet of the same design; the router refuses an openroad without the decoder
+# methods its dump calls; pdn ends each mesh stripe at its last connection, and a pad joins a
+# stripe only where one cut fits. The frozen KiCad rule pair moves to intm4tm2 0.4.1 (TM2.bR holds
+# TopMetal2 copper only), byte-equal to the interposer PDK's interposer_template files at the
+# tools/OpenIntM4TM2 gitlink's 096c681, so this entry, packaging-flow's and that gitlink move
+# together and step 0c's check_kicad_templates.py holds them. tests/test_router.py does not change,
+# so the route case in ci/ipnr-route-tests.txt is unchanged. No pyproject dependency moves. The
+# version stays 0.5.0.
+#
+# An earlier move adds one commit: the bump obstruction fixture's README no longer names a
+# development commit. Prose only; nothing else moves.
+#
+# This ref (54caf81) adds five commits. Placement follows the ADK's rule_params.json 0.3: ASM_b
+# moves from 50 to 200 um and the built-in fallback follows it. A rule file that is found but
+# states no ASM_b or ASM_e, or states either out of range, is refused (exit 5) instead of being
+# completed from built-in values; ASM_e 0 still reads as no area floor. ASM_g is not read (placement
+# places no pads). tests/test_drc_parity.py reads rule_params.json from the ADK tree whose
+# run_drc.py it runs, so it holds the tools/adk gitlink's value, and this entry and that gitlink
+# move together. No vendored file, KiCad rule pair or tests/test_router.py moves, so the three
+# route cases in ci/ipnr-route-tests.txt are unchanged. No pyproject dependency moves. The version stays
+# 0.5.0.
+STAGE_INTERPOSER_PNR_PATH=interposer-pnr
+STAGE_INTERPOSER_PNR_REF=54caf817e08a713ded71173c331815b4e2572a12
+
+# Orchestrator that chains die builds into the interposer flow from one spec: distribution
+# packaging_flow, console script `packaging-flow` (packaging_flow.cli:main). In the image the
+# `packaging-flow` on PATH is bin/packaging-flow, which execs the venv's script. Its commands are
+# run, resume, status, map, validate, verify, lvs-bundle, lvs-verify, edit, compare-nets, views,
+# place, review-copy, review-levels, tasks, fab-file and the verification commands verify-status,
+# verify-run, verify-export, verify-open, verify-accept, verify-sign and sign-request, which writes
+# a gate's request for verify-sign. verify-sign signs a run's status at its gate through the
+# interposer-pnr in the flow's own interpreter, the venv's here, and asks its questions only at a
+# terminal; verify-accept files a standing acceptance, also at a terminal. verify-run runs the
+# co-simulation kind, assembly.sim at the gate, as a chiplet-cosim from-run process on a finished
+# run, through the chiplet-cosim and cosim-python the tool table names, and imports nothing of
+# chiplet-cosim. review-copy copies a run's board to a folder outside the run for KiCad, rewriting
+# each relative GDS_FILE for that folder. review-levels lays a completed run's final files out in a
+# folder beside it, one subfolder per level, as copies (the board, its schematic and both .chiplet
+# files, their relative paths re-anchored) and relative links, and writes levels.txt; a second call
+# writes nothing and it never deletes. Both read and write files only.
+#
+# It builds each die as a separate `chiplet-die-flow build-die` process: the die-flow command a run
+# is given, else the `chiplet-die-flow` it finds on PATH (see the chiplet-flow entry), and a run
+# that builds no die never starts it. So the image and the Nix CLI shell both put the two programs
+# on PATH: the image through bin/, the shell through its venv's bin/. It runs the interposer-pnr
+# engine as `python -m interposer_pnr` under the interpreter running the flow (or
+# $CHIPLET_FLOW_ENGINE_PYTHON) and never imports it, which is why the image installs both into one
+# venv (see the interposer-pnr entry for what the flow relies on from the engine). It runs
+# assembly-lvs as a recorded stage, and its tail dispatches chiplet-export, adk-verify-carrier-drc
+# and adk-drc, all on the image's PATH. Its exit codes are 0 to 11 and 130, and host-verify.sh,
+# which runs `status` or `verify` in a pinned image over read-only mounts and passes the exit code
+# through, keeps its own codes (64 to 75) clear of that table. verify-status, verify-run and
+# verify-sign add 12 to 16, which status and verify never exit. Both read commands write nothing
+# into the run on any path, which is what the read-only mounts need.
+#
+# Installed editable from the staged clone, and it has to be (see the Dockerfile's install step):
+# it records each dispatched package's identity with `git rev-parse HEAD` on the directory
+# find_spec resolves to, and `packaging-flow verify` refuses a full-tier run whose identity reads
+# unavailable. For the same reason the Dockerfile marks every staged tree a git safe.directory,
+# so a container run under a user that does not own the trees still reads each commit. The flow
+# also reads its terminal profiles from profiles/ at the repository root, outside the package.
+# Package data is klayout_scripts/*.py (scripts it runs as KLayout or klayout-module
+# subprocesses, never imports). No identity leaf needs Docker: provenance.image_digest() is
+# defined but no identity path calls it, so verify in a container without a Docker CLI does not
+# refuse on that account.
+#
+# Declared runtime deps are pyyaml>=6.0, chiplet-system-description and chiplet-format-io>=1.15.0;
+# the chiplet-full extra adds the reader's strict extra at the same floor. The reader floor is a
+# plain dependency, so pip check reads it: a chiplet-spec pin below 1.15.0 fails the image's install
+# step (chiplet-cosim has the same floor, the die flow 1.12.0). 1.12.0 maps ihp-sg13cmos5l to
+# sg13cmos5l, which the admission verdict for such a contract rests on (this ref declares sg13cmos5l
+# with no compose window, and says why), and holds READ_KINDS, which the die flow door imports.
+# 1.10.0 keys the KLayout check options (DRC_THREADS, DRC_OPTIONS) by PDK, and this package reads
+# them that way. 1.11.0 adds checks 1.1, whose one new run-check value is not_checked, and
+# PORTS_NOT_CHECKED, the deck trees whose deck does not check the top-level port labels: admission
+# reads a die whose ports run check is not_checked, under checks 1.1 and over such a deck tree, as
+# met with a not_checked:ports gap, and any other not_checked still fails that run check.
+# chiplet-flow writes that record (see its entry), so the two pins move together. Loading the CLI
+# imports PyYAML, chiplet_system_description and chiplet_format_io (its ready_die_names). Its strict
+# die-contract admission imports the top-level chiplet_format_io, which in the image is the
+# installed chiplet-spec distribution, and accepts only strict capability revision 4, which that pin
+# provides; the chiplet-spec entry and this one move together on that.
+#
+# The heavy tiers (smoke, full) build dies through chiplet-die-flow build-die, which needs LibreLane
+# (see the chiplet-flow entry); this image has none, so no die is built in it and only dies that
+# are admitted, not built, run here. `--tier smoke` truncates each build at synthesis by default
+# and leaves no die GDS. `packaging-flow run --tier hermetic` cannot work from the CLI: the CLI
+# injects no die flow and the hermetic tier refuses to default to one.
+#
+# Roots come from the environment (roots.py): each from its own variable, else
+# $HCDP_ROOT/<sibling>, else unset and refused where it is needed; for the two engine roots a
+# flow spec's adk_root or interconnect_pdk_root comes first. The image exports the ones the flow
+# reads: ADK_ROOT and INTERCONNECT_PDK_ROOT for the engine legs, which get them on their argv
+# (the latter is also set for every process the flow starts), INTERPOSER_PDK_ROOT for the
+# carrier DRC deck, the terminal profiles' pad rules and, when the spec names no board template,
+# the engine's --interposer-pdk-root (checked at S0 like the other two engine roots; its root and
+# the stack key's digest go into the engine identity), GDS_TO_KICAD_ROOT for the pad-map
+# extractor, and CHIPLET_KICAD_PLUGIN_ROOT for edit. An engine below the interposer-pnr
+# pin rejects --interposer-pdk-root as an unknown option, so this pin, that one and the
+# tools/OpenIntM4TM2 gitlink (which carries libs.tech/intm4tm2_stack.json) move together.
+#
+# packaging_flow.technologies declares every technology the flow's specs build from, in its
+# TECHNOLOGIES tuple (INTM4TM2, SG13G2, GF180MCU), each naming a KLayout layer sheet and a stackup
+# as ${VAR} paths; a spec names the ones its system uses from there. Building them needs
+# Technology.layer_properties and .stackup, which the system description in the chiplet-spec entry
+# has, so the two move together. Only Chiplet Studio opens those paths; nothing in this package or
+# the die flow does. The verify stage imports that module and checks every path against Studio's own
+# path table and the files the image ships (ci/check_tech_files.py). That check reads a sheet's
+# layer numbers itself; a Studio older than the layer-name reading its pinned commit carries reads a
+# source that carries a layer name (the gf180mcu sheet's) as 0/0, which the check does not see, so
+# the tools/chiplet-studio gitlink moves with this pin as well.
+#
+# The drc row passes the assembly deck --run_dir (its own log folder in the run), which run_drc.py
+# at the tools/adk gitlink takes. A completed run writes out/deliverables.json, a reading aid no
+# stage reads, now at version 2 (each entry says what kind of file it is, and the exporter's .hyp
+# is a gds output); status --json and verify --json carry the same pick under "deliverables",
+# through frozen version 2 views, and keep their own versions.
+#
+# The examples seat their dies on the interposer PDK's attach plane: packaging_flow.attach_plane
+# (examples/attach_plane.py re-exports it) reads beol.attachment_surface_z_um from
+# libs.tech/intm4tm2_stack.json under the interposer PDK root (INTERPOSER_PDK_ROOT in the image)
+# when a spec builds, not when it is imported, and adds each method's connection stack in decimal; a
+# PDK without the key refuses the spec. The suite reads a byte copy of that file,
+# tests/fixtures/interposer_pdk/libs.tech/intm4tm2_stack.json, with a PROVENANCE.md naming the PDK
+# commit and sha256, and the verify stage's step 0c holds that copy to the PDK this image carries
+# (check_attach_plane.py --pdk-copy). Examples 1, 5 and 8 (two_die_ready, two_die_wire_bond,
+# two_die_echo_shifted_gf180) run their co-simulation case on the image's die views: their pages
+# pass chiplet-cosim from-run --view-store "$ADK_DIE_VIEWS", which the image sets to its die views
+# folder (see the Dockerfile).
+#
+# Unless the spec supplies a board template or one of its builds is truncated (the smoke tier), a
+# run must state both ADK adapter ids (interposer_adapter, interconnect_adapter); the flow picks
+# neither. Before any stage it also reads die_processes from manifest/interconnect_methods.json
+# under the interconnect root and refuses a placed die its attachment method does not admit (a
+# method that states none admits no die), so the tools/IHP-Interconnect-IntM4TM2 gitlink must
+# state them for every method a run uses.
+#
+# The assembly-lvs engine is the one the command names (run --assembly-lvs-executable, lvs-verify
+# --executable), else $CHIPLET_FLOW_ASSEMBLY_LVS, else `assembly-lvs` on PATH. The flow writes it
+# an assembly-lvs.resolved/v4 input for every run with a carrier: each routing layer's FILL
+# mapping of the carrier (four on intm4tm2) carries purpose fill, and a die whose technology
+# declares a footprint policy (gf180mcu does) keeps it as in v3. It accepts only the report
+# schema that pairs with the input, report/v5 for v4, whose state and exit code are in
+# assembly-lvs 0.6.0's nine-state table, and reconciles the report's fill_pruning against the
+# declared fill in both directions. An engine older than 0.6.0 answers a v4 input with a
+# report/v3, which the flow refuses; the two entries move together. Runs and lvs-bundles recorded
+# before v4 still verify against their v2 or v3 input; nothing new is written that way.
+#
+# The tail's gds row runs chiplet-export with --allow-drc-fail. At the tools/chiplet_kicad_plugin
+# gitlink chiplet-export exits 3 when it wrote the files but the assembly DRC did not pass, and
+# the flag turns that 3 into 0 and says so on the last line; the flow never reads that deck run,
+# its drc row carries the verdict with counts. A plugin older than the flag refuses it as a usage
+# error, so this pin and the gitlink move together.
+#
+# The same row passes --system-chiplet with the System .chiplet the run elaborated, from which the
+# exporter takes each component's technology and the catalog entries those ids name; the board
+# carries none. A plugin older than that flag refuses it as a usage error too.
+#
+# A die composed from an abstract has its own layout checked at admission: its admit row runs
+# klayout_scripts/observe_frame.py under the pad-map interpreter and refuses unless the layout's
+# unit, top cell and box are the contract's, in whole database units. The gds row then passes
+# --die-layouts with a sidecar (out/die_layouts.json) naming each such layout, so the exported
+# .chiplet names it, with assembly_view metadata pointing at the abstract; the complete GDS, the
+# board, the .hyp and export.json do not move. The tools/chiplet_kicad_plugin gitlink takes
+# --die-layouts, and a plugin older than the flag refuses it as a usage error, so this pin and
+# the gitlink move together.
+#
+# A run with a terminal profile also finishes the carrier. Its gds row adds --seal-ring,
+# --insert-metal-fill and --fill-mode closure, reads the seal-ring and fill-engine lines
+# chiplet-export relays behind its "  | " prefix, and holds the fill engine to
+# libs.tech/klayout/python/fill_closure.py under INTERPOSER_PDK_ROOT, the one root the exporter
+# also takes it from when that variable is set. Its package-drc row then runs that PDK's
+# libs.tech/klayout/tech/drc/run_drc.py over the finished carrier (the sealring deck with
+# --require_sealring, and the density deck, at 4 threads), and verify's level 4 reads both rows.
+# The tools/chiplet_kicad_plugin gitlink has the flags and prints those lines and the
+# tools/OpenIntM4TM2 gitlink carries both files, so this pin and the two gitlinks move together.
+#
+# The schematic row runs chiplet_to_kicad_sch.py from the gds_to_kicad tree GDS_TO_KICAD_ROOT
+# names, under the flow's own interpreter. The row never gates, and a tree without the script reads
+# not_run. The tools/gds_to_kicad gitlink carries it, so this pin and that gitlink move together.
+#
+# edit writes a run's board or system sheet edits back into the system.chiplet the run read. A
+# board edit runs the plugin's plugins/chiplet_export/board_snapshot_cli.py (under
+# CHIPLET_KICAD_PLUGIN_ROOT, else --observer) with an interpreter that has pcbnew, reconciles
+# through the interposer-pnr engine's board-revision command, and lifts the edits with
+# chiplet_system_description.source.edit. A sheet edit (edit --sheet) reads a sheet KiCad saved,
+# drawn from a blank page or from the handout chiplet_to_kicad_sch.py --handout writes, through
+# kicad-cli and the gds_to_kicad tree's kicad_sch_to_connectivity.py; compare-nets holds a file's
+# nets to a reference's with chiplet_system_description.source.compare. pip check sees none of
+# that, and the description dependency carries no version floor, so this pin, the chiplet-spec and
+# interposer-pnr entries and the tools/chiplet_kicad_plugin and tools/gds_to_kicad gitlinks move
+# together.
+#
+# The run manifest keeps the format name chiplet_flow.manifest and is at version 5. Version 3's
+# build rows stay: each die's build row names the build.json build-die wrote, the die-view row is
+# gone (the view is build-die's), and identity.tools records this package as `flow` and what
+# builds the dies as `die_flow`. Version 4 adds the co-simulation select answer and a gate that
+# takes only the ack verify-sign writes; version 5, written for system.chiplet runs, keeps version
+# 4's build rows. The reader takes legacy (neither key) and 1 to 5. verify --json is
+# chiplet_flow.verify version 4 and status --json chiplet_flow.status version 1.
+# No version since 2 has an assembly_lvs block: every run that composes the assembly derives its
+# own assembly-LVS input and runs it, and `run` refuses --assembly-lvs-input. ci/resource_guard.py
+# reads the same format and takes legacy and versions 1 to 5; at versions 3 to 5 it reads the
+# LibreLane dispatch from each build row's facts.librelane_command, which this ref writes.
+#
+# Its test suite reaches the die flow through one door, the chiplet-flow checkout named by
+# CHIPLET_FLOW_ROOT, at the commit this repository's ci/pin-set.json holds for chiplet-flow, which
+# is STAGE_CHIPLET_FLOW_REF; at another commit, or with changes, every test fails on purpose. So
+# the suite at this ref runs against whatever die flow the pin set names, and the two pins still
+# move together, in the same commit as the regenerated pin set. The Nix CLI shell in
+# evidence mode installs this ref from staging/ beside chiplet-flow (nix/cli-env.sh). The verify
+# stage runs none of this package's tests; host-verify.sh runs its status and verify in a pinned
+# image.
+#
+# This ref carries src/packaging_flow/verification/tracked_tree.py. nix/test_tracked_tree.py holds
+# the port in nix/tool_identity.py to its tracked_tree_sha256, and ci/tracked-tree-tests.txt fails
+# a run where it does not import, so this pin moves only to a commit that carries it.
+#
+# This ref's history starts at a new root (ci/pin-sources.json). Its signoff template leaves
+# assembly.sim@gate out, so a signoff run does not read the image's co-sim readings table:
+# packaging-flow's reader of that table (READINGS_SHA256) is older than the table chiplet-cosim
+# writes, and when the reader follows it signoff lists the check again and this paragraph changes.
+# Fast-iteration still lists the check, skipped. The ref reads the description as
+# chiplet_system_description, runs chiplet-die-flow build-die, has validate and the map a run shows
+# before and after it, the edit verb, verify version 4 and manifest version 5, typed review-levels
+# refusals with a tighter automatic fill, interposer checklist item 2.3 (the DRC margins table, read
+# from the carrier DRC's margins line), and run folders named by UTC stamp (2026-10-20_11-11-23Z),
+# with the old form still read. It has edit --sheet and compare-nets (the edit paragraph above),
+# draws each gate's layout as a picture beside the run (klayout_scripts/draw_view.py), and ships
+# example 8's accepted.chiplet, a die admitted from a record with no DRC count. It is
+# GPL-3.0-or-later, its editor extension under vscode/ too. Its dependencies name the description
+# by its distribution name.
+#
+# This ref also ships kinds for the assembly DRC, the system DRC and the system terminal map, keyed
+# on the adk-drc, intm4tm2-run-drc, adk-verify-carrier-drc, klayout, klayout-python and python rows
+# of the tool table, and carries key.builder_keywords, which the kind contract check hands argv
+# builders by. It records which setting bound the stage thread cap (tools.thread_cap_source). Its
+# package data holds verification/review/*.json and the message catalog (messages/*.json, read by
+# `python -m packaging_flow.messages`). It has the verb table (`packaging-flow tasks --vscode`,
+# which writes the editor tasks bin/flow runs; its input commands are adk-packaging.input.*), map
+# version 2 with a sign-request builder, and the editor extension under vscode/. A run of a
+# system.chiplet given no --view-store takes the store ADK_DIE_VIEWS names, which the image sets,
+# and records where it took it from (verification.view_store.from); a run named relative
+# (runs/<stamp>, as bin/flow's tasks pass it) is made absolute before any stage reads it.
+#
+# An earlier move adds 67 commits. They relicense the package and the extension to
+# GPL-3.0-or-later, take the die flow's test helpers again and restate their
+# sources (the copied names did not change), open each check's log and
+# margins from copies inside the run folder, show each die's declared checks with the flow's
+# reading in the sign form, show external pad and bonding profile previews in the sign checklist,
+# add an optional terminal console with coded build progress, and say design folder where the
+# flow and the extension said example or project.
+#
+# An earlier move adds seven commits. The strict die-contract reader reads exactly
+# capability revision 4, the one the chiplet-spec entry carries, and its test fails a set wider than
+# the installed revision. The shifted gf180 pair declares its rail volts in its sources, and its
+# three die contracts and build records are replaced by ones chiplet-flow emits from
+# supply-volts files kept beside them; their layout and pin files are byte-identical. validate
+# reports a voltage mismatch on a shared rail, and a note on a rail whose dies declare no
+# supply_domains. The reader floor moves to 1.15.0.
+#
+# An earlier move adds 51 commits. The map pages read die build cards, show die
+# project preparation and the recorded build, port and pad results at die gates, and persist
+# coded build progress; Prepare launches run one at a time, and emitted die answers record
+# structured port comparisons. A new fab-file command writes the carrier GDS that would go to the
+# fab: it keeps only the layers of the set interposer-pnr's descriptor names (fab.layer_set, from
+# interposer-pnr), holds the result to the manufacturing grid, and runs both carrier decks
+# again as the flow builds them, writing nothing unless they give the run's verdict. CI gates on
+# the host tier. The version stays 0.1.0.
+#
+# An earlier move adds 21 commits. The designer's KiCad sheet form is a run input, read once at
+# the start and refused there if it cannot be used: when the form is unreadable, stale against its
+# sheet or carries refusals; when the sheet's sym-lib-table is missing or does not name exactly the
+# form's libraries by ${KIPRJMOD}; when the run draws no die footprint from the dies' own pins (a
+# board template, or a die the tier truncates); or when the workdir is outside a run folder (the
+# SheetFormRefused cases in src/packaging_flow/errors.py). A run writes the sheet and its board as
+# one KiCad project in a review folder under review/sheet/. A new place command fills what a
+# .chiplet leaves open (a die's position, the carrier's size, which edge each external pad takes),
+# through edit's folder and dispatch. Every run hands chiplet-export the export report its gds row
+# declares (--export-report); a plugin older than the flag refuses it as a usage error, so this pin
+# and the tools/chiplet_kicad_plugin gitlink move together. The map pages keep pre-run actions in
+# the Next bar and put Validate on pre-run cards. The version stays 0.1.0.
+#
+# An earlier move adds one CI commit: the .github/ci/read_pins.py reader, regenerated by the CI
+# runner, which can also name the image's IHP-Open-PDK and gf180mcu commits (SG13G2_REF,
+# GF180MCU_REF). No package or test file changes. The version stays 0.1.0.
+#
+# An earlier move adds 19 commits. A classic sheet is one a designer draws against
+# the handout gds_to_kicad's chiplet_to_kicad_sch.py --handout writes. edit --sheet reads it as
+# classic when chiplet_system.kicad_sym and the .chiplet's own <stem>.kicad_pro sit beside the
+# .chiplet, and then refuses the edit unless the die library, chiplet_dies.kicad_sym, is there too;
+# gds_to_kicad's kicad_sch_to_connectivity.py reads it with --classic and both libraries. A classic
+# read from the .kicad_sch, rather than from a form given directly, keeps <stem>.connectivity.json
+# beside the .chiplet, so a run that names that form under flow.packaging_flow.sheet.form draws the
+# board from the same read. Each write of the .chiplet appends its sha before and after, and the
+# form that made it, to runs/.written/<name>.jsonl beside it, keeping a copy of the form under
+# runs/.written/forms/. A classic sheet read again is checked against that form when the ledger has
+# it (otherwise the edit says it reads the sheet with no reference check), so a symbol KiCad
+# re-annotated is refused instead of read as a new die. place passes interposer-pnr --rotations
+# whenever the .chiplet has an external profile, with only the turn the terminal checks accept (0,
+# so placed dies stay unturned); this pin and interposer-pnr's, which adds the flag, move together.
+# four_die_ready is drawn as a classic sheet. The version stays 0.1.0.
+#
+# An earlier move adds 11 commits. A format 1.4 die row may name an admission file:
+# the source loader builds the ready die with it, pins it at S0 and records its path and digest in
+# spec.admissions, and the gate of a die built elsewhere is accepted by a person (verify-sign
+# refuses it); this needs chiplet-spec 1.18.0, so this pin moves with STAGE_CHIPLET_SPEC_REF.
+# four_die_ready's classic sheet is redrawn with gds_to_kicad's power symbols, so the
+# tools/gds_to_kicad gitlink moves with it. The signature and the run map name the run's image
+# from its records, and verify-status reads acceptances behind its own flag. Each pad of a
+# repeated die pin gets its own terminal, and a die's multi-pad pins are tied at assembly LVS on
+# its own declaration (component-certificate/v3, assembly.lvs kind reader v2); this needs
+# assembly-lvs 0.8.0, which the assembly-lvs pin (32d4739) carries. The version stays 0.1.0.
+#
+# An earlier move adds six commits. An ihp-sg13cmos5l die's DRC verdict reads that
+# technology's rows, which chiplet-spec 1.19.0 adds: a run over its official runsets and options
+# counts each of its DRC deck runs, and a main deck run without run_mode is not official.
+# tests/test_level1.py, which lists every row of the four KLayout check tables, pins those rows.
+# Against the 1.18.0 reader that listing and the two verdict cases fail, so this pin moves with
+# STAGE_CHIPLET_SPEC_REF. An export holds the signature record each die gate's acceptance rests
+# on, with the waivers it names, so verify-status on an export returns the run's own exit; the
+# export index moves to version 2. four_die_ready's classic sheet shows its References, and
+# vscode/test/stand-in/checklist.json, which npm test held equal as JSON to the flow's review
+# checklist, is a byte copy of it again. The version stays 0.1.0.
+#
+# An earlier move adds four commits, none under src/packaging_flow.
+# tests/test_terminal_map.py holds, on a fixture of its own, that a padring bus bit routes only
+# under its source net name; it runs no interposer-pnr, so the two entries need not move together.
+# The VS Code extension's npm test now runs through vscode/test/run.js: each run hands the tests a
+# temporary folder of its own, fails if anything is left in it, removes it afterwards, and fails
+# on a signal it forwards to the tests. Its sign-form tests read the
+# flow's review checklist in place, so the stand-in copy is gone. The version stays 0.1.0.
+#
+# An earlier move adds two commits. A board copy written to review/board/ when the
+# run halts for review takes export's .kicad_pro and .kicad_dru from beside the draft, so KiCad
+# opens it as a project with the export's design rules, at the halt and in verify-open; the rules
+# go only with a copy just written, since KiCad rewrites a project it opens. Before it two tests
+# failed against the then chiplet-flow, and this move meets it: errors.py mirrors PadringDieRefused,
+# which nothing here raises, so tests/test_build_die_seam.py finds a class for every refusal the
+# die flow's errors.py defines; tests/die_flow/PROVENANCE.md names that chiplet-flow commit and restates
+# test_die_checks.py's source hash there (the copy does not change), which
+# tests/test_die_flow_helpers.py checks. Both read chiplet-flow at STAGE_CHIPLET_FLOW_REF, so this
+# entry moves with it. The version stays 0.1.0.
+#
+# An earlier move adds five commits. The gds gate accepts the round_trip versions 4
+# and 5 that interposer-pnr's entry writes for a board with reserved copper, and the KiCad review
+# halt names verify-open. SHIPPED_PICKS lists chiplet-flow's picorv32a_cmos5l bondpad die and its
+# core, and tests/die_flow/PROVENANCE.md moves with it (no copied helper source moves), so this
+# entry moves with STAGE_CHIPLET_FLOW_REF. A rail of the system source that states width_um, or
+# amps with current_density_ma_per_um, becomes a net requirement: elaborate writes
+# pnr/net_requirements.json (interposer_pnr.net_requirements v1), a requirements row runs
+# interposer-pnr check-requirements against the routing tech before any build, and route gets the
+# file with --requirements. Both dependency floors move to chiplet-format-io 1.20.0 (the runtime
+# one and chiplet-full's [strict]), the first reader of those keys, so this entry moves with
+# STAGE_CHIPLET_SPEC_REF and STAGE_INTERPOSER_PNR_REF. The version stays 0.1.0.
+#
+# An earlier move adds 35 commits. ihp-sg13cmos5l joins packaging_flow.technologies'
+# TECHNOLOGIES, with the sheet ${PDK_ROOT}/ihp-sg13cmos5l/libs.tech/klayout/tech/sg13cmos5l.lyp and
+# Studio's ihp-sg13cmos5l.yaml stackup: its dies compose from their own layout, a padring die maps
+# its pads on 41/0 with pin text on 126/25, and a bondpad die of it still refuses. The image's
+# IHP-Open-PDK slice holds ihp-sg13g2 only, so the case comparing the two IHP sheets declares its
+# skip for T1 and T2 alike; at SG13G2_REF (22f4335) every sg13cmos5l layer is the sg13g2 layer of
+# its name at its number (183 of 378, measured on a copy), and the sheet joins the slice at the next
+# tools rebuild, with example 10's README line and the T2 declaration. Example 10
+# (padring_die_cmos5l) places a picorv32a pad-ring die of that technology under an admission, with a
+# registry copy taken from the interconnect PDK at the tools/IHP-Interconnect-IntM4TM2 gitlink's
+# commit (copy-record.json, an exact-path guard allow); its die folder shipped then as a release
+# file no image stages (it now comes from adk-examples; this entry's last note), and its two
+# cases skip, declared for T1 and T2. A source with interposer-pnr's mesh
+# spec (pdn_mesh.json) beside it gets two rows: pdn-check runs check-mesh before any build, and pdn
+# draws the mesh as reserved copper that route takes with --reserved, the requirements row then
+# passing --judged-by; a source without the file keeps every row and argv it had. The package-drc
+# row also takes the seal-ring deck's ring-measuring categories (Seal.a per metal, Seal.c1 to c3,
+# Seal.e, Seal.f per metal) as evidence, and level 4 claims the ring's widths and its Passiv ring;
+# those rules exist only in the seal-ring deck merged after 096c681, so this entry and the
+# tools/OpenIntM4TM2 gitlink move together to 096c681. The gds gate reads the export's round_trip
+# through interposer-pnr's own reader, vendored byte for byte
+# (src/packaging_flow/_vendor/round_trip_names.py, its SOURCE naming the interposer-pnr commit, as the
+# plugin's and gds_to_kicad's do; an exact-path guard allow admits that SOURCE), so
+# ROUND_TRIP_FOLLOWS_SHEET is gone and a version 6 feature the host does not read is left to
+# signoff. The export row hands export route's report with --route-report, so the record carries the
+# widths signoff measures the board against, and rail requirements on a templated spec or on a tier
+# that exports no die footprint are refused before any command. --route-report, check-mesh and
+# --judged-by come from interposer-pnr's entry, so this entry moves with STAGE_INTERPOSER_PNR_REF.
+# tests/fixtures/interposer_pdk's KiCad rule pair is now a byte copy of 096c681's, which
+# PROVENANCE.md names; the pair and the stack json are the same at 096c681.
+# tests/die_flow/PROVENANCE.md does not move, SHIPPED_PICKS does not move, and both dependency
+# floors stay at chiplet-format-io 1.20.0, which chiplet-spec's 1.21.0 meets. The version stays
+# 0.1.0.
+#
+# An earlier move adds one commit: packaging_flow.errors gains PadFrameRefused, the
+# class of chiplet-flow's new pad-frame refusal, and tests/die_flow/PROVENANCE.md names that commit. None
+# of the names view.py copies changed there, so view.py does not move. It moves with
+# STAGE_CHIPLET_FLOW_REF.
+#
+# An earlier move adds four commits. One restates tests/die_flow/PROVENANCE.md
+# at chiplet-flow d78b01e's test pad rename. Three let the terminal map's
+# M4 count a pad fed by cuts from below as having exit copper: cuts of its net inside the pad,
+# from the pad layer down, standing on routed copper of its net that leaves the pad, read from
+# traces.json (interposer-pnr's PDN mesh feeds its source wire-bond pad that way). Copper of
+# another net, copper that stays inside the pad, and a zero-width traces.json segment do not
+# count; every pad with metal touching it is judged as before. The terminal-map reader's version
+# goes to 2, so earlier readings are stale without the key moving. No dependency moves and
+# view.py does not change. It moves with STAGE_CHIPLET_FLOW_REF.
+#
+# An earlier move adds six commits. A spec whose carrier is not IntM4TM2 is refused
+# at load, in plain words, as chiplet-spec 658695a refuses such a source, so this entry moves with
+# STAGE_CHIPLET_SPEC_REF. Example 10 (padring_die_cmos5l) grows to three dies on a VDDA/VSSA mesh
+# and names the pin set for its frame command, not a die-flow commit. tests/fixtures/interposer_pdk's
+# KiCad rule pair moves to intm4tm2 0.3.1, byte-equal to the tools/OpenIntM4TM2 gitlink's 096c681
+# (PROVENANCE.md names it), so this entry, interposer-pnr's and that gitlink move together.
+# tests/die_flow/PROVENANCE.md still names chiplet-flow d78b01e. No dependency moves and view.py
+# does not change.
+#
+# An earlier move adds one commit: the deliverables_v4 status goldens and the
+# verify_json run-manifest keys carry conform's pads fact, which conform has recorded for a
+# while but no tier ran these chain cases to regenerate. Fixtures only; nothing else moves.
+#
+# An earlier move adds 29 commits. A sheet run's board is reviewed beside the sheet
+# it was drawn from, as one KiCad project, and kicad-cli checks that the two open paired; gates
+# reference the composed files and name each layout's technology, and the exported .chiplet opens
+# in chiplet-studio with its layer sheets; example 8's classic form is re-recorded from the sheet
+# adk-examples holds; example 10 ends each mesh stripe at its last connection and carries the
+# numbers measured on it. The kicad-cli lookup test pins PATH, so it holds where kicad-cli is
+# installed, as it is here. tests/fixtures/interposer_pdk's KiCad rule pair moves to intm4tm2
+# 0.4.1, byte-equal to the tools/OpenIntM4TM2 gitlink's 096c681 (PROVENANCE.md names it), so this
+# entry, interposer-pnr's and that gitlink move together. No dependency moves.
+#
+# An earlier move adds three commits: docs and tests name releases and content digests instead
+# of development commits, the assembly LVS block checks `assembly-lvs --version` against 0.8.0,
+# the vendored round_trip_names.py is re-copied from the interposer-pnr commit the plugin's copy
+# names (round_trip_states, the only part this tree imports, is unchanged), and the KLayout
+# steering list cites the sha256 of the capture_context.py it was copied from. No dependency
+# moves.
+#
+# An earlier move adds eight commits for the 200 um assembly spacing. The wire-bond profile's
+# die keepout is no longer an assumed 200 um but the ADK's ASM_g, read from the pinned ADK's
+# config/rule_params.json (profile version 0.2 -> 0.3; only packaging-flow reads that profile).
+# A run that dispatches the assembly deck reads the interposer and interconnect adapters'
+# overrides with the ADK's own adk_rule_params and adk_registry, loaded by file from the run's
+# ADK root, and refuses an adapter that moves ASM_b or ASM_g, so packaging-flow needs an ADK with
+# adk_rule_params.parse_adapter_overrides; the tools/adk gitlink has it. An assembly rule the
+# deck did not apply now reads as not checked. The examples' dies are spread to the 200 um
+# spacing, and the pad-ring example's measured counts are taken again (its assembly DRC now
+# checks the die edge to wire-bond pad rule too). tracked_tree_sha256 does not change. No
+# dependency moves; the version stays 0.1.0.
+#
+# An earlier move adds two commits to example 10's page, its row in the examples index and its
+# tests: U1's die folder comes from adk-examples (dies/PICORV32A_CMOS5L), the page checks its four
+# files against their recorded sha256 before it copies them, and its readings are taken again from
+# one run. No code under src/ and no dependency moves; the version stays 0.1.0.
+#
+# This ref (9ec146d) adds two commits. The registry that resolved each assembly adapter, which the
+# 200 um spacing move printed to stderr, is written to the run's logs/assembly-adapters.log instead,
+# so run and resume keep stderr for refusals and findings; packaging-flow's verify tests, which read
+# stderr after a setup run, failed on the two lines wherever the ADK resolves. The ADK identity test
+# gets a whole stand-in ADK, since its run now reaches the assembly deck. No dependency moves; the
+# version stays 0.1.0.
+STAGE_PACKAGING_FLOW_PATH=packaging-flow
+STAGE_PACKAGING_FLOW_REF=9ec146d1d6f5882f92407fbb85bbed28f1eedd67
+
+# The die flow: one die per command, distribution chiplet-die-flow, console script
+# `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
+# bin/chiplet-die-flow, which execs the venv's script. The tree, its staged path and the
+# STAGE_CHIPLET_FLOW_* names keep the name chiplet-flow. build-die builds one die with LibreLane and
+# writes its build.json, die view and ready die; die-view, emit-ready-die and eda-views each run one
+# of those steps. run, resume, status and verify are packaging-flow's: here each prints one line on
+# stderr naming packaging-flow and exits 1. build-die exits 0 when build.json is complete, 1 on a
+# typed refusal and 7 on an internal error; the other commands add 6 and 11 for the two refusals
+# with a code of their own. The same distribution installs librelane_plugin_chiplet, the plugin that
+# registers the `Chiplet` LibreLane flow and its steps when LibreLane finds it on its import path.
+#
+# Installed editable for the same reason as packaging-flow: build-die records its own package's
+# identity with `git rev-parse HEAD` on the directory find_spec resolves to. Package data is
+# klayout_scripts/*.py. It runs no interposer-pnr engine and no assembly-lvs; those are
+# packaging-flow's.
+#
+# Declared runtime deps are pyyaml>=6.0 and chiplet-format-io>=1.12.0 (the KLayout thread key and
+# check options are read per PDK, PORTS_NOT_CHECKED names the deck trees that do not check the port
+# labels, and eda-views read() returns only the reader's READ_KINDS, so the transistor-level kinds
+# 1.12.0 adds are skipped and its keys do not change); the chiplet-full extra adds the reader's
+# strict extra. When the recorded LVS deck tree is one of those and the deck log prints neither port
+# line, emit-ready-die writes the ports run check as not_checked in a checks 1.1 block; every other
+# build record keeps its checks 1.0 bytes. Loading the package imports chiplet_format_io (the
+# builders read ready_die_names), so every chiplet-die-flow command and the LibreLane plugin load
+# the reader. It no longer declares the system description, and its tests/test_module_boundary.py
+# fails a file that imports it under either name. librelane and yamlcore are imported where used, in
+# the die-build modules (LibreLane's environment). Its strict die-contract admission accepts strict
+# capability revisions 3 and 4 until its own close to 4.
+#
+# The Nix build shell's LibreLane launcher puts this tree's src/ on LibreLane's import path
+# (nix/build-env.sh's ADK_NIX_LAUNCHER_TREES, which names chiplet_die_flow and
+# librelane_plugin_chiplet). The Nix CLI shell refuses for now: its tree table and the build-context
+# capture (nix/capture_build_context.py, nix/capture_context.py) still name chiplet_flow and a
+# chiplet-system tree, and nix/cli-env.sh stops on a row of its table whose ref this file no longer
+# sets. It works again when those tables follow the rename.
+#
+# build-die runs LibreLane either as `cd $LIBRELANE_CHECKOUT && nix-shell --run "..."` or
+# through an installed launcher named by CHIPLET_FLOW_LIBRELANE_LAUNCHER with its sha256 in
+# CHIPLET_FLOW_LIBRELANE_LAUNCHER_SHA256 (both or neither), which is what the Nix build shell
+# exports. So nix-shell or such a launcher has to exist where the build runs. This image carries
+# no nix, but holds LibreLane, its interpreter, the sg13g2 PDK and such a launcher in its own
+# /nix/store (nix/host-closure.lock) and sets the launcher pair in its ENV, so a die is built in it
+# with no store of the host's; the image build itself builds none.
+#
+# emit-ready-die records the PDK revision from pdk-source.json at the PDK_ROOT the die's run
+# resolved (format adk-tools-pdk-source/v1, written by nix/pdk-source.nix, schema in formats/)
+# when that tree has one, else from git there; a statement that is present but invalid refuses.
+# emit-eda-views does the same for a run on a store PDK, which has no checkout: it takes
+# head_at_emit from the statement and records its digest as pdk.source_sha256, and refuses
+# unless both match the build record. There a --supplementary file must equal the blob at the
+# stated revision in a repository named with --pdk-git.
+#
+# emit-eda-views also records the die CDL, the LVS schematic the build's LVS step named, as cdl
+# rows: every part of the build record's checks.lvs.reference, in its order, as
+# cdl/<index>_<basename> carrying the part's role. It writes them only for a die whose LVS matched
+# over the contract's layout with every run check at its passing value, and then all of them, each
+# part at its reference digest (the parts outside the run also as chiplet.inputs-before.json
+# declared them). Otherwise cdl goes under not_recorded with the first reason, the record is still
+# written, and the command prints `cdl not recorded: <reason>`. read() skips the rows, since cdl
+# is not among the reader's READ_KINDS, so what it returns does not change. The image's die views
+# carry these rows (the "Die views" section).
+#
+# A die built with pad-side level shifters (its chiplet.inputs-before.json records pad_side) gets
+# each shifter's views from the shifter's sealed drop, at the bytes the preparation receipt
+# records: lef, liberty per corner and the netlist, which is written as a sim_model row ahead of
+# the netlists. Every pad-side row is unqualified, a shifter takes no spef, and anything else in
+# MACROS or a drop not sealed refuses. A die without shifters records what it did before.
+#
+# A die whose LVS compared a view written by klayout_scripts/flatten_fill_view.py (fill
+# flattened, masters unified or both) rather than the layout itself gets an XOR of that view
+# against the shipped GDS, run with the klayout on PATH (klayout_scripts/view_xor.py), when
+# emit-ready-die writes its contract; the value lands in the die's LVS run checks. Verify step 4d
+# runs tests/test_view_xor.py -m klayout under the image's KLayout, hands it the binary's real
+# path and version (CHIPLET_FLOW_KLAYOUT_REALPATH, CHIPLET_FLOW_KLAYOUT_VERSION) and sets
+# HCDP_STRICT_LIVE=1, under which chiplet-flow's conftest fails any skipped test; it also checks
+# that `klayout -v` names the venv's klayout module version, which KLAYOUT_PIP pins. That module
+# is the only part of chiplet-flow's suite the image runs. ci/image-xor-tests.txt lists its test
+# ids (19 parametrised controls, X4, X5 and the emitter's binary test) and changes in the same
+# commit as this pin whenever a control is added, renamed or removed.
+#
+# The repository's history was started again from one commit, whose tree carries the
+# changes since the previous pin: GPL-2.0-or-later, with setuptools>=77 as the build backend,
+# which the wheelhouse's 84.0.0 meets, the three vendored pads named, and build-die handing its
+# LibreLane child the flow's plugin. The previous pin added five commits on it: host.py caps the
+# thread count by the cgroup's cpu.max or the CPU affinity and records which one set it, and
+# build-die takes its PDK root as --pdk-root, puts PDK_ROOT back after the build and refuses a
+# split root. Both run wherever a die is built, the image included.
+#
+# It has been started again a second time: a root that holds the tree of the pin before
+# it plus twenty-four commits. They rename the die flow to chiplet-die-flow (its
+# distribution, console script and package; librelane_plugin_chiplet keeps its name), drop the
+# system description from its dependencies, generate a bondpad-frame die's plan files from its
+# configuration and refuse gf180 pads outside the die or overlapping, read the cgroup limits once so
+# a dedicated machine in a capped container can leave the shared-host floor, reword the docs, and
+# have the io_die example call die_view's public side_and_axis. tests/test_view_xor.py changes only
+# in its two imports, so ci/image-xor-tests.txt does not change.
+#
+# An earlier move adds ten commits. They take internal references out of the docs,
+# comments, tests and vehicle files (the DRIVER receipt goldens that hash those files are
+# rewritten), drop the local verilog_closure copy and sixteen error classes nothing raises, stop a
+# die command's tools with it on SIGTERM or SIGHUP and send a Ctrl-C on to the tools' process group
+# before build-die waits, and name a package's commit only when its checkout tracks the package.
+#
+# An earlier move adds two commits. They relicense the die flow to GPL-3.0-or-later (LICENSE,
+# SPDX lines, pyproject; the DRIVER goldens and byte pins that hash those headers are rewritten)
+# and name in REUSE.toml the licence of the sealed level-shifter drops and the pad view, which
+# carry no header.
+#
+# An earlier move adds two commits: the echo core's header comment (vehicle/rtl/echo_core.v)
+# without planning labels, and the CX core's origin blob, which that comment moves.
+#
+# An earlier move adds eight commits. They add prepare-die, which prepares a die
+# project from RTL in one command (a contract-bound core, or a stock core it reports unbound),
+# writes its record into the die project, and the read-only check-die-project, which says whether
+# a die project is still as prepared (exit 0 prepared, 1 changed, 2 not judged); build-die and
+# prepare-die print their step progress on stderr and name librelane.log. A bondpad-frame plan's
+# pin rows carry the port's direction and role, so vehicle/plans/driver_ls.pins.json and
+# echo_gf180_cx.pins.json change bytes.
+#
+# An earlier move adds four documentation commits: a short README, the command
+# and development pages under docs/, and a rewritten bondpad-frame template README; the old
+# template materialization page is removed, and the walkthrough test stops reading it. No
+# code changes.
+#
+# An earlier move adds five commits. emit-ready-die and build-die take
+# --supply-volts, a file of supply volts by domain, and then stamp the die contract 1.2 with its
+# supply_domains and record the file by name and sha256; without it the contract stays 1.1 and the
+# bytes do not change. The strict die-contract reader admits capability revisions 3 and 4.
+#
+# An earlier move adds one CI commit: the host-tier workflow and its .github/ci/
+# reader, report and judge, generated by the CI runner from the tier row; tests.yml drops the
+# job and gate it replaces. No package or test file changes.
+#
+# An earlier move adds two commits. The preparation evidence counts prepare-die's record as the
+# preparation's own file, so a prepared project no longer reports it as an operator addition; tests
+# on the entry and flow paths pin that. The die-contract reader still admits revisions 3 and 4; the
+# close to {4} (which also drops 3 from the bundle's supported cases) is a chiplet-flow commit a
+# later pin takes.
+#
+# An earlier move adds one CI commit. tests.yml reads its chiplet-spec and
+# IHP-Open-PDK commits through the generated .github/ci/read_pins.py (--names CHIPLET_SPEC_REF
+# SG13G2_REF), itself regenerated by the CI runner, which can also name the image's IHP-Open-PDK
+# and gf180mcu commits (SG13G2_REF, GF180MCU_REF); the repository's own .github/read_pins.py is
+# gone, and tests/test_read_pins.py now holds the workflow to the generated reader. No package file
+# changes.
+#
+# An earlier move adds 28 commits. chiplet-die-flow derive-padring-die writes a ready
+# die from a run of LibreLane's stock Chip flow (the top, the bond pad masters with their LEFs and a
+# source netlist), re-admitted by the strict reader; examples/io_die/derive_io.py is now its caller
+# and writes the same bytes over the CF_IO run. The technology follows the run's PDK: DIE_VIEW_LAYERS
+# gains an ihp-sg13cmos5l row (TopMetal1, Passiv) and a per-technology IO_SUPPLY_PINS table names
+# the supply pads. ihp-sg13cmos5l also gets its bondpad master, ip/bondpad_70x70_5L_cf (an
+# Apache-2.0 byte copy, with a TopMetal1 access LEF), its BONDPADS row and its LVS deck row. The
+# dependency floor moves to chiplet-format-io 1.19.0, whose ihp-sg13cmos5l thread key the bondpad
+# row reads at import, so this pin moves with STAGE_CHIPLET_SPEC_REF. tests/test_view_xor.py does
+# not change, so ci/image-xor-tests.txt does not. packaging-flow's die-flow tests read this ref
+# (its refusal classes and its test sources), so STAGE_PACKAGING_FLOW_REF moves with it.
+#
+# An earlier move adds 16 commits. An OpenROAD abstract step writes a core's LEF view
+# (src/chiplet_die_flow/abstract_lef.py), and prepare-die stages it as the core LEF, with a
+# vehicle's own routing-track file, and puts the plugin on a stock core run's path. The vehicle is
+# the picorv32a bondpad die on ihp-sg13cmos5l: its vendored RTL, a Magic-free stock-flow core
+# project kept self-contained (a stock core that reads a file outside its directory is refused),
+# one prepare-die command that builds it, and tests that run no EDA. A DRC count on the bare core
+# no longer stops its run; the final die GDS, core included, is where DRC decides. No package
+# dependency moves, and tests/test_view_xor.py does not change, so
+# ci/image-xor-tests.txt does not. packaging-flow's die-flow tests read this ref, so
+# STAGE_PACKAGING_FLOW_REF moves with it.
+#
+# An earlier move adds ten commits. chiplet-die-flow pad-frame writes a ready die that
+# holds bond pads and nothing else, from a frame spec (chiplet_die_flow.pad_frame version 1); its
+# build record says pad-frame-not-a-circuit, qualified false. The pad master, its layers and the PDK
+# come from technology rows, so the command names no technology. pad-frame and derive-padring-die
+# now write the die directory through one writer (src/chiplet_die_flow/ready_die_dir.py: a hidden
+# folder renamed into place once the strict reader admits it, removed on any failure);
+# emit_ready_die keeps its own path. die_view.number_pads, which both share, lets a pad's alias be
+# its own name. A malformed frame spec is refused as PadFrameRefused. No package dependency moves,
+# the reader floor stays chiplet-format-io 1.20.0, and tests/test_view_xor.py does not change, so
+# ci/image-xor-tests.txt does not. packaging-flow names every die-flow refusal class, so
+# STAGE_PACKAGING_FLOW_REF moves with it.
+#
+# This ref (d78b01e) adds one test-only commit on the previous pin: tests/test_die_view.py renames a test
+# pad whose name read like a phase tag. No package file moves, tests/test_view_xor.py does not
+# change, so ci/image-xor-tests.txt does not. packaging-flow's die-flow provenance names it, so
+# STAGE_PACKAGING_FLOW_REF moves with it.
+STAGE_CHIPLET_FLOW_PATH=chiplet-flow
+STAGE_CHIPLET_FLOW_REF=d78b01e4202e284a135d4270089ad7b8028c5281
+
+# Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
+# `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
+# readings, setup-project, setup-import, setup-xschem-sheets and setup-xschem-read; the image has no
+# Xschem). The venv carries the script; nothing in bin/ wraps it. Declared runtime deps are
+# pyyaml>=6.0, chiplet-system-description and chiplet-format-io[strict]>=1.15.0; the strict extra's
+# jsonschema is already in the venv. Loading the CLI imports chiplet_system_description and PyYAML
+# and nothing else third-party; cocotb is imported only by the driver, observer, library and
+# mixed-run modules. Package data is cosim_engine_capability.json, cosim_readings.json (the readings
+# table, which chiplet_cosim.readings reads on import), cosim_setup_symbols.json,
+# diagnostics/*.json, hv_gate_classes.json and hv_gate_roles.json. The cocotb modules run under the
+# co-simulation engine's own python3.13 (the "Co-simulation engine" section below), never under the
+# venv: the venv's interpreter runs the CLI and starts that one.
+#
+# from-run runs the case a finished run's dies select on the gate views --view-store holds for them
+# (an absolute path to an existing folder; the image's is $ADK_DIE_VIEWS) and writes nothing inside
+# the run or the store; its exit table adds 3 (the record reads FAIL) and 6 (inconclusive) to 0, 1,
+# 2, 4, 5 and 130, and on 0, 1, 3, 4, 5 and 6 its last act writes <out>/from-run.json beside a copy
+# of the readings table. Its cases are CF_DRIVER_BONDPAD with CF_ECHO_BONDPAD, both sg13g2;
+# CF_DRIVER_BONDPAD with CF_ECHO_CX_BONDPAD, a gf180mcu ECHO; and CF_DRIVER_LS, the DRIVER rebuilt
+# with level shifters at its pads, with that same CF_ECHO_CX_BONDPAD. The image's die views (the
+# "Die views" section) hold six records, CF_DRIVER_BONDPAD, CF_ECHO_BONDPAD, CF_DRIVER_LS,
+# CF_ECHO_CX_BONDPAD and the sigma-delta pair SD_CORE_BONDPAD and SD_AFE_BONDPAD, each at the one
+# layout its record binds. A die at any other layout has no views there: two_die_echo_gf180's
+# CF_ECHO_BONDPAD, built on gf180mcu, and the gf180mcu chip_top mixed_gf180 places, among others.
+# The gf180mcu cell models come from CF_ECHO_CX_BONDPAD's own record (sim_model/), not from a PDK
+# root. The capability table is at version 0.3, each entry of kind gate or mixed. Its second gate
+# entry, sg13g2 with the gf180mcu 7t5v0 cells, names the same Icarus, VPI module, cocotb and
+# observer as sg13g2.stdcell.icarus13. The verify stage checks that engine against
+# sg13g2.stdcell.icarus13, which table 0.3 changed only by naming its kind, and runs none of this
+# package's tests. Each mixed entry admits runs only in the exact context it records (the hashes of
+# its tools, VPI modules, interpreter and models), and the verify stage does not check them. There
+# are three: two_tech_loop and the sd_built case at two corners, sd_built_tt and sd_built_ss, each
+# prefixed with the verify image it was recorded in; a context byte that moves makes their runs
+# refuse. The mixed case (mixed_run) reads its tools from COSIM_NGSPICE_PREFIX, COSIM_IVERILOG,
+# COSIM_LIBVVP and COSIM_COCOTB_PYTHON, which the image does not set; the mixed-signal engine's
+# files are linked under /opt/adk-tools/mixsim-devshell. It reads a gf180mcuD models entry's root
+# from COSIM_GF180_ROOT alone, which the image sets to /opt/adk-tools/gf180mcu/gf180mcuD:
+# design.ngspice and sm141064.ngspice at the GF180 sheet's commit, and no cell library. An
+# ihp-sg13g2 entry's root is $PDK_ROOT/ihp-sg13g2; into that slice the image adds, at SG13G2_REF,
+# the files sg13g2-models.sha256 lists (every file the MOS, diode, resistor and capacitor corner
+# libraries include, in any section and at any depth, since ngspice reads a library whole, and the
+# stdcell spice), and copies of four of the engine's OSDI files under libs.tech/ngspice/osdi
+# (psp103, psp103_nqs, r3_cmc, mosvar), since the model walk refuses an OSDI file that resolves
+# outside the PDK installation. The case reads the Icarus shim's time reversal line, in either
+# window, as an engine error (INCONCLUSIVE), and its diagnostics/ngspice.json names tolerated pairs
+# besides tolerated lines: ngspice's dynamic gmin start and completion notes are tolerated only as a
+# pair. The vehicle's committed lock records the harness locations of the host shell it was planned
+# in, so a plan of it in the image reads them as moved; the verify stage does not read the lock.
+#
+# select says which case a finished run's dies select and gives that case's key, as from-run would
+# read the run and the store, without copying, locking or running anything; from-run compares a
+# version 4 manifest's recorded select answer with its own before it copies. readings prints the
+# readings table.
+#
+# The history starts at a new root. It reads the description under its new name
+# (chiplet_system_description, also in the mixed case's PACKAGES, the packages a mixed verdict's
+# identity hashes), guards the die flow under both names, and sets the reader floor at 1.14.1. The
+# mixed case re-admits by case key, takes .meas tran cards after the bench's subcircuit and records
+# their values (a card that reads anything but v() is refused, and a run that never read ngspice's
+# output writes its measures as null), and writes waves.raw and waves.vcd when the case asks for
+# waves; a cocotb run can dump its waves as VCD. A version 0.6 config may probe nodes inside a
+# block, and from-run takes a die whose blocks read view files beside the config, which needs its
+# store directory only. from-run and select take packaging-flow's version 5 manifest as version 4
+# (its halt:<level> rows and gates object are not read) and hold it to its recorded select answer.
+# xschem-read writes the connectivity form and stops, and refuses a --base that is not the sheet's.
+# The package has the co-sim setup: a canonical element form of a bench, a writer for mixed configs,
+# setup-project and setup-import, and Xschem setup sheets with their read-back (setup-xschem-sheets,
+# setup-xschem-read), each refusing a setup revision the lock would refuse. The setup modules import
+# chiplet_system_description.connectivity and chiplet_format_io.transistor_view, which the
+# chiplet-spec entry's tree has (description/ and reference/python). The package is
+# GPL-3.0-or-later, two modules and the copied formats staying Apache-2.0, and its build needs
+# setuptools 77 or later, which the 84.0.0 wheelhouse is. The runner's digest has moved since the
+# capability table's mixed entries were recorded, so they admit no run until entries recorded
+# against this ref replace them; that check does not compare the runner. The code that check calls
+# (mixed_run.Tools, the spinit template, mixed_case.roots_from), and the observer and gate entries
+# verify step 8 reads, are unchanged since those entries were recorded. The verify stage runs none
+# of select, readings or from-run.
+#
+# xschem-sheet given a die's --views (the eda-views.json copy from-run wrote) and its --contract
+# also draws that die below its symbol from the record's cdl rows, and proves the drawing equal to
+# the rows with Xschem, the one NIX_XSCHEM_OUTPATH names in the image; without --views it draws
+# only the system sheet. The verify stage runs none of it.
+#
+# The schematic commands import chiplet_system_description.connectivity, from the chiplet-spec
+# entry's description/. It is installed editable like every staged tree. The Nix CLI
+# shell does not install it: nothing that shell runs imports it.
+#
+# An earlier move adds 14 commits. They relicense the repository to
+# GPL-3.0-or-later and refresh the co-simulation identities the header change moved, re-lock
+# after chiplet-flow's reworded vehicle and echo core comments, read the flow's manifest at the
+# commit its sibling tree holds, and move the reference from the README to docs/.
+#
+# An earlier move adds two commits: the strict die-contract reader reads exactly
+# capability revision 4, the one the chiplet-spec entry carries, and its test of that set says
+# which of its two conditions failed; the reader floor moves to 1.15.0.
+#
+# An earlier move adds one CI commit: the host-tier workflow and its .github/ci/ reader, report
+# and judge, generated by the CI runner from the tier row; tests.yml drops the job and gate it
+# replaces. No package or test file changes.
+#
+# An earlier move adds one CI commit. tests.yml reads its chiplet-spec, IHP-Open-PDK
+# and gf180mcu commits through the generated .github/ci/read_pins.py (--names CHIPLET_SPEC_REF
+# SG13G2_REF GF180MCU_REF), itself regenerated by the CI runner, which can also name the image's
+# IHP-Open-PDK and gf180mcu commits (SG13G2_REF, GF180MCU_REF); the repository's own
+# .github/read_pins.py is gone, and tests/test_read_pins.py now holds the workflow to the generated
+# reader. No package file changes.
+#
+# An earlier move adds six test commits. tests/test_cosim_run_seam.py waits on each
+# seam event instead of a fixed window, with split deadlines, and kills what a failed wait leaves.
+# The mixed timeout case in tests/test_mixed_run.py times only the simulator, fails when the
+# process group outlives the kill, and runs to tran_stop 1e-2 instead of 1e-3, so an unkilled run
+# lands an order of magnitude past the bound, its 2 s timeout plus KILL_SLACK_S (60 s). No package
+# file changes.
+#
+# This ref (dcd7fdc) adds four test commits: the gate and capability tests check each mixed
+# entry's id by its form (a verify image, then its case) and hold it to the image its property
+# names, instead of spelling the image tag, and the two_tech_loop context fixture drops the tag
+# from its file name. No package file changes.
+STAGE_CHIPLET_COSIM_PATH=chiplet-cosim
+STAGE_CHIPLET_COSIM_REF=dcd7fdcdd7afa2149e3e8b738009b9ea4c25417f
+
+# chiplet-spec: the .chiplet reference reader and writer, installed as the distribution
+# chiplet-format-io from reference/python with the `strict` extra, and the system description,
+# installed as chiplet-system-description from description/, both editable off this staged tree. Its
+# remote is renamed chiplet-system-spec with the push of this ref, the name ci/integration-refs.json
+# and the integration workflows give it, so adk-tools is pushed after it; the folder, the pin key
+# and the STAGE_CHIPLET_SPEC_* names keep chiplet-spec. The whole repository is staged, not only
+# reference/python, because in a checkout the reader loads the canonical schemas/ from the
+# repository root. No console scripts. It is the top-level `chiplet_format_io` in the venv: the
+# ADK's strict admission imports it, packaging-flow and chiplet-flow import it when they load (the
+# shared names in ready_die_names) and in their strict readers, chiplet-cosim imports it where used,
+# and interposer-pnr's version checks use its check_contract_version because it is importable here.
+#
+# The system description (description/, Apache-2.0) is the typed Python eDSL that elaborates a
+# chiplet-on-interposer system spec to .chiplet: distribution chiplet-system-description, package
+# chiplet_system_description, and one console script, `chiplet-system-description`, which
+# bin/chiplet-system-description execs and verify step 14 runs on a source system.chiplet the
+# description's own test helper writes (`check` reads a source and its die folders, tiers 0 and 1,
+# and starts no EDA tool; its report keeps the format name chiplet_system.check). Its one runtime
+# dependency, PyYAML, is already in the image venv. packaging-flow and chiplet-cosim declare it
+# and import it when their CLIs load; the die flow neither declares nor imports it. It moved here
+# from its own repository, so this entry is now its one pin. packaging-flow
+# lifts board and sheet edits with chiplet_system_description.source.edit and emits .chiplet with
+# chiplet_system_description.emit, which pip check cannot see, so the packaging-flow pin and this
+# one move together. It carries its own copy of the .chiplet reader under a private name,
+# src/chiplet_system_description/_vendor/chiplet_format_io (see the copies below), through which
+# emit writes. A Technology may name a layer sheet and a stackup YAML, which elaborate writes as
+# given, only when set, and refuses as relative paths. Its examples mount the dies on the
+# interposer PDK's beol.attachment_surface_z_um, read from
+# $INTERPOSER_PDK_ROOT/libs.tech/intm4tm2_stack.json; its tests read a byte copy,
+# description/tests/fixtures/interposer_pdk/libs.tech/intm4tm2_stack.json, with a PROVENANCE.md,
+# and the verify stage's step 0c holds that copy to the PDK this image carries, so a PDK pin that
+# moves the file fails the build until the description refreshes its copy. The verify stage runs
+# none of its tests.
+#
+# Reader history, oldest first. 1.12.0 carries the strict die-contract admission of 1.8.0 unchanged
+# (STRICT_ADMISSION_API_VERSION 3, SUPPORTED_DIE_CONTRACT_VERSION "1.1", accepted contract versions
+# ("1.1",)), the modules the split flows share names through since 1.9.0 (ready_die_names,
+# eda_views, pins, technology, verilog_closure), and in ready_die_names the gf180mcuD check rows,
+# with DRC_THREADS and DRC_OPTIONS keyed by PDK name and a new DRC_REQUIRED (1.10.0), and checks 1.1
+# with PORTS_NOT_CHECKED (1.11.0). Those two 1.10.0 names changed shape, so a flat reader of them
+# breaks; in the image only packaging-flow and chiplet-flow read them, both at refs written for it.
+# 1.12.0 adds the transistor-level view of a block: eda_views.KINDS gains cdl, spice and
+# transistor_view, read() builds from the new READ_KINDS (the 1.11.0 kinds) so its result keys do
+# not change, a transistor_view module reads a chiplet-eda-views-transistor/v1 view, and
+# TECHNOLOGY_OF_PDK maps ihp-sg13cmos5l. The rev also carries the coordinate frame contract's
+# IntM4TM2 attach plane, which ci/check_attach_plane.py holds the image's .chiplet files to.
+#
+# Reader 1.13.0 adds three things and changes no name an earlier release exports. A new agreement
+# module reads a spice transistor view against the CDL an LVS run took as its reference.
+# ready_die_names gains run_check_not_counted, the one copy of the rule for which value of an LVS
+# run check counts. transistor_view gains derive, which returns the pins, local subckts and devices
+# that the reader checks a view's meta against, so a writer can state them; and cdl rows now split
+# into views all or none, so a record with no cdl view reads its spice view. Strict admission stays
+# at revision 3. chiplet-cosim needs 1.13.0 for that spice read. At the refs staged here
+# chiplet-cosim and packaging-flow declare chiplet-format-io>=1.15.0, the first with revision 4,
+# and the die flow >=1.12.0, so pip check reads those floors and a ref below 1.15.0 fails the
+# image's install step. Four consumers in the image select a strict API revision:
+# checks/assembly_admission.py at the tools/adk gitlink, and SUPPORTED_REVISIONS in the
+# strict_reader.py of packaging-flow, chiplet-flow and chiplet-cosim. A reader at another revision
+# needs all four to move with it.
+#
+# Reader 1.14.0 adds format 1.1: a source document, one with a top-level system block, is stamped
+# 1.1 (SOURCE_FORMAT_VERSION) and an assembly stays stamped 1.0 (SUPPORTED_FORMAT_VERSION);
+# ACCEPTED_FORMAT_VERSIONS moves to ("1.1",), so an assembly stamped 1.1 reads with no warning. A
+# reader that wants an assembly refuses a source document with SourceDocumentError, a subclass of
+# ChipletFormatError, whatever allow_intermediate says. assembly.units is closed to um (absent means
+# um) and refused otherwise, and solder_bump is a 1.1 member of interfaces[].type, refused in a
+# document stamped below 1.1 (MEMBER_SINCE). Strict admission stays at revision 3 and the die
+# contract at 1.1.
+#
+# An earlier move carries reader 1.14.1 and the system description, which reads a blank system
+# sheet and compares two sources by their nets (source.compare). Its ancestor reader
+# 1.13.1 is a squash onto the remote's dev 3340e11. 1.14.1 rewords the comments in both readers and
+# their tests and names the source reader by its new package in the source refusal; no verdict,
+# writer output or API moves.
+#
+# An earlier move adds 63 commits. Reader 1.15.0 adds format 1.2, a declared volts on
+# a power rail, moves the die contract to 1.2 with the die's supply_domains, and strict admission to
+# revision 4; 1.0 and 1.1 contracts keep every verdict, and one stamped 1.2 or above may move
+# (revision 3 admits a 1.3 contract whose ground domain is at 1.5 V, 4 refuses it). Reader 1.16.0
+# adds format 1.3, the unplaced source, which the description reads, places and writes back;
+# ACCEPTED_FORMAT_VERSIONS moves to ("1.3",), an assembly carrying an unplaced block is refused, and
+# an assembly is still stamped 1.0. It also refuses some 1.1 and 1.2 sources the earlier reader took:
+# a die with no at, a carrier with no size, an external with no edges, or an unplaced
+# key; packaging-flow reads sources through the description, so it meets them there. The description
+# reads sources through its vendored 1.16.0 reader, checks a rail's volts against its dies'
+# supply_domains, and numbers sheet pins from a die contract's terminals (pad_numbers). The four
+# strict consumers move with it: the ADK admits exactly revision 4, packaging-flow and chiplet-cosim
+# read exactly {4}, and chiplet-flow reads {3, 4} until its own close. The last two commits, after
+# release 1.16.0, state the licence as plain Apache-2.0 and reword a schema description;
+# no reader byte moves.
+#
+# An earlier move adds four commits. Reader 1.17.0 adds footprint_ids, the footprint
+# names a KiCad sheet gives a die (chiplet_dies:<cell>) and an external pad
+# (chiplet_carrier:EXT_PAD_<um>um), refusing a cell KiCad 9 would not keep, an empty name and any
+# whitespace; gds_to_kicad's die-folder handout (die_handout.py) names its footprints through it.
+# No format, contract or strict revision moves in the reader, and __init__.py changes only its
+# release string. The description does move a verdict: every path of it that reads a die folder
+# (read_die_folder: the classic import, source plan, so check, validate, place and compare, and
+# convert) now refuses a die contract with no version or another major, and warns on a newer
+# minor, where it read the contract before. packaging-flow meets it through compare-nets. The
+# description does not vendor footprint_ids.
+#
+# An earlier move adds two commits, both under conformance/: the manifest holds
+# interposer-pnr's reader to the unplaced refusal and says how ir's base error is named. No
+# reader byte moves.
+#
+# An earlier move adds four commits, all documents: the README becomes a short newcomer guide,
+# the coordinate-frame contract keeps only its normative part and names the reference tools rather
+# than their source files, and the format spec states format 1.3 at its head. No reader, schema or
+# conformance byte moves.
+#
+# An earlier move adds two commits. The description's reader of the connectivity form
+# (chiplet_system.connectivity) reads its minor 1.3, at which gds_to_kicad writes classic sheets;
+# 1.3 adds each classic symbol's units and jumpers, neither of which the description's classic
+# import reads, so a classic form reads as a 1.2 one and no longer warns on every import. The form
+# version the connectivity module writes (its VERSION) moves from 1.2 to 1.3, and chiplet-cosim's
+# xschem-read stamps it into the forms it writes, so those now say 1.3; nothing pins that value.
+# docs/VERSION_POLICY.md says which minor each sheet kind is written at. No chiplet_format_io
+# reader, schema or conformance byte moves.
+#
+# An earlier move adds six commits. Format 1.4 is implemented in both reference
+# readers (release 1.18.0): a die row of a source may name its admission file,
+# system.dies[].admission (a relative .json, no '..' segment, holding reason, scope and
+# not_verified), for a die the run does not build. A source stamped below 1.4 that writes the key is
+# refused naming the minor; a reader before 1.4 skips the item key, so the die is not admitted. The
+# schema carries the key with x-since, and a conformance test holds schema and reader to one verdict
+# per stamp. The description reads a die's admission in the source and keeps it when a classic sheet
+# is read again; its vendored __init__.py moves with the reader. STRICT_ADMISSION_API_VERSION stays
+# 4. Every Python copy of the reader held byte-equal to this tree moves to 1.18.0 with this ref
+# (below), so interposer-pnr's entry and the tools/gds_to_kicad and tools/chiplet_kicad_plugin
+# gitlinks move with it, and packaging-flow's, whose source loader reads the key.
+#
+# An earlier move adds six commits and is reader release 1.19.0. ready_die_names
+# gains the ihp-sg13cmos5l rows of the KLayout check tables. They are read off the ihp-sg13cmos5l
+# decks at IHP-Open-PDK 22f43352 and kept apart from the ihp-sg13g2 rows: unlike the ihp-sg13g2
+# one, that main DRC deck has no default for run_mode, so its row requires the key. The release
+# string is the one change to __init__.py, in the description's vendored copy too, and the C++
+# reader's version moves with it. No schema byte moves; the conformance writer pin names the
+# release. STRICT_ADMISSION_API_VERSION stays 4. Every Python copy of the reader held byte-equal
+# to this tree moves to 1.19.0 with this ref (below), so interposer-pnr's entry and the
+# tools/gds_to_kicad and tools/chiplet_kicad_plugin gitlinks move with it, and packaging-flow's and
+# chiplet-flow's, which read the new rows.
+#
+# An earlier move adds two commits and is reader release 1.20.0, format 1.5. A rail
+# of the system block may state its routing requirement, system.rails[].width_um, or amps with
+# current_density_ma_per_um, on a power or ground rail. The source path refuses a broken pairing,
+# or a value that is not a positive finite number, at every minor, and a source stamped below 1.5
+# that writes one of the keys is refused naming the minor. The schema carries the keys with
+# x-since; both readers accept 1.5, so 1.6 is the first minor that warns, and the C++ reader moves
+# its accepted minor and release only. The description reads a rail's requirement and its
+# elaborator hands it over as Extras.rail_requirements, never in the System. __init__.py is the one
+# reader file that changes, in the description's vendored copy too. STRICT_ADMISSION_API_VERSION
+# stays 4. Every Python copy of the reader held byte-equal to this tree moves to 1.20.0 with this
+# ref (below), so interposer-pnr's entry and the tools/gds_to_kicad and tools/chiplet_kicad_plugin
+# gitlinks move with it, and packaging-flow's, whose dependency floors name 1.20.0.
+#
+# An earlier move adds one commit and is reader release 1.21.0, format 1.5. A new
+# sheet_names module holds the rule a KiCad sheet's net, pin and pad names are written and read
+# back with: a plain first character, then plain characters and [N] digit subscripts, so a die's
+# bus pad such as U1_IO_BOND_bidirs[0].bidir_pad reads back instead of being refused as
+# unmappable_name; a range, an empty, nested or non-digit subscript, or a bracket first is refused.
+# The description's schematic and classic imports read a sheet's names with it, and gds_to_kicad's
+# sheet generator and die handout write with it; every other check keeps connectivity.NAME_RULE,
+# which does not change. No format version, schema byte or STRICT_ADMISSION_API_VERSION (4) moves;
+# __init__.py changes its release string only, and the C++ reader its READER_RELEASE and CMake
+# VERSION, which nothing in the image builds. Every Python copy of the reader held byte-equal to
+# this tree moves to 1.21.0 with this ref (below), so interposer-pnr's entry and the
+# tools/gds_to_kicad and tools/chiplet_kicad_plugin gitlinks move with it; the description's and
+# gds_to_kicad's copies gain sheet_names.py, which step 0b's subset rule admits because this tree's
+# reference carries it. packaging-flow's floors stay at 1.20.0, which this release meets, as do
+# chiplet-flow's (1.19.0) and chiplet-cosim's (1.15.0), so those entries need not move for it.
+#
+# An earlier move adds two commits, both in the description: elaboration refuses a source whose
+# carrier is not IntM4TM2, in plain words. reference/python does not change, so the reader stays
+# release 1.21.0 and every copy held byte-equal to it stays current. interposer-pnr's and
+# gds_to_kicad's SOURCE files keep naming 112bb6f, whose reader files that move keeps; the plugin
+# re-vendored there, so the tools/chiplet_kicad_plugin gitlink moved with it. packaging-flow
+# refuses the same carriers at spec load, so its entry moved with this one.
+#
+# This ref (6f8e0dc) adds one commit on the previous pin, on the release line rather than dev,
+# whose 1.22.0 this release leaves out: its schemas/chiplet_pads.json takes the ADK's 0.3.0 bytes,
+# so the chiplet_pads vocabulary that ci/contract-registry.json holds byte-identical to the
+# tools/adk gitlink's config/chiplet_pads.json matches again. Only the version line moves.
+# reference/python does not change, so the reader stays release 1.21.0 and every copy held
+# byte-equal to it stays current. The plugin's vendor/chiplet_format_io.SOURCE names the commit of
+# its copy, and its pin tests require the staged ref to be that commit, so the
+# tools/chiplet_kicad_plugin gitlink moves with it. The ADK's vendor/README.md declares the commit
+# of its copy the same way, and its guard skips when the staged checkout lacks that commit, so the
+# tools/adk gitlink moves with it as well.
+#
+# The ADK's strict admission refuses its own vendored copy on purpose: when chiplet_format_io
+# resolves into the ADK's vendor/, load_admission() refuses and admission reports UNDECIDABLE,
+# because that copy has no die_contract.py and no shipped schema. Without this entry the strict
+# tests in the ADK's assembly-admission suite skip. The verify stage calls load_admission() before
+# it runs that suite, so a missing or incompatible reader fails the build instead of skipping.
+#
+# `strict` adds jsonschema>=4, already satisfied by the venv's jsonschema 4.26.0, so it brings no
+# new distribution. It is named anyway: the reader refuses strict admission when jsonschema is
+# absent rather than degrading, and the extra is what declares that dependency. The Nix CLI shell
+# (nix/cli-env.sh) installs the same reference/python editable with --no-deps and no extra, takes
+# jsonschema from Nix, and exports CHIPLET_SPEC_ROOT as the tree; in its evidence mode that tree
+# is staging/chiplet-spec and must be at this ref. The Nix build shell's LibreLane launcher also
+# puts this tree's reference/python on LibreLane's import path (nix/build-env.sh).
+#
+# Staged rather than a submodule (the file header gives the criterion): chiplet-spec's remote
+# does not carry this ref yet, and no branch there has die_contract.py, so a
+# commit fetched from the remote would fail the verify stage's load_admission() call. Once this ref
+# is on the remote, this entry can move to a submodule under tools/ and leave this file.
+#
+# The image holds six Python copies of chiplet_format_io, three of them strict (strict: the copy
+# carries die_contract.py with STRICT_ADMISSION_API_VERSION): the installed one, whose revision the
+# strict consumers select, and the description's and gds_to_kicad's, which read die contracts
+# through their own copies and select no revision. Measured at the refs this file and the
+# adk-tools gitlinks name; re-measure when any of them moves:
+#
+#   - installed from this entry: 1.21.0, strict, revision 4; what the strict consumers import.
+#   - the system description, description/src/chiplet_system_description/_vendor (a private
+#     name, never on sys.path): 1.21.0, from this ref, since it sits in this tree: __init__.py,
+#     die_contract.py, pad_numbers.py, sheet_names.py, supply_domains.py and technology.py,
+#     byte-identical to this tree's reference/python ones (step 0b checks it).
+#     Its emit, which packaging-flow calls, writes .chiplet documents through it.
+#   - packaging-flow, chiplet-flow and chiplet-cosim carry no copy; they import the installed one.
+#   - interposer-pnr, src/interposer_pnr/_vendor/chiplet_format_io (a private name): 1.21.0,
+#     __init__.py and footprint_ids.py, byte-identical to this ref's and to 112bb6f's, the commit
+#     its _vendor/chiplet_format_io.SOURCE declares. Its form export names footprints through it.
+#     interposer-pnr's own test_sheet_form holds the copy to its SOURCE, and step 0b holds it to
+#     this tree.
+#   - tools/adk, vendor/: 1.21.0, __init__.py only, byte-identical to this ref's (its
+#     vendor/README.md declares this ref, and the ADK's tests/test_chiplet2dbx.py compares the
+#     copy with this ref's blob in the staged tree).
+#   - tools/chiplet_kicad_plugin, plugins/chiplet_export/vendor: 1.21.0, __init__.py only,
+#     byte-identical to this ref's (its vendor/chiplet_format_io.SOURCE names this ref, and its
+#     tests hold the copy and their oracle fixture to it; its Apache-2.0 text is
+#     LICENSES/Apache-2.0.txt at the plugin root). Step 0b does not pass this copy to
+#     check_vendored_reader; the export path (hyp_to_gds.py) loads .chiplet documents and stamps
+#     format_version through it.
+#     The contract registry compares it with this entry's reader byte for byte (a mirror of
+#     cfio_python_reader).
+#   - tools/gds_to_kicad, _vendor/chiplet_format_io (a private name): 1.21.0, __init__.py,
+#     die_contract.py, footprint_ids.py, pad_numbers.py, sheet_names.py, supply_domains.py and
+#     technology.py, byte-identical to this tree's reference/python ones (step 0b checks it),
+#     copied from 112bb6f, the commit its _vendor/chiplet_format_io.SOURCE declares, whose
+#     reader files this ref keeps. Its die-folder handout
+#     (die_handout.py) reads die contracts and names footprints through it.
+#
+# A copy is not redundancy to clean up here: each tool decides which reader it imports. The
+# verify stage checks that the installed reader resolves inside this staged tree and that the
+# tree's HEAD is the commit manifest.json records for chiplet-spec. Its step 0b
+# (ci/check_vendored_reader.py) holds the description's and interposer-pnr's copies and, with
+# --root, gds_to_kicad's byte-equal to this tree's reference/python/chiplet_format_io, so those
+# three lines above are checked at every build, not only measured. The description's copy sits
+# in this tree and moves with this one ref; interposer-pnr's moves with STAGE_INTERPOSER_PNR_REF
+# and gds_to_kicad's with the tools/gds_to_kicad gitlink, so both move together with this ref.
+# The plugin's tests name this ref as the commit of its copy, so the tools/chiplet_kicad_plugin
+# gitlink moves with it too.
+#
+# Strict admission, the export path and the ADK's own copy all read with 1.21.0. The ADK's
+# admission tests build their documents from the pin list in examples/two_die_interposer, not from
+# that example's .chiplet, so nothing in them checks that document against the 1.21.0 reader, and
+# this file does not assert it.
+STAGE_CHIPLET_SPEC_PATH=chiplet-spec
+STAGE_CHIPLET_SPEC_REF=6f8e0dc2af72b9ab21ff3dd8b2e3c2f5b85e2d97
+
+# ----------------------------------------------------------------------
+# LibreLane
+# ----------------------------------------------------------------------
+#
+# LibreLane as the die builds ran it (the cores and the DRIVER and ECHO dies): upstream
+# LIBRELANE_REV with LIBRELANE_PATCHES applied in order. It is pinned by revision on its
+# public upstream rather than staged from a local checkout like the STAGE_* entries, and the
+# change those builds carried in LibreLane's own source is a tracked patch, so that divergence
+# is visible here. LIBRELANE_PATCHES lists patch files in this repository, separated by spaces.
+# The one patch touches only librelane/scripts/pyosys/ys_common.py: it accepts a Yosys whose
+# Python binding is the top-level libyosys module (upstream at this revision refuses it,
+# meaning to require Yosys 0.59.1 or higher), prints the no-binding error to stderr, and calls
+# a pass through the binding's mangled overload name when Pass.call is absent.
+#
+# The Docker image does not install LibreLane; build.sh leaves it out of the image manifest for
+# that reason. flake.nix reads LIBRELANE_REV and LIBRELANE_PATCHES for the Nix build shell
+# (devShells.build): its librelane input is the same commit, its evaluation refuses a
+# flake.lock whose librelane revision is not LIBRELANE_REV, and packages.librelane-src applies
+# LIBRELANE_PATCHES to that input. The flake also gives this LibreLane a patched standalone
+# OpenSTA (packages.opensta); that patch is not a LibreLane patch and is not listed here.
+# Nothing reads LIBRELANE_REPO; flake.nix names the same repository in its librelane URL.
+#
+# A move of LIBRELANE_REV takes flake.nix's librelane URL and flake.lock with it, and every
+# patch must still apply to the new revision. flake.nix's nix-eda input, which the librelane
+# input follows, moves only together with LIBRELANE_REV, and NIX_OPENROAD_OUTPATH moves too
+# when OpenROAD changes (see the "OpenROAD, for the Nix shell" section).
+LIBRELANE_REPO=https://github.com/librelane/librelane.git
+LIBRELANE_REV=359bedc8aef928648b2fa247b9e845f4ec934276
+LIBRELANE_PATCHES="patches/librelane-ys_common.patch"
+
+# The flake's patched source is a store path with no commit of its own; with --realize,
+# nix/check-build-pins.sh compares it file by file with the tree `git apply` makes from
+# LIBRELANE_REV and LIBRELANE_PATCHES in a local LibreLane clone, leaving out submodule paths,
+# which the flake input does not carry.
+#
+# LIBRELANE_PATCHED_REV names a commit made from those two with LIBRELANE_PATCH_IDENT as author
+# and committer and LIBRELANE_PATCH_DATE as both dates, so that a LibreLane checkout carrying
+# the patch has a clean name: chiplet-flow and packaging-flow identify a checkout by
+# `git rev-parse HEAD` plus `-dirty` for any uncommitted change, and a patch left uncommitted
+# would read as `<sha>-dirty`. That commit's message is not in this file, so the commit cannot
+# be remade from it, and nothing in this tree uses the IDENT and DATE values. The PATCHED_REV line still has
+# to stay: the build shell's evaluation and the pins check each require exactly one. The flake
+# passes it on in ADK_NIX_LIBRELANE_IDENTITY, and nix/capture_build_context.py records it as a
+# claim without comparing its tree; the pins check compares the commit's tree only when the
+# clone holds it and otherwise reports it UNVERIFIED. A run through the build shell's launcher
+# is identified by the launcher's path and sha256, not by this commit.
+LIBRELANE_PATCH_IDENT="adk-tools <adk-tools@localhost>"
+LIBRELANE_PATCH_DATE="2026-01-01T00:00:00Z"
+LIBRELANE_PATCHED_REV=3dec2a1c1882446f871785e5506523e2357e20cf
+
+# ----------------------------------------------------------------------
+# OpenROAD, for the Nix shell
+# ----------------------------------------------------------------------
+#
+# The OpenROAD the adk-tools Nix cli and build shells use, as the store path it resolves to for
+# x86_64-linux. It is derived, not chosen: flake.nix's packages.openroad is the `librelane`
+# input's own (librelane/nix/openroad.nix, rev + sha256), built under nix-eda 6.4.0, which that
+# input follows. The input is locked at the LIBRELANE_REV commit (see the "LibreLane" section), and
+# there it packages OpenROAD dcf36133a369abc8f3c5e5738cd4d82e4903c0e0. nix/cli-env.sh exports
+# OPENROAD as that package's bin/openroad; this line is the output path, not the binary.
+#
+# Two checks read this line. nix/check-openroad-pin.sh evaluates the flake's output path against
+# the committed flake.lock, by evaluation alone, and refuses on any difference, so a flake.lock or
+# LIBRELANE_REV move that changes OpenROAD fails there until this line moves with it; it also
+# refuses anything but one double-quoted, unexported /nix/store/<hash>-openroad literal.
+# nix/check-build-pins.sh checks that the patched LibreLane package's derivation graph builds
+# this OpenROAD and no other derivation of that name, so LibreLane in the build shell carries this
+# OpenROAD and no second build of it. That is why flake.nix hands LibreLane the patched OpenSTA
+# through its package argument and not an overlay, which would rebuild OpenROAD.
+#
+# build.sh checks the line's shape, writes it as the runtime image's org.ihp.adk-tools.nix-openroad
+# label, and passes it to the runtime stage, which carries that path in its own /nix/store (with
+# the closure nix/host-closure.txt lists) and sets OPENROAD to its bin/openroad, which is where
+# `interposer-pnr route` finds it. So the runtime image's layers change with this line. For an
+# image built before that, run.sh reads the label from the image it launches, mounts the store the
+# path is in read-only, and passes OPENROAD (ADK_OPENROAD names another). bin/adk-tools reports
+# whether $OPENROAD or PATH has one.
+#
+# interposer-pnr states its routing as proven against one OpenROAD build, the one its
+# tools_manifest.json names for routing, and drift from it only warns. The router at the staged
+# interposer-pnr revision adapts to this build (its detailed-route Tcl drops
+# -bottom/-top_routing_layer when detailed_route's own body rejects them, as dcf36133's does, and
+# corrects dcf36133's rdl_route, which drops every net given by name), but this build is not an
+# established equivalent of that one. packaging-flow's live_gate test names no build; its route leg
+# runs whatever OPENROAD, else PATH, gives, as interposer-pnr's live route tests do. So a green
+# live route test in either repository says nothing about this build unless the OpenROAD it found
+# was this one, as it is inside the Nix shell, or in the verify stage's step 0g, which runs
+# interposer-pnr's single-layer live route cases on this build. The routing build cannot be pinned
+# this way: no flake that builds it is left to lock.
+#
+# It is not called OPENROAD on purpose: this file is sourced, and in a shell that already exports
+# OPENROAD (the Nix shell does) that assignment would change what every child sees.
+#
+# Do not confuse this with openroad/openroad.pin, which pins OpenROAD ad9e7248 for the 3Dblox
+# sidecar image, a different build for a different job. interposer-pnr's tools_manifest.json also
+# keeps two OpenROAD pins by role (one for routing, ad9e7248 for 3Dblox).
+NIX_OPENROAD_OUTPATH="/nix/store/ihqbw193x4qgdal58v4fczbaq1j3pc03-openroad-2026-02-17"
+
+# ----------------------------------------------------------------------
+# LibreLane and the sg13g2 PDK, for a die built in the container
+# ----------------------------------------------------------------------
+#
+# The three store paths behind what the Nix build shell sets as ADK_NIX_LIBRELANE,
+# ADK_NIX_LIBRELANE_PYTHON and ADK_NIX_SG13G2_PDK for x86_64-linux: flake.nix's
+# packages.librelane, the patched LibreLane of the "LibreLane" section, whose derivation builds the
+# OpenROAD above; packages.librelane-python, the Python env whose own site-packages holds that
+# LibreLane, which core preparation runs as its interpreter; and packages.sg13g2-pdk, the PDK tree
+# nix/sg13g2-pdk.nix assembles at the Dockerfile's SG13G2_REF with pdk-source.json at its root.
+# Like NIX_OPENROAD_OUTPATH they are derived, not chosen, and move with flake.lock or with the
+# pins those packages read.
+#
+# nix/check-openroad-pin.sh holds all three to the flake's evaluation as it holds
+# NIX_OPENROAD_OUTPATH, and refuses anything but one double-quoted, unexported /nix/store literal
+# of the package's name. build.sh checks only that shape and writes them as the runtime image's
+# org.ihp.adk-tools.nix-librelane, org.ihp.adk-tools.nix-librelane-python and
+# org.ihp.adk-tools.nix-sg13g2-pdk labels, and the runtime image carries each in its own
+# /nix/store and sets it in its ENV under the build shell's variable name. The interpreter's label
+# is the env's bin/python3.<minor>, the file the build shell's ADK_NIX_LIBRELANE_PYTHON names
+# (its bin/python3 is a link, which core preparation refuses). For an image built before that,
+# run.sh passes each into the container under that name when the path is on the host, in the
+# store it mounts for OpenROAD; otherwise it says so and starts anyway, and a page that builds a
+# die refuses.
+NIX_LIBRELANE_OUTPATH="/nix/store/8bj13r4a4wwmsdgpf47z5v93fhm5jyjl-python3.13-librelane-3.0.0rc0"
+NIX_LIBRELANE_PYTHON_OUTPATH="/nix/store/jys2hxxpx11x2nbv3rvmhaks224nixmq-python3-3.13.9-env"
+NIX_SG13G2_PDK_OUTPATH="/nix/store/hx96lf7n4m0if0nl48m5ydj90rvga8z2-ihp-open-pdk-22f4335"
+
+# ----------------------------------------------------------------------
+# The Nix lane's interpreter, not in the image
+# ----------------------------------------------------------------------
+#
+# flake.nix's packages.python, the CLI shell's cli-env: the interpreter with the third-party
+# Python the flow imports, whose site-packages the shell sets as ADK_NIX_SITE_PACKAGES. Derived,
+# not chosen, like the pins above: it moves with flake.lock or with cli-env's package list.
+#
+# nix/check-openroad-pin.sh holds it to the flake's evaluation as it holds the others. The image
+# runs its own venv's interpreter, never this path, so nix/tool_identity.py leaves this pin out of
+# the image's facts and table and the image's python row names its own; the lane's table keeps
+# this one as its python row. build.sh neither checks it nor passes it on.
+NIX_PYTHON_OUTPATH="/nix/store/w2333a98nw88y34dgxlnh7wx7k206zq3-python3-3.13.9-env"
+
+# ----------------------------------------------------------------------
+# Co-simulation engine, shipped in the image
+# ----------------------------------------------------------------------
+#
+# chiplet-cosim admits a gate-level run only when its capability table
+# (cosim_engine_capability.json) holds an entry for the exact engine: the iverilog, vvp and cocotb
+# VPI library sha256 and the cocotb version, among the rest of its key. Its entry for sg13g2 cells
+# under Icarus was shown on the Icarus and the cocotb these store paths hold, so the image ships
+# exactly them: flake.nix's packages.cosim-iverilog, packages.cosim-cocotb (cocotb 2.0.0, which is
+# not nix-eda's default cocotb) and packages.cosim-python, a python3.13 with cocotb in its own
+# site-packages, where the harness check looks for it. Another Icarus or cocotb is another engine
+# that no entry covers, so none of these lines moves before chiplet-cosim's table has an entry for
+# what it moves to.
+#
+# The devshell chiplet-cosim reads from COSIM_DEVSHELL is a store path of its own,
+# packages.cosim-devshell: a bin/ of exactly three links, python3 to the env and iverilog and vvp
+# to Icarus. A run's lock pins the devshell by that path, so the host and the image carry the same
+# one and a lock replays in either. It moves whenever the env or Icarus moves.
+#
+# nix/check-openroad-pin.sh holds the four to the flake's evaluation as it holds the pins above.
+# Unlike those, these go into the image. build.sh checks nix/cosim-closure.txt against the host
+# store's own closure of the devshell, the python env and Icarus (a store query; nothing evaluates
+# Nix), so the paths have to be on the host: nix build .#cosim-devshell. It then packs the listed
+# paths into cosim-closure.tar in the build context (generated, not tracked) and passes the four
+# paths as build arguments. The runtime stage unpacks the closure under /nix/store and links
+# /opt/adk-tools/cosim-devshell, which COSIM_DEVSHELL names, to the devshell's store path. The
+# verify stage's last leg checks that link and the engine against the entry.
+NIX_COSIM_IVERILOG_OUTPATH="/nix/store/nknbcs56x54kqhbv0slfca6v4gmi724v-iverilog-s20250103-60-gdb82380ce"
+NIX_COSIM_COCOTB_OUTPATH="/nix/store/yk336mn39lfjiawz9zq4qbgq29vhd694-python3.13-cocotb-2.0.0"
+NIX_COSIM_PYTHON_OUTPATH="/nix/store/1czlxfa90k7h85aq923imkr9x2fjmz5v-python3-3.13.9-env"
+NIX_COSIM_DEVSHELL_OUTPATH="/nix/store/kcxwxk9fj86r0l2ih49hk3gihk6la9sk-cosim-devshell"
+
+# ----------------------------------------------------------------------
+# Mixed-signal engine, shipped in the image
+# ----------------------------------------------------------------------
+#
+# The engine for an analog netlist under ngspice with digital parts under Icarus, apart from the
+# co-simulation one above: flake.nix's packages.mixsim-ngspice (nixpkgs' ngspice 45, built with
+# XSPICE and OSDI, without KLU), packages.mixsim-iverilog (an Icarus with libvvp, at the same rev
+# as the co-simulation Icarus) and packages.sg13g2-osdi, the six sg13g2 OSDI models compiled for
+# generic x86-64 from the Verilog-A sources at SG13G2_REF. ngspice's d_cosim runs Icarus through
+# the ivlng shim in ngspice's lib/ngspice, given libvvp and the VPI module by absolute path, so no
+# loader path search is involved (the flake's checks.mixsim-explicit-paths shows it).
+#
+# The OSDI files are not reproducible from their recipe by every compiler run, so their identity
+# is their bytes: nix/sg13g2-osdi.sha256 names the six files' sha256, and build.sh refuses unless
+# the store path below holds exactly them. A rebuild of that path with other bytes is another
+# engine, and the file and this line move together.
+#
+# nix/check-openroad-pin.sh holds the three to the flake's evaluation like the pins above, and
+# like the co-simulation engine they go into the image: build.sh checks nix/mixsim-closure.txt
+# against the host store's closure of the three, packs it into mixsim-closure.tar, and passes the
+# three paths as build arguments. The runtime stage unpacks it under /nix/store and sets
+# MIXSIM_DEVSHELL to /opt/adk-tools/mixsim-devshell: bin/ngspice, bin/iverilog and bin/vvp,
+# lib/libvvp.so, lib/ngspice (ngspice's own, with the ivlng shim and VPI module and the code
+# models) and osdi/, each a link into these paths. The verify stage's mixed-signal leg checks that
+# directory, the six files' sha256 and both engines live.
+NIX_MIXSIM_NGSPICE_OUTPATH="/nix/store/mjipfrxz15vc3ls2m9yiy0zw987vp38m-ngspice-45"
+NIX_MIXSIM_IVERILOG_OUTPATH="/nix/store/r95n1sqiyfmpnw4jy3znxb91a8khy84g-iverilog-libvvp-s20250103-60-gdb82380ce"
+NIX_SG13G2_OSDI_OUTPATH="/nix/store/anybmg3w0nlzrl57xms9r9hpai93x4sl-sg13g2-osdi-22f4335"
+
+# ----------------------------------------------------------------------
+# Waveform viewers, shipped in the image
+# ----------------------------------------------------------------------
+#
+# What a run's waveforms are opened with: flake.nix's packages.gtkwave (GTKWave 3.3.121, for VCD
+# and FST, with vcd2fst and fst2vcd) and packages.gaw (GAW, which reads ngspice's raw files, binary
+# and ASCII), both nixpkgs' at the plain nixpkgs the lock names, so the binary cache's store paths;
+# and packages.xschem (Xschem, which draws a mixed run's analog waves from a sheet that loads its
+# raw file): nixpkgs' expression with the source at master 8d2088ed, unpatched, built here (not in
+# the binary cache). `xschem -v` prints "XSCHEM V3.4.8RC"; share/xschem/xschem_library/devices is
+# the source tree's, byte for byte. stdenv rewrote its awk scripts' #! lines to Nix's gawk, so
+# gawk joins the viewers' closure.
+#
+# nix/check-openroad-pin.sh holds the three to the flake's evaluation like the pins above, and
+# like the engines they go into the image: build.sh checks nix/viewer-closure.txt against the host
+# store's closure of the three, less what the engines' lists already hold, packs it into
+# viewer-closure.tar, and passes the three paths as build arguments. The tools stage unpacks it
+# under /nix/store and links /usr/local/bin/gtkwave, /usr/local/bin/gaw and /usr/local/bin/xschem
+# into these paths, so all three are on PATH, and sets XSCHEM_SHAREDIR to Xschem's share/xschem.
+# The verify stage's viewer leg checks the links and opens a waveform in each, headless.
+NIX_GTKWAVE_OUTPATH="/nix/store/8kygk1ymkq6dqym0xv6hy08bxw3px6dv-gtkwave-3.3.121"
+NIX_GAW_OUTPATH="/nix/store/7gjgfdhglwb682gdv0qmqqxsskkdqlh4-gaw3-20250128"
+NIX_XSCHEM_OUTPATH="/nix/store/af01dvh78hfmxljwq4v4lm56apxp25hh-xschem-3.4.8RC-8d2088e"
+
+# ----------------------------------------------------------------------
+# Verilog-AMS engine, shipped in the image
+# ----------------------------------------------------------------------
+#
+# What runs a Verilog-AMS deck: flake.nix's packages.vams-gnucap, gnucap at develop b6678fe
+# (version lines trace_adv 2026.09.25) and gnucap-modelgen-verilog at develop 100e746, both from
+# savannah, built into one prefix by the plain nixpkgs the lock names, so gnucap finds the model
+# generator's plugins on its own plugin path and libgnucap.so by its rpath. packages.vams-devshell
+# is VAMS_DEVSHELL: a bin/ of gnucap, gnucap-conf, gnucap-mg-vams and gnucap-modelgen, and g++ and
+# c++, the stdenv's own GCC, which builds a run's modelgen output against the same libstdc++.
+#
+# nix/check-openroad-pin.sh holds the two to the flake's evaluation like the pins above. Neither is
+# in the binary cache: the first image build after a change here needs both built on the host
+# (nix build .#vams-devshell). build.sh checks nix/vams-closure.txt against the host store's closure
+# of the devshell, less what the engines' and viewers' lists already hold, packs it into
+# vams-closure.tar, and passes the two paths as build arguments. The runtime stage unpacks it under
+# /nix/store and links /opt/adk-tools/vams-devshell to the devshell; nothing goes on PATH. The
+# verify stage's Verilog-AMS leg checks the links, then builds a model with the devshell's g++ and
+# solves a deck with it.
+NIX_VAMS_GNUCAP_OUTPATH="/nix/store/yawvmxraq2bapnsapsb5c2j6j0c856b4-gnucap-b6678fe-modelgen-verilog-100e746"
+NIX_VAMS_DEVSHELL_OUTPATH="/nix/store/1dlfq2bbq2db4dc3bx897zxacf7jbkga-vams-devshell"
+
+# ----------------------------------------------------------------------
+# Die views, shipped in the image
+# ----------------------------------------------------------------------
+#
+# The EDA views of six built dies, as chiplet-flow's emit-eda-views wrote them: the two sg13g2
+# bondpad dies (CF_DRIVER_BONDPAD and CF_ECHO_BONDPAD), CF_DRIVER_LS (the DRIVER rebuilt with level
+# shifters at its pads), the gf180mcu CF_ECHO_CX_BONDPAD, and the sigma-delta pair: SD_CORE_BONDPAD
+# on gf180mcuD and SD_AFE_BONDPAD on sg13g2. Their gate-level netlists and simulation models are
+# among them, and CDL where the record has it (CF_ECHO_CX_BONDPAD's lists cdl under not_recorded).
+# One directory per die,
+# named by the layout sha256 its contract binds, holding the record (eda-views.json) and every
+# file it names. They come from die runs, not from a repository, so there is no commit to stage.
+# die-views.sha256 lists every file by its sha256 under the emitted paths
+# (records/<layout sha256>/<file>), and the line below names that listing by its own sha256: the
+# recipe commit pins every byte, and a listing that moves without this line refuses.
+#
+# Where the records sit on the building host is not part of the recipe. stage-die-views.sh, which
+# build.sh runs after stage-sources.sh, takes the directory from STAGE_DIE_VIEWS_DIR in the
+# environment, absolute, with no default, checks it read-only against the listing, copies the
+# listed files into die-views/ in the build context (generated, not tracked) and checks the copy.
+# So the image is rebuildable where the records exist, which is the same reduction as staging and
+# for the same reason. The runtime stage puts them under /opt/adk-tools/die-views/<layout
+# sha256>/, checks them there against the listing and the manifest's die_views entry, and sets
+# ADK_DIE_VIEWS to that directory. A die whose layout sha256 has no directory there has no views.
+STAGE_DIE_VIEWS_SHA256="8b080b8dc5e075f68f7a9a83b7cf16978267fde28936e35315798b9ed2abddd2"

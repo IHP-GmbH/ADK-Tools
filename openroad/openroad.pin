@@ -1,0 +1,9 @@
+# OpenROAD build pinned for the 3Dblox sidecar. Shell-sourceable.
+#
+# The 3Dblox reader and the check_3dblox linter are upstream OpenROAD
+# commands; this file is the version lockfile for them, playing the same
+# role the tools/ submodules play for the rest of the suite. Bump the
+# commit and the tag together, then re-run build-image.sh and verify-live.sh.
+OPENROAD_REPO=https://github.com/The-OpenROAD-Project/OpenROAD.git
+OPENROAD_COMMIT=ad9e7248d8d948c48ac090ecabc4d6e9de7ff42c
+OPENROAD_3DBLOX_IMAGE=openroad-3dblox:ad9e7248

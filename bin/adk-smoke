@@ -3,7 +3,25 @@
 # pipeline (pcbnew -> hyperlynx writer -> hyp_to_gds worker -> ADK assembly
 # DRC) and fail unless the DRC passes. Verifies any running image in one
 # command; also the last gate of the verify build stage.
+#
+# Usage: adk-smoke BOARD.kicad_pcb
+#
+# The board has no default: the runtime image carries no demo, and a default
+# under /opt/adk-tools/examples would name a path that exists only in the
+# verify stage, which passes it explicitly. The demo's board is
+# examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb in the
+# adk-tools clone, copied into /work.
 set -euo pipefail
+
+if [ "$#" -ne 1 ]; then
+    echo "adk-smoke: name one board: copy examples/two_die_interposer from the adk-tools clone to /work/example, then run adk-smoke /work/example/kicad/two_die_interposer.kicad_pcb" >&2
+    exit 2
+fi
+BOARD="$1"
+if [ ! -f "$BOARD" ]; then
+    echo "adk-smoke: no board at $BOARD" >&2
+    exit 1
+fi
 
 OUT="$(mktemp -d /tmp/adk-smoke.XXXXXX)"
 trap 'rm -rf "$OUT"' EXIT
@@ -24,9 +42,9 @@ PY
 klayout -b -r "$OUT/check_tech.py"
 
 echo "adk-smoke: exporting two-die interposer demo to $OUT"
-python3 /opt/adk-tools/chiplet_kicad_plugin/tests/regenerate_wirebond_demo.py \
+/opt/adk-tools/venv/bin/python3 /opt/adk-tools/chiplet_kicad_plugin/plugins/chiplet_export/tests/regenerate_wirebond_demo.py \
     --require-drc \
-    --board /opt/adk-tools/examples/two_die_interposer/kicad/two_die_interposer.kicad_pcb \
+    --board "$BOARD" \
     --output-dir "$OUT"
 
 echo

@@ -6,12 +6,58 @@ repo pins one exact, verified combination of every tool.
 
 ## Branching model
 
-- **`main`** — stable. Every commit is release-quality and passed the verify
+- **`main`** -- stable. Every commit is release-quality and passed the verify
   gate. Release tags (`vYYYY.MM`) live here. Do not push tool bumps here
   directly.
-- **`dev`** — integration. Submodule bumps and new tools land here first and get
+- **`dev`** -- integration. Submodule bumps and new tools land here first and get
   verified, then promote to `main` at a release.
-- **`feature/*`** — short-lived branches cut from `dev`, merged back into `dev`.
+- **`feature/*`** -- short-lived branches cut from `dev`, merged back into `dev`.
+
+## What enforces the model
+
+A ruleset covers `main` and `dev`, so the section above is a condition on
+merging rather than a convention. Both lines take changes only through a pull
+request, neither can be deleted or force-pushed, and two status checks are
+required to merge. Release tags (`v*`) are protected against deletion and
+against being moved onto a different commit.
+
+**`ci-gate`** collects the jobs in `.github/workflows/ci.yml`, which check that
+every submodule pin is publicly reachable on the branch it declares, that every
+path the image build reaches for exists in the pinned tree, and that the tracked
+ruleset payloads are well formed.
+
+**`integration`** collects `.github/workflows/integration.yml`, the cross-repo
+run. It checks out the pinned combination and asserts the facts that span two
+repositories and that therefore no per-repo gate can see: the hand-synced
+schemas and both vendored `.chiplet` readers still byte-identical to
+chiplet-spec, every pin naming this superproject's track, every repository
+publishing a `ci-gate` that is a real gate, one KLayout across the ecosystem,
+and every pinned `*_PIP` satisfying what the repositories declare. Its refs come
+from `ci/pin-set.json`, so it goes red because something changed here, never
+because somebody pushed elsewhere while a pull request was open; an entry the
+pin set records as local-only is refused by name.
+
+`ci/pin-set.json` is generated, never edited: `python3 ci/pin_set.py` joins
+`staging.pin`, the gitlinks, `ci/integration-refs.json` and the Dockerfile's
+pins into it, and the `ci` workflow fails when the tracked copy is not what
+those sources give. Commit it with the pin bump it follows. `ci/export-pins`
+exports the trees it names from their local sources, and is what
+`stage-sources.sh` runs for the image. `ci/pin-sources.json` says where each
+source is (the sibling of that name, or for `adk` the module store of the
+`tools/adk` submodule) and records each repository's root commits; a new
+repository gets its roots with `python3 ci/pin_set.py --record-roots
+--source-root <dir>`, and the exporter refuses a folder whose roots differ. The run that follows the branch heads is
+`integration-floating.yml`, weekly, which never blocks anything and reports
+through one issue.
+
+Both compile nothing and both finish in about a minute.
+
+The payloads for every repository in the ecosystem live in `ci/rulesets/` and
+are applied with `ci/rulesets/apply_rulesets.py`, never through the GitHub web
+UI. `ci/rulesets/README.md` gives the reason, which is sharper than a style
+preference. Repository admins hold a permanent bypass, so the ruleset is binding
+for contributors and advisory for a maintainer who needs a force push on the day
+a history rewrite is genuinely required.
 
 ## The verify gate
 
@@ -22,13 +68,11 @@ iteration only.
 
 ## Where to look
 
-- **`docs/MAINTAINING.md`** — how to bump a tool, add a new tool as a submodule,
+- **`docs/MAINTAINING.md`** -- how to bump a tool, add a new tool as a submodule,
   remove one, and cut a release. Read it before touching submodules or the
   `Dockerfile`.
-- **`docs/RELEASE_CHECKLIST.md`** — the ordered release checklist, including the
-  work still required before a public release.
-- **`CHANGELOG.md`** — release history.
-- **`NOTICE.md`** — per-component licenses and the GPL corresponding-source
+- **`docs/RELEASE_CHECKLIST.md`** -- the ordered release checklist.
+- **`NOTICE.md`** -- per-component licenses and the GPL corresponding-source
   obligation. Update it whenever you add or change a bundled component.
 
 ## Commit conventions

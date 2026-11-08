@@ -1,0 +1,5 @@
+#!/bin/sh
+# chiplet-system-description check: tiers 0 and 1 over a source system.chiplet, the file
+# and then its die folders, with no EDA tool started. Exit 0 means no refusing
+# finding; --json writes one chiplet_system.check report on stdout.
+exec /opt/adk-tools/venv/bin/chiplet-system-description "$@"

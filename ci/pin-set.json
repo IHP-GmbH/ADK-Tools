@@ -1,0 +1,261 @@
+{
+  "base_image": "ubuntu:24.04@sha256:786a8b558f7be160c6c8c4a54f9a57274f3b4fb1491cf65146521ae77ff1dc54",
+  "image": {
+    "dockerfile": {
+      "APT_SNAPSHOT": "20261012T090000Z",
+      "BUILD_SETUPTOOLS": "84.0.0",
+      "BUILD_SETUPTOOLS_SHA256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670",
+      "GF180MCU_DESIGN_NGSPICE_SHA256": "091cb530bf85160a1f07878fb81f789ca367d018991c8ab41a584cd1a85c6692",
+      "GF180MCU_DRC_TREE_SHA256": "23044fc3905f9eca7f5e25d51b0deab231ef653265c6be79d9e78d7952288d4f",
+      "GF180MCU_LVS_TREE_SHA256": "56f55fda31bc915102d5d463ae8d6ceb79110d5abee0b3afd379e81835ee838d",
+      "GF180MCU_LYP_SHA256": "4d0e42a66b16f598bc4c401c193e60b8aeabc45bba7ff96d2f93e84cf6acb31f",
+      "GF180MCU_REF": "77cb86086e6bcded39e5e3f2d25ab234b6cdee65",
+      "GF180MCU_SM141064_NGSPICE_SHA256": "6edba54d23b38a2c60f8ffdbaa3eb75a7568c615e4820808969bd1121b77b1aa",
+      "KICAD_LIBS_TAG": "9.0.9.1",
+      "PYCELL_API_REF": "99f469aa348201536b2f3b55c69e58969bd4847b",
+      "PYPREPROCESSOR_REF": "cf1ff9bad0fb5338cf1c5b990b2b816b1ea01a64",
+      "SG13G2_REF": "22f43352dd8219f9007eb659e422e0d5fe28c5fb"
+    },
+    "staging_pin": {
+      "LIBRELANE_PATCHED_REV": "3dec2a1c1882446f871785e5506523e2357e20cf",
+      "LIBRELANE_PATCHES": "patches/librelane-ys_common.patch",
+      "LIBRELANE_PATCH_DATE": "2026-01-01T00:00:00Z",
+      "LIBRELANE_PATCH_IDENT": "adk-tools <adk-tools@localhost>",
+      "LIBRELANE_REPO": "https://github.com/librelane/librelane.git",
+      "LIBRELANE_REV": "359bedc8aef928648b2fa247b9e845f4ec934276",
+      "NIX_COSIM_COCOTB_OUTPATH": "/nix/store/yk336mn39lfjiawz9zq4qbgq29vhd694-python3.13-cocotb-2.0.0",
+      "NIX_COSIM_DEVSHELL_OUTPATH": "/nix/store/kcxwxk9fj86r0l2ih49hk3gihk6la9sk-cosim-devshell",
+      "NIX_COSIM_IVERILOG_OUTPATH": "/nix/store/nknbcs56x54kqhbv0slfca6v4gmi724v-iverilog-s20250103-60-gdb82380ce",
+      "NIX_COSIM_PYTHON_OUTPATH": "/nix/store/1czlxfa90k7h85aq923imkr9x2fjmz5v-python3-3.13.9-env",
+      "NIX_GAW_OUTPATH": "/nix/store/7gjgfdhglwb682gdv0qmqqxsskkdqlh4-gaw3-20250128",
+      "NIX_GTKWAVE_OUTPATH": "/nix/store/8kygk1ymkq6dqym0xv6hy08bxw3px6dv-gtkwave-3.3.121",
+      "NIX_LIBRELANE_OUTPATH": "/nix/store/8bj13r4a4wwmsdgpf47z5v93fhm5jyjl-python3.13-librelane-3.0.0rc0",
+      "NIX_LIBRELANE_PYTHON_OUTPATH": "/nix/store/jys2hxxpx11x2nbv3rvmhaks224nixmq-python3-3.13.9-env",
+      "NIX_MIXSIM_IVERILOG_OUTPATH": "/nix/store/r95n1sqiyfmpnw4jy3znxb91a8khy84g-iverilog-libvvp-s20250103-60-gdb82380ce",
+      "NIX_MIXSIM_NGSPICE_OUTPATH": "/nix/store/mjipfrxz15vc3ls2m9yiy0zw987vp38m-ngspice-45",
+      "NIX_OPENROAD_OUTPATH": "/nix/store/ihqbw193x4qgdal58v4fczbaq1j3pc03-openroad-2026-02-17",
+      "NIX_PYTHON_OUTPATH": "/nix/store/w2333a98nw88y34dgxlnh7wx7k206zq3-python3-3.13.9-env",
+      "NIX_SG13G2_OSDI_OUTPATH": "/nix/store/anybmg3w0nlzrl57xms9r9hpai93x4sl-sg13g2-osdi-22f4335",
+      "NIX_SG13G2_PDK_OUTPATH": "/nix/store/hx96lf7n4m0if0nl48m5ydj90rvga8z2-ihp-open-pdk-22f4335",
+      "NIX_VAMS_DEVSHELL_OUTPATH": "/nix/store/1dlfq2bbq2db4dc3bx897zxacf7jbkga-vams-devshell",
+      "NIX_VAMS_GNUCAP_OUTPATH": "/nix/store/yawvmxraq2bapnsapsb5c2j6j0c856b4-gnucap-b6678fe-modelgen-verilog-100e746",
+      "NIX_XSCHEM_OUTPATH": "/nix/store/af01dvh78hfmxljwq4v4lm56apxp25hh-xschem-3.4.8RC-8d2088e",
+      "STAGE_DIE_VIEWS_SHA256": "8b080b8dc5e075f68f7a9a83b7cf16978267fde28936e35315798b9ed2abddd2"
+    }
+  },
+  "pip": {
+    "jinja2": "3.1.6",
+    "jsonschema": "4.26.0",
+    "klayout": "0.30.5",
+    "pluggy": "1.6.0",
+    "psutil": "7.2.2",
+    "pyqt6": "6.11.0",
+    "pytest": "9.1.0",
+    "pytest-xdist": "3.8.0",
+    "pyyaml": "6.0.3",
+    "rich": "14.3.4",
+    "z3-solver": "4.15.8.0"
+  },
+  "python": "3.12",
+  "repos": {
+    "adk": {
+      "export_from": {
+        "kind": "submodule",
+        "name": "tools/adk"
+      },
+      "extra": [],
+      "reachable": "remote",
+      "remote": "https://github.com/IHP-GmbH/IHP-Open-ADK.git",
+      "roots": [
+        "eb1409ef76760cb56b971ff98d5078da43a9655b"
+      ],
+      "sha": "fdccf54bc2a783619d2ba0f3667f7b03a6e7ca47",
+      "source": "gitlink",
+      "stage_name": null
+    },
+    "adk-docs": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "remote",
+      "remote": "https://github.com/IHP-GmbH/IHP-Open-ADK-docs.git",
+      "roots": [
+        "a211c2975baa41c2c21f9be2dd2e6a68025ab8f1"
+      ],
+      "sha": "39b56628fc6a6e599bc04e7124a3e4407270df37",
+      "source": "integration",
+      "stage_name": null
+    },
+    "assembly-lvs": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "local-only",
+      "remote": null,
+      "roots": [
+        "3480016e7afc5fe6ff58c6caba451679400afdcf"
+      ],
+      "sha": "32d4739590a136dd35f13d53455c223c05fd4dde",
+      "source": "staged",
+      "stage_name": "assembly-lvs"
+    },
+    "chiplet-cosim": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "local-only",
+      "remote": null,
+      "roots": [
+        "49bc22e80acf1af35bf767a28eab9fcb19bec2c9"
+      ],
+      "sha": "dcd7fdcdd7afa2149e3e8b738009b9ea4c25417f",
+      "source": "staged",
+      "stage_name": "chiplet-cosim"
+    },
+    "chiplet-flow": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "local-only",
+      "remote": null,
+      "roots": [
+        "d22efd3d4e1ba349e7f254bdf2ce280d6a5fc6f1"
+      ],
+      "sha": "d78b01e4202e284a135d4270089ad7b8028c5281",
+      "source": "staged",
+      "stage_name": "chiplet-flow"
+    },
+    "chiplet-spec": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "local-only",
+      "remote": "https://github.com/IHP-GmbH/chiplet-system-spec.git",
+      "roots": [
+        "8a782eb10dfea9c351320308c69010239838eb95"
+      ],
+      "sha": "6f8e0dc2af72b9ab21ff3dd8b2e3c2f5b85e2d97",
+      "source": "staged",
+      "stage_name": "chiplet-spec"
+    },
+    "chiplet-studio": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "remote",
+      "remote": "https://github.com/IHP-GmbH/chiplet-studio.git",
+      "roots": [
+        "ad532d2e689cd72e5a9483f3be5e96345948d29b"
+      ],
+      "sha": "70f5d0c47a4ae6910ed2b62b9a10ecf2bc9be5a1",
+      "source": "gitlink",
+      "stage_name": null
+    },
+    "chiplet_kicad_plugin": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "remote",
+      "remote": "https://github.com/IHP-GmbH/Chiplets-KiCad-Plugin.git",
+      "roots": [
+        "8f87581a1d7390f4ce56c14fe583012a97d73614"
+      ],
+      "sha": "233b7da6fbd8cf39c528bfdc7080cd7a65da07f5",
+      "source": "gitlink",
+      "stage_name": null
+    },
+    "gds_to_kicad": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "remote",
+      "remote": "https://github.com/IHP-GmbH/gds2kicad.git",
+      "roots": [
+        "03af0dc85d4528b13b05989fa7c1f4b85e9daa1a"
+      ],
+      "sha": "5912e655ba664bb950e23f8cbbc825e8f36f3fbe",
+      "source": "gitlink",
+      "stage_name": null
+    },
+    "interconnect_pdk": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "remote",
+      "remote": "https://github.com/IHP-GmbH/IHP-Interconnect-IntM4TM2.git",
+      "roots": [
+        "3d69357d9594a11eea425efd0a7e669195e04f7d"
+      ],
+      "sha": "de185b68227321c562f44113723b5ccec1a94e09",
+      "source": "gitlink",
+      "stage_name": null
+    },
+    "interposer": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "remote",
+      "remote": "https://github.com/IHP-GmbH/OpenIntM4TM2.git",
+      "roots": [
+        "577c4e180cf419b62840ce9d3b1fea929591603a"
+      ],
+      "sha": "096c6815421d492bb4ed811ada7762327c761604",
+      "source": "gitlink",
+      "stage_name": null
+    },
+    "interposer-pnr": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "local-only",
+      "remote": null,
+      "roots": [
+        "07a36d25574d640be9ff51ffaf6655748aedaadb"
+      ],
+      "sha": "54caf817e08a713ded71173c331815b4e2572a12",
+      "source": "staged",
+      "stage_name": "interposer-pnr"
+    },
+    "kicad": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "remote",
+      "remote": "https://github.com/IHP-GmbH/KiCad-ADK-MOD.git",
+      "roots": [
+        "23c40f7e8698b54e0dd497942ff4ae9f755333d2",
+        "c878e96ffc34e4e84cae3a0d7c55099c3d58476c"
+      ],
+      "sha": "5d12a2566750832a5bdd94ebe520f756901762e4",
+      "source": "gitlink",
+      "stage_name": null
+    },
+    "packaging-flow": {
+      "export_from": {
+        "kind": "sibling"
+      },
+      "extra": [],
+      "reachable": "local-only",
+      "remote": null,
+      "roots": [
+        "7e0160f4c889583ebb018c66a171f41eaf4dae3a"
+      ],
+      "sha": "9ec146d1d6f5882f92407fbb85bbed28f1eedd67",
+      "source": "staged",
+      "stage_name": "packaging-flow"
+    }
+  },
+  "schema": "adk-pin-set/1"
+}

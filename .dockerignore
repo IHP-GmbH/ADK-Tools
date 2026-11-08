@@ -4,6 +4,21 @@
 .gitmodules
 **/.git
 
+# ... with ONE exception, and it is load-bearing rather than a convenience.
+# packaging-flow records the identity of every package it dispatches by running
+# `git rev-parse HEAD` on the directory find_spec resolves to. The staged trees
+# are installed editable, so that directory is staging/<name>, and without its
+# .git the identity is recorded as "unavailable: not a git checkout", which
+# `packaging-flow verify` refuses at the full tier. `**/.git` above would strip
+# exactly that. Each staged .git is one shallow commit, 5.8 MB for all eight.
+!staging/*/.git
+
+# bin/flow and bin/adk-vscode are host launchers: they start the image or VS
+# Code, so the image has no use for them (tests/flow checks that this keeps
+# them out of the context).
+bin/flow
+bin/adk-vscode
+
 # Host build artifacts: everything compiles inside the image
 tools/kicad/build
 tools/chiplet-studio/build
@@ -22,11 +37,30 @@ tools/chiplet-studio/extern/klayout/bin-debug
 # that submodule, so the superproject .dockerignore must catch them explicitly);
 # no tracked fixture lives at tests/*.gds, so this bakes nothing intended.
 tools/gds_to_kicad/tests/test_*.gds
+# Its local venv and build output, git-ignored there for the same reason.
+tools/gds_to_kicad/build
+tools/gds_to_kicad/venv
 
-# Generated at build time / local files
+# Generated at build time / local files. SESSION_LOG.md is matched at every
+# depth on purpose: a submodule checkout keeps its own at its repo root, and a
+# bare pattern only matches the context root.
 manifest.json
 *.log
-SESSION_LOG.md
+**/SESSION_LOG.md
+
+# Notes that three tool repos keep untracked and gitignore (`docs/`).
+# They still sit in a working checkout, and .dockerignore is an exclude list
+# over the working tree, not over the git index, so without these lines they get
+# baked into the image and an image built here differs from one built from a
+# clean clone. Listed one by one on purpose: a future tool with a TRACKED docs/
+# that the image needs must not be swept up by a `tools/*/docs` wildcard.
+tools/adk/docs
+tools/chiplet-studio/docs
+tools/gds_to_kicad/docs
+
+# OpenROAD sidecar: host-side only, never copied into the image. Excluding it
+# also keeps a 3 GB managed OpenROAD checkout out of the build context.
+openroad
 
 # Demo / project artifacts: never bake a developer's local heavy/scratch output
 # into the image. Mirrors .gitignore (the verify stage regenerates everything;

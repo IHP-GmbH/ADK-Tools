@@ -1,0 +1,36 @@
+{
+  "_comment": [
+    "Repositories the integration job checks out that this repository does not",
+    "pin as a submodule. Two exist: chiplet-spec, which is the upstream of two",
+    "vendored copies and is deliberately not a submodule because nothing here",
+    "builds from it, and IHP-Open-ADK-docs, whose requirements file is one of",
+    "the places the ecosystem's KLayout version is declared.",
+    "",
+    "They are pinned for the same reason the submodules are pinned: a required",
+    "check that follows a branch head goes red because somebody else pushed, on",
+    "a pull request that changed nothing. Bumping a pin is then a deliberate",
+    "commit that says which combination was checked, which is what this",
+    "repository is for.",
+    "",
+    "chiplet-spec carries no pin of its own. The image stages it, and staging.pin's",
+    "chiplet-spec entry is its one pin (pin_from); on_remote records whether that",
+    "commit has been pushed to the remote named here. While it is false, the",
+    "integration job refuses rather than test another commit. ci/pin_set.py joins",
+    "this file with staging.pin, the gitlinks and the Dockerfile into",
+    "ci/pin-set.json, which is what every consumer reads.",
+    "",
+    "The floating weekly run ignores the pins and takes the branch heads, so a",
+    "pin going stale is visible without being blocking."
+  ],
+  "spec": {
+    "slug": "IHP-GmbH/chiplet-system-spec",
+    "branch": "dev",
+    "pin_from": "staging.pin",
+    "on_remote": false
+  },
+  "docs": {
+    "slug": "IHP-GmbH/IHP-Open-ADK-docs",
+    "branch": "dev",
+    "pin": "39b56628fc6a6e599bc04e7124a3e4407270df37"
+  }
+}

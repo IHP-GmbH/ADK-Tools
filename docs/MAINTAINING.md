@@ -1,6 +1,6 @@
 # Maintaining adk-tools
 
-Internal maintainer guide for the `adk-tools` distribution image. Read this
+Maintainer guide for the `adk-tools` distribution image. Read this
 before bumping a tool, adding a new one, or cutting a release.
 
 If you only want to *use* the image, read the top-level `README.md` instead.
@@ -26,8 +26,9 @@ weaken this: `--skip-verify` is for local iteration only, never for a commit
 that lands on `main`.
 
 Everything else (Dockerfile, `bin/` wrappers, scripts, docs) is glue owned by
-this repo, licensed GPL-3.0-or-later. The bundled tools keep their own
-licenses; see `NOTICE.md`.
+this repo, licensed GPL-3.0-or-later unless a file's own SPDX line says
+otherwise: the files that say Apache-2.0 are Apache-2.0. The bundled tools keep
+their own licenses; see `NOTICE.md`.
 
 ---
 
@@ -46,12 +47,6 @@ Rules:
   `main` only through a `dev -> main` promotion at release time.
 - `main` moves only at releases (and for genuine hotfixes, which are then
   merged back into `dev`).
-- Pre-existing `feature/*` branches created before this model was adopted may
-  be based on `main`; rebase them onto `dev` when you next touch them.
-
-Historically (before `v2026.07`) bumps landed straight on `main`; the git log
-before that tag reflects the old flow. From `v2026.07` on, follow the table
-above.
 
 ---
 
@@ -62,7 +57,8 @@ The common case: a tool released a new version and you want it in the image.
 ```bash
 git switch dev
 
-# Option A: follow the branch tracked in .gitmodules (usually main)
+# Option A: follow the branch tracked in .gitmodules for THIS branch
+# (`dev` pins each tool's dev branch, `main` pins each tool's main)
 git submodule update --remote tools/<name>
 
 # Option B: pin an exact ref (a tag or reviewed commit)
@@ -95,25 +91,49 @@ A new tool is a new submodule plus its wiring into the image. Do all of this on
 
 ```bash
 git switch dev
-git submodule add -b main git@github.com:IHP-GmbH/<Repo>.git tools/<name>
+git submodule add -b <branch> https://github.com/IHP-GmbH/<Repo>.git tools/<name>
 ```
 
-This appends a section to `.gitmodules` and stages the gitlink. Keep the
-`branch = main` field accurate; it is what `git submodule update --remote`
-follows.
+This appends a section to `.gitmodules` and stages the gitlink.
 
-### 4.2 Bake it into the image (`Dockerfile`, `runtime` stage)
+- **Use the HTTPS URL, always.** An SSH (`git@github.com:`) URL breaks anonymous
+  `git clone --recurse-submodules`, and `build.sh` copies the URL into the baked
+  `manifest.json`, so a wrong one ships inside the image. Maintainers who push
+  over SSH rewrite it locally instead of editing the tracked file:
+  `git config --global url."git@github.com:".insteadOf https://github.com/`.
+- Keep the `branch = ...` field accurate **per track**: on `dev` it names the
+  tool's `dev` branch if it has one, on `main` it names the tool's `main`. That
+  field is what `git submodule update --remote` follows, and the two tracks are
+  expected to differ, so the release promotion conflicts on `.gitmodules` by design
+  (see section 6).
+- A tool whose repository is not published yet cannot be added here: the URL
+  would not resolve for anyone else and `NOTICE.md` would cite a dead link. Keep
+  that work on a local branch until the repository exists.
 
-- **Python / data tool** — copy the tree next to its siblings under
-  `/opt/adk-tools` (see the `COPY tools/...` block, around
+### 4.2 Bake it into the image (`Dockerfile`)
+
+The Dockerfile has two parts, split by its `#### thin layer:` line. Above it is
+the tools image: what this repository does not write (apt packages, KiCad, PDK
+slices, Nix closures, the venv's third-party packages). Below it is our code, in
+the `runtime` stage, on that image. `build.sh` rebuilds the tools image only
+when `ci/tools_key.py` gives a new key for the part above the line, so put a
+tool on the side it changes with.
+
+- **Our Python / data tool** (a submodule of this repository) -- copy the tree
+  next to its siblings under `/opt/adk-tools`, below the line (see the
+  `COPY tools/...` block, around
   `COPY tools/gds_to_kicad /opt/adk-tools/gds_to_kicad`):
 
   ```dockerfile
   COPY tools/<name> /opt/adk-tools/<name>
   ```
 
-- **Compiled tool** — add a dedicated builder stage (mirror `kicad-builder` /
-  `studio-builder`), then copy only the install artifacts into `runtime`:
+  A Python package it needs from PyPI goes into the tools stage's venv RUN,
+  pinned with a `<NAME>_PIP` ARG; below the line pip installs with no index,
+  and `ci/check_thin_layer.py` refuses anything that downloads there.
+
+- **Compiled third-party tool** -- add a dedicated builder stage above the line
+  (mirror `kicad-builder`), then copy only the install artifacts into `tools`:
 
   ```dockerfile
   FROM deps AS <name>-builder
@@ -121,19 +141,18 @@ follows.
   COPY tools/<name> /src/<name>
   RUN <configure/build/install into /install>
   ...
-  # in the runtime stage:
+  # in the tools stage:
   COPY --from=<name>-builder /install/ /opt/adk-tools/<name>/
   ```
 
-  If the heavy stage adds compile jobs, remember `build.sh` sequences
-  `kicad-builder` first so total parallelism stays `<= JOBS`; a second heavy
-  stage that overlaps studio-builder can blow past the RAM budget. Sequence it
-  the same way if needed.
+  A compiled tool of ours builds below the line, `FROM ${TOOLS_IMAGE}`, the way
+  `studio-builder` does. Two heavy builders in the same part run at the same
+  time; keep the total compile jobs `<= JOBS`, or the RAM budget goes.
 
 ### 4.3 Discovery root (optional)
 
 If the tool expects an env var pointing at its own tree, add it to the `ENV`
-block in `runtime` (the one with `ADK_ROOT`, `GDS_TO_KICAD_ROOT`, ...). Name it
+block in the `tools` stage (the one with `ADK_ROOT`, `GDS_TO_KICAD_ROOT`, ...). Name it
 after the repository, matching the existing convention.
 
 ### 4.4 Launcher
@@ -153,7 +172,7 @@ For a compiled GUI that needs the in-tree KLayout libs, export
 ### 4.5 Python dependencies
 
 If the tool needs packages in the worker venv, add a pinned `ARG <PKG>_PIP=...`
-and a line to the `pip install` in the venv block. **Pin exact versions** — the
+and a line to the `pip install` in the venv block. **Pin exact versions** -- the
 comment there explains why (an unpinned dep can silently flip a verify suite on
 a cache-cold rebuild). Bump a pin in its own deliberate commit.
 
@@ -165,11 +184,11 @@ bump fails the build. Follow the existing pattern (run under the worker venv,
 
 ### 4.7 Docs & notices (mandatory, not optional)
 
-- `NOTICE.md` — add the component to the right table with its **SPDX license**
+- `NOTICE.md` -- add the component to the right table with its **SPDX license**
   and **source URL**. If it is GPL, also add it to the corresponding-source
   obligation paragraph. Verify the license from the tool's own `LICENSE` /
   source headers; do not guess (`-only` vs `-or-later` matters).
-- `README.md` — add the command to the Tools table; mention any new data root.
+- `README.md` -- add the command to the Tools table; mention any new data root.
 
 ### 4.8 Build, verify, commit
 
@@ -186,8 +205,8 @@ submodule set.
 
 ## 5. Removing a tool
 
-Removing a submodule cleanly is easy to get wrong; leftover gitdirs have bitten
-this repo before (`kicad_designs`, `chiplet-mosaic`).
+Removing a submodule cleanly is easy to get wrong: a leftover gitdir under
+`.git/modules` survives the removal and comes back on the next `add`.
 
 ```bash
 git switch dev
@@ -207,28 +226,68 @@ the `ENV` root, `bin/<command>`, the venv pins, the verify step, and the
 Calendar versioning: `vYYYY.MM` (e.g. `v2026.07`). Continues the scheme started
 at `v2026.06`.
 
+The order and every check are in `RELEASE_CHECKLIST.md`; follow it. The
+mechanics behind its steps:
+
 1. Get `dev` green: `./build.sh` passes on the tip of `dev`.
 2. Promote to `main`:
    ```bash
    git switch main && git merge --ff-only dev   # or a reviewed merge commit
    ```
-3. Build the release commit so the baked manifest matches the tag context:
+3. **Put `main` back on the main track.** The promotion does not do it for you:
+   `dev` pins each tool's `dev` branch, so a plain fast-forward silently carries
+   `branch = dev` and the dev-side gitlinks onto `main`. For every tool that has
+   a `dev` branch, reset the `.gitmodules` `branch` field to `main` and move the
+   gitlink to that tool's `main` tip:
    ```bash
-   ./build.sh                                    # tags adk-tools:dev locally
+   git submodule update --remote tools/<name>    # after fixing branch = main
    ```
-4. Create an **annotated** tag on `main` (signed if a GPG key is set up):
+   Do the same in `ci/integration-refs.json`, which names the two repositories
+   that are not submodules, then regenerate `ci/pin-set.json`
+   (`python3 ci/pin_set.py`). Once `main` has its own history, expect the
+   promotion to conflict on `.gitmodules`; resolve it in favour of the
+   main-track values.
+4. Tag locally first, so the image built next names the release: an
+   **annotated** tag on `main` (signed if a GPG key is set up):
    ```bash
    git tag -a vYYYY.MM -m "adk-tools vYYYY.MM: <headline>"
+   ```
+5. Build the tagged commit from a fresh clone of this checkout
+   (`git clone --recurse-submodules <this checkout>`, which carries the tag; a
+   clone of `origin` has neither the promoted `main` nor the tag) and confirm
+   the baked manifest is clean. The build needs the sibling checkouts
+   `staging.pin` lists (`STAGE_SIBLINGS`, by default the clone's parent
+   directory) and the die records (`STAGE_DIE_VIEWS_DIR`):
+   ```bash
+   ./stage-sources.sh --check && ./stage-die-views.sh --check
+   ./build.sh                                    # tags adk-tools:dev locally
+   docker run --rm adk-tools:dev cat /opt/adk-tools/manifest.json
+   ```
+   `meta` must read `vYYYY.MM`, every tool URL must be an `https://github.com/`
+   one, and no filesystem path may appear. If anything is wrong, delete the
+   local tag, fix, and start again from step 1. Then run the license check
+   of the staged trees (`RELEASE_CHECKLIST.md`, "The tag") on this build's
+   `staging/`. Only once it passes, take this image as the release's reference
+   image: the adk-examples release lock names its ID
+   (`docker image inspect --format '{{.Id}}' adk-tools:dev`).
+6. Push:
+   ```bash
    git push origin main
    git push origin vYYYY.MM
    ```
-5. Publish the image (see the caveats in `RELEASE_CHECKLIST.md` before running
-   this against a public registry):
-   ```bash
-   ./release.sh vYYYY.MM
-   ```
-6. Add the release to `CHANGELOG.md` and merge any post-release fixes back into
-   `dev`.
+7. Merge any post-release fixes back into `dev`.
+
+**No image is published, to a registry or as a download.** People who run a
+release build its image themselves, and `run.sh` holds their build to the
+examples' release lock by its pin set (`docs/RUN_SH.md`). Building the image
+needs the sibling checkouts `staging.pin` lists and the die records (the
+`die-views/` folder of adk-examples), so a clone of this repository alone does
+not build. `save-image.sh` stays for moving an image between machines you run;
+no archive goes out with a release. `release.sh` implements the registry path
+(immutable tag, provenance gate) and is kept working, but publishing is not
+part of the release flow today; the `ghcr.io/ihp-gmbh/adk-tools` package stays
+private. Do not add a "pull the image" instruction to the docs while that
+holds.
 
 ### Version identifiers must agree
 
@@ -237,13 +296,13 @@ Three identifiers name the same release; keep them consistent:
 | Identifier      | Where                          | Set by                                    |
 |-----------------|--------------------------------|-------------------------------------------|
 | git tag         | `vYYYY.MM` on `main`           | `git tag -a` (step 4)                     |
-| image tag       | `adk-tools:vYYYY.MM` on ghcr   | `release.sh vYYYY.MM` (step 5)            |
 | manifest `meta` | baked in the image, shown by `adk-tools` | `build.sh` via `git describe --tags` |
+| image tag       | `adk-tools:vYYYY.MM`, only if the registry path is ever used | `release.sh vYYYY.MM` |
 
-Because `build.sh` now derives `meta` from `git describe --tags`, an image
-built from the tagged commit self-reports `vYYYY.MM`; one built a few commits
-later reports `vYYYY.MM-<n>-g<sha>`, which still points back to the release.
-Always build the image from the tagged commit for a clean release.
+`build.sh` derives `meta` from `git describe --tags`, so an image built from
+the tagged commit reports `vYYYY.MM`; one built before the tag, or a few
+commits later, reports another release's name with `-<n>-g<sha>`. That is why
+the tag comes before the build.
 
 ---
 
@@ -252,21 +311,26 @@ Always build the image from the tagged commit for a clean release.
 - Submodule pins are the lockfile: a fresh `git clone --recurse-submodules` at
   a given commit reproduces the exact tool set.
 - Non-submodule pins that also gate reproducibility live as `ARG`s in the
-  `Dockerfile`: `KICAD_LIBS_TAG`, `SG13G2_REF`, `PYCELL_API_REF`,
-  `PYPREPROCESSOR_REF`, `KLAYOUT_PIP` and the other `*_PIP` versions. Bump these
-  deliberately, in their own commit, and re-verify.
-- The base image (`ubuntu:24.04`) and apt packages are **not** version-pinned;
-  the build depends on live github.com + gitlab.com egress. For strict
-  byte-level reproducibility see the hardening items in
-  `RELEASE_CHECKLIST.md`.
+  `Dockerfile`: `UBUNTU_IMAGE`, `KICAD_LIBS_TAG`, `SG13G2_REF`,
+  `PYCELL_API_REF`, `PYPREPROCESSOR_REF`, `KLAYOUT_PIP` and the other `*_PIP`
+  versions. Bump these deliberately, in their own commit, and re-verify.
+- The base image is pinned by digest (`UBUNTU_IMAGE`, an `ubuntu:24.04`
+  manifest index). Every apt package comes from the Ubuntu snapshot at
+  `APT_SNAPSHOT`, and `docker/apt.lock` and `docker/pip.lock` hold what the
+  tools image installed. The runtime's first step diffs them against the tools
+  image's own copies and stops on any difference. When a change moves the tools
+  key and the new tools image holds other packages, copy its locks out
+  (`docker run --rm --network none --entrypoint cat adk-tools:tools-<key12>
+  /opt/adk-tools/tools/apt.lock > docker/apt.lock`, the same for `pip.lock`)
+  and commit them with the change. The build still depends on live github.com +
+  gitlab.com egress. For strict byte-level
+  reproducibility see the known limits in `RELEASE_CHECKLIST.md`.
 
 ---
 
 ## 8. See also
 
-- `README.md` — user-facing quickstart and tool table.
-- `RELEASE_CHECKLIST.md` — the ordered pre-release checklist, including the work
-  still required before a **public** release.
-- `CHANGELOG.md` — release history.
-- `NOTICE.md` — per-component licenses and the GPL corresponding-source
+- `README.md` -- user-facing quickstart and tool table.
+- `RELEASE_CHECKLIST.md` -- the ordered pre-release checklist.
+- `NOTICE.md` -- per-component licenses and the GPL corresponding-source
   obligation.

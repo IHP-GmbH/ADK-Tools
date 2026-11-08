@@ -32,9 +32,11 @@ with no manual work, and the verify build gates the reproduction.
 - `metal_test_chiplet.g2kproj` - a saved gds-to-kicad GUI session bundling the
   above: the input + stripped GDS, the LYP, the pad/text layer selections and the
   embedded pin list. Open it with `gds-to-kicad` -> File -> Open Project to land
-  at the exact state that produces the footprint + symbol, no re-entry needed. It
-  stores image-absolute paths (`/opt/adk-tools/...`), so it is meant for use
-  inside the adk-tools container.
+  at the exact state that produces the footprint + symbol, no re-entry needed.
+  The two GDS paths are relative to this folder, so a copy of the demo opens
+  from wherever it sits; the LYP path is the image's
+  (`/opt/adk-tools/gds_to_kicad/pdks/sg13g2.lyp`), so the LYP resolves inside
+  the adk-tools container.
 
 The I/O pad chiplet (`interposer_bondpad`) has no GDS: it is generated
 parametrically (step 3).
