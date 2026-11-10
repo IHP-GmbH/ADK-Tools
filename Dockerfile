@@ -1172,10 +1172,13 @@ RUN /opt/adk-tools/venv/bin/python3 -B /opt/adk-tools/ci/check_vendored_reader.p
 # tools default to.
 COPY examples /opt/adk-tools/examples
 
-# 0c. The attach plane. Every IntM4TM2 .chiplet in the plugin, in Studio and in
-#     the examples mounts its dies on the PDK's beol.attachment_surface_z_um,
-#     each die at the plane plus its connection's height, and the consumers'
-#     copies of the PDK's stack files agree with the PDK this image carries.
+# 0c. The attach plane. Every IntM4TM2 .chiplet in the plugin, Studio,
+#     gds_to_kicad, the interconnect PDK, the examples and the staged census
+#     repositories declares the PDK's beol.attachment_surface_z_um when it seats
+#     a die, each written die z is the interposer's z plus the plane plus its
+#     connection's height, and the consumers' copies of the PDK's stack files
+#     agree with the PDK this image carries. chiplet-system is outside the pin
+#     set, so the summary lists it as not walked.
 #     --pdk-copy names the staged repositories' own copies of the key file,
 #     which CI cannot see (they are not submodules). interposer-pnr's is the
 #     frozen copy its answer keys are measured against; its own suite reports
@@ -1194,6 +1197,12 @@ RUN /opt/adk-tools/venv/bin/python3 -B /opt/adk-tools/ci/check_attach_plane.py \
         --tree tools/chiplet_kicad_plugin=/opt/adk-tools/chiplet_kicad_plugin \
         --tree tools/chiplet-studio=/opt/adk-tools/chiplet-studio \
         --tree examples=/opt/adk-tools/examples \
+        --tree tools/gds_to_kicad=/opt/adk-tools/gds_to_kicad \
+        --tree tools/IHP-Interconnect-IntM4TM2=/opt/adk-tools/IHP-Interconnect-IntM4TM2 \
+        --tree chiplet-cosim=/opt/adk-tools/staging/chiplet-cosim \
+        --tree chiplet-spec=/opt/adk-tools/staging/chiplet-spec \
+        --tree interposer-pnr=/opt/adk-tools/staging/interposer-pnr \
+        --tree packaging-flow=/opt/adk-tools/staging/packaging-flow \
         --exemptions /opt/adk-tools/ci/attach-plane-exemptions.txt \
         --pdk-copy chiplet-spec/description=/opt/adk-tools/staging/chiplet-spec/description/tests/fixtures/interposer_pdk/libs.tech/intm4tm2_stack.json \
         --pdk-copy packaging-flow=/opt/adk-tools/staging/packaging-flow/tests/fixtures/interposer_pdk/libs.tech/intm4tm2_stack.json \
@@ -1298,7 +1307,7 @@ RUN cd /opt/adk-tools/staging/interposer-pnr \
 #     the sibling this image SELECTED, at the commit staging.pin names, not
 #     whatever checkout happens to be reachable. The guard resolves the commit
 #     the vendored copy declares inside that tree, which is why staging.pin
-#     names that commit as an extra ref.
+#     stages chiplet-spec at that commit.
 #
 #     The third line closes a join nothing else checks. Step 0b compares the
 #     vendored copy against chiplet-spec's SOURCE tree, which leaves the

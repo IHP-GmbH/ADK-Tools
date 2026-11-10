@@ -69,7 +69,7 @@
       "roots": [
         "eb1409ef76760cb56b971ff98d5078da43a9655b"
       ],
-      "sha": "fdccf54bc2a783619d2ba0f3667f7b03a6e7ca47",
+      "sha": "093ae2e75fbc0b1eb3838a426cc1a59d37240aa0",
       "source": "gitlink",
       "stage_name": null
     },
@@ -83,7 +83,7 @@
       "roots": [
         "a211c2975baa41c2c21f9be2dd2e6a68025ab8f1"
       ],
-      "sha": "39b56628fc6a6e599bc04e7124a3e4407270df37",
+      "sha": "a6e6a81f79db7bebd4136b3796684ffba27f7beb",
       "source": "integration",
       "stage_name": null
     },
@@ -97,7 +97,7 @@
       "roots": [
         "3480016e7afc5fe6ff58c6caba451679400afdcf"
       ],
-      "sha": "32d4739590a136dd35f13d53455c223c05fd4dde",
+      "sha": "27e850825e11035871a8023d94573b502f32af87",
       "source": "staged",
       "stage_name": "assembly-lvs"
     },
@@ -111,7 +111,7 @@
       "roots": [
         "49bc22e80acf1af35bf767a28eab9fcb19bec2c9"
       ],
-      "sha": "dcd7fdcdd7afa2149e3e8b738009b9ea4c25417f",
+      "sha": "50247f2c4e3441dd28c5de3fb3c4f82c650051eb",
       "source": "staged",
       "stage_name": "chiplet-cosim"
     },
@@ -125,7 +125,7 @@
       "roots": [
         "d22efd3d4e1ba349e7f254bdf2ce280d6a5fc6f1"
       ],
-      "sha": "d78b01e4202e284a135d4270089ad7b8028c5281",
+      "sha": "54f256d55635d7aadd217a237ca591dfb1601108",
       "source": "staged",
       "stage_name": "chiplet-flow"
     },
@@ -134,12 +134,12 @@
         "kind": "sibling"
       },
       "extra": [],
-      "reachable": "local-only",
+      "reachable": "remote",
       "remote": "https://github.com/IHP-GmbH/chiplet-system-spec.git",
       "roots": [
         "8a782eb10dfea9c351320308c69010239838eb95"
       ],
-      "sha": "6f8e0dc2af72b9ab21ff3dd8b2e3c2f5b85e2d97",
+      "sha": "48a30522451b3bcc45754fe01633196188cab2f0",
       "source": "staged",
       "stage_name": "chiplet-spec"
     },
@@ -153,7 +153,7 @@
       "roots": [
         "ad532d2e689cd72e5a9483f3be5e96345948d29b"
       ],
-      "sha": "70f5d0c47a4ae6910ed2b62b9a10ecf2bc9be5a1",
+      "sha": "51720a07f9b892d0d9ec6aeb7fd8f0cacfbe3af3",
       "source": "gitlink",
       "stage_name": null
     },
@@ -167,7 +167,7 @@
       "roots": [
         "8f87581a1d7390f4ce56c14fe583012a97d73614"
       ],
-      "sha": "233b7da6fbd8cf39c528bfdc7080cd7a65da07f5",
+      "sha": "08b99f47a003c0fe81b38617f6655e40725ae157",
       "source": "gitlink",
       "stage_name": null
     },
@@ -181,7 +181,7 @@
       "roots": [
         "03af0dc85d4528b13b05989fa7c1f4b85e9daa1a"
       ],
-      "sha": "5912e655ba664bb950e23f8cbbc825e8f36f3fbe",
+      "sha": "b0444d01b6eedb25b9f835d44c2e7a8b30805209",
       "source": "gitlink",
       "stage_name": null
     },
@@ -195,7 +195,7 @@
       "roots": [
         "3d69357d9594a11eea425efd0a7e669195e04f7d"
       ],
-      "sha": "de185b68227321c562f44113723b5ccec1a94e09",
+      "sha": "6a519e962f7459843a31944e5a86cc1d4ff1cb59",
       "source": "gitlink",
       "stage_name": null
     },
@@ -209,7 +209,7 @@
       "roots": [
         "577c4e180cf419b62840ce9d3b1fea929591603a"
       ],
-      "sha": "096c6815421d492bb4ed811ada7762327c761604",
+      "sha": "a700e4a04724e0e2f266b3161eb19e0476b747d3",
       "source": "gitlink",
       "stage_name": null
     },
@@ -223,7 +223,7 @@
       "roots": [
         "07a36d25574d640be9ff51ffaf6655748aedaadb"
       ],
-      "sha": "54caf817e08a713ded71173c331815b4e2572a12",
+      "sha": "3e85398b8d118370796a22f643355bbe0e3a4638",
       "source": "staged",
       "stage_name": "interposer-pnr"
     },
@@ -252,7 +252,7 @@
       "roots": [
         "7e0160f4c889583ebb018c66a171f41eaf4dae3a"
       ],
-      "sha": "9ec146d1d6f5882f92407fbb85bbed28f1eedd67",
+      "sha": "56affc12e96e3702dcd5e5d503aa9607c17a136f",
       "source": "staged",
       "stage_name": "packaging-flow"
     }

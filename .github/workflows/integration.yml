@@ -9,9 +9,9 @@ name: integration
 # chiplet-spec's staged pin and the docs pin, joined by ci/pin_set.py), so this
 # check goes red because somebody changed something here, never because
 # somebody pushed to another repository while a pull request was open. An
-# entry the pin set records as local-only is refused by name: while
-# chiplet-spec's pin is not on its remote, this run is red rather than green on
-# another commit. The run that follows the branch heads is the weekly
+# entry the pin set records as local-only is refused by name: if chiplet-spec's
+# pin is ever one its remote lacks (on_remote false in ci/integration-refs.json),
+# this run is red rather than green on another commit. The run that follows the branch heads is the weekly
 # one in integration-floating.yml, and it is never allowed to block anything.
 #
 # Two workflows rather than one with a mode switch, because a job name is a

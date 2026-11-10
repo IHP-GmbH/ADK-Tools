@@ -38,11 +38,10 @@
       "identity": "bytes",
       "version_policy": null,
       "mirrors": [
-        ["plugin", "plugins/chiplet_export/vendor/chiplet_format_io/__init__.py", "the vendored Python .chiplet reader inside the KiCad plugin, read by hyp_to_gds and the clobber guard. It caught up with the pin when the plugin re-vendored at the reader the pin carries, so it is compared here byte for byte; the plugin's own suite still pins its sha256 and the commit that carries it"]
+        ["plugin", "plugins/chiplet_export/vendor/chiplet_format_io/__init__.py", "the vendored Python .chiplet reader inside the KiCad plugin, read by hyp_to_gds and the clobber guard. It caught up with the pin when the plugin re-vendored at the reader the pin carries, so it is compared here byte for byte; the plugin's own suite still pins its sha256 and the commit that carries it"],
+        ["adk", "vendor/chiplet_format_io/__init__.py", "the vendored Python .chiplet reader inside the ADK, read by its 3Dblox exporter, the resolved v2 entry and the pads-vs-pillars check. It caught up with the pin when the ADK re-vendored at the reader the pin carries, so it is compared here byte for byte; the ADK's own suite still compares it through git with the blob at the commit its vendor/README.md declares"]
       ],
-      "checked_elsewhere": [
-        ["adk", "vendor/chiplet_format_io/__init__.py", "tests/test_chiplet2dbx.py", "test_vendored_reader_matches_spec_reference", ["vendor/README.md", "\\bat `([0-9a-fA-F]{7,40})`"], "the vendored Python .chiplet reader. adk's suite compares it through git with the blob at the commit vendor/README.md declares, and reads that declaration with this same pattern"]
-      ],
+      "checked_elsewhere": [],
       "producers": [],
       "consumers": [],
       "declarations": [],
@@ -181,6 +180,7 @@
         ["gds2kicad", "pyproject.toml", null, null, "the converter's distribution metadata, beside its requirements.txt; the two can drift apart"],
         ["docs", "docs/requirements.txt", null, null, "the documentation build, which is also where the KLayout pin is declared"],
         ["spec", "reference/python/pyproject.toml", null, null, "the reference reader's distribution metadata, read as a dependency list rather than through a TOML parser"],
+        ["spec", "description/pyproject.toml", null, null, "the system description's distribution metadata; its PyYAML floor is checked against the image pin"],
         ["spec", "conformance/requirements.txt", null, null, "the conformance suite's own test dependencies. jsonschema backs the executable schema gate there, so a floor raised above the image pin is a schema gate run against a version the image does not ship"]
       ],
       "packages": {

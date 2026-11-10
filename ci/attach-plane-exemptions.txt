@@ -1,5 +1,6 @@
 # Files ci/check_attach_plane.py may find on an IntM4TM2 interposer with a
 # plane other than the PDK's, kept on purpose. One line each: the path as
-# <tree label>/<path in the tree> (the labels are tools/chiplet_kicad_plugin,
-# tools/chiplet-studio and examples), then the reason. A line whose file is
+# <tree label>/<path in the tree> (the labels ci/check_attach_plane.py walks),
+# then the reason. A line whose file is
 # gone, is not on IntM4TM2, or now passes fails the check as stale.
+tools/chiplet-studio/tests/fixtures/interconnect_merge/merge_z.chiplet the viewer's no-plane test. Studio seats its dies on dimensions.thickness and warns, naming the file (TechResolve.TheFilesPlaneWinsOverTheStackups asserts the warning)

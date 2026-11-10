@@ -1,9 +1,9 @@
 {
   "_comment": [
     "Repositories the integration job checks out that this repository does not",
-    "pin as a submodule. Two exist: chiplet-spec, which is the upstream of two",
-    "vendored copies and is deliberately not a submodule because nothing here",
-    "builds from it, and IHP-Open-ADK-docs, whose requirements file is one of",
+    "pin as a submodule. Two exist: chiplet-spec, the upstream of the reader",
+    "copies the tools vendor, which the image stages instead (staging.pin's",
+    "header and chiplet-spec entry say why), and IHP-Open-ADK-docs, whose requirements file is one of",
     "the places the ecosystem's KLayout version is declared.",
     "",
     "They are pinned for the same reason the submodules are pinned: a required",
@@ -26,11 +26,11 @@
     "slug": "IHP-GmbH/chiplet-system-spec",
     "branch": "dev",
     "pin_from": "staging.pin",
-    "on_remote": false
+    "on_remote": true
   },
   "docs": {
     "slug": "IHP-GmbH/IHP-Open-ADK-docs",
     "branch": "dev",
-    "pin": "39b56628fc6a6e599bc04e7124a3e4407270df37"
+    "pin": "a6e6a81f79db7bebd4136b3796684ffba27f7beb"
   }
 }

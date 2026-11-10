@@ -24,11 +24,11 @@ public yet.
 
 Building needs Docker and Nix on the host, checkouts of the six sibling
 repositories `staging.pin` lists at the commits it pins (beside this
-repository, or in the directory `STAGE_SIBLINGS` names) and the die records it
-names, the `die-views/` folder of an adk-examples checkout at the same
-release tag (`STAGE_DIE_VIEWS_DIR` names that folder). None of the six pinned commits
-can be fetched from a public remote yet (`ci/pin-set.json` marks them
-`"reachable": "local-only"`). The two `--check` calls below find a missing
+repository, or in the directory `STAGE_SIBLINGS` names), and the `die-views/`
+folder of an adk-examples checkout (not public yet) whose records match
+`die-views.sha256` (`STAGE_DIE_VIEWS_DIR` names that folder). None of the six
+pinned commits can be fetched from a public remote yet (`ci/pin-set.json` marks
+them `"reachable": "local-only"`). The two `--check` calls below find a missing
 piece in seconds; run them first.
 
 `build.sh` compiles the pinned toolchain into one Docker image and copies
@@ -41,7 +41,8 @@ builds locally and runs Icarus Verilog's regression suite.
 
 ```bash
 # the clone lives at ADK_TOOLS_ROOT, outside ADK_WORK (see below); the
-# adk-examples checkout at ADK_EXAMPLES_ROOT is at the same vYYYY.MM tag
+# die-views/ folder of the adk-examples checkout at ADK_EXAMPLES_ROOT has to
+# match die-views.sha256
 export ADK_TOOLS_ROOT=~/adk-tools ADK_EXAMPLES_ROOT=~/adk-examples
 export STAGE_DIE_VIEWS_DIR="$ADK_EXAMPLES_ROOT/die-views"
 git clone --branch vYYYY.MM --recurse-submodules https://github.com/IHP-GmbH/ADK-Tools.git \
@@ -86,10 +87,10 @@ With `ADK_TOOLS_IMAGE` set:
 Inside the shell, `adk-tools` prints this table with the pinned versions of
 the running image.
 
-The examples live in their own repository, adk-examples. Its `release-lock.json`
-names the reference image they were checked on and its pin set, and
-`run.sh --examples <checkout>` starts an image of that pin set, with the
-checkout mounted read-only at `/examples`. Each example's
+The examples live in their own repository, adk-examples, which is not public
+yet. Its `release-lock.json` names the reference image they were checked on
+and its pin set, and `run.sh --examples <checkout>` starts an image of that pin
+set, with the checkout mounted read-only at `/examples`. Each example's
 `README.md` is its page: what to run, and what the run should show.
 `examples/two_die_interposer` in this repository is not one of them: it is the
 test fixture of the image's own checks.
@@ -225,8 +226,9 @@ git submodule update --init --recursive
 ```
 
 The sibling checkouts have to hold the new pins (a `git fetch` in each), and
-the adk-examples checkout has to be at the new tag; the two `--check` calls
-say which one does not.
+the adk-examples checkout has to hold die-views records that match the new
+`die-views.sha256` (update it until they do); the two `--check` calls say
+which one does not.
 
 One-time cleanups, depending on how old the clone is:
 
@@ -389,7 +391,8 @@ docker run --rm -it -v "$PWD/chiplet_kicad_plugin":/opt/adk-tools/chiplet_kicad_
   (`/opt/adk-tools/die-views`), one directory per die named by the layout
   sha256 its contract binds. A die with no directory there has no
   views. Copy a record out before using it; the image's copy is the reference.
-  `die-views.sha256` pins every byte. Building the image needs the records:
+  `die-views.sha256` pins every byte, and `staging.pin` pins that listing as
+  `STAGE_DIE_VIEWS_SHA256`. Building the image needs the records:
   set `STAGE_DIE_VIEWS_DIR` to the directory holding their `records/`.
 - GUIs need an X server. `run.sh` takes the display from `ADK_DISPLAY` (`:N`,
   or `none`), else a local `DISPLAY`, else the newest ThinLinc session whose

@@ -934,6 +934,8 @@ def _base_files():
             'dependencies = ["PyQt6>=6.6.0", "PyYAML>=5.1", "klayout"]\n',
         ("spec", "reference/python/pyproject.toml"):
             'requires-python = ">=3.8"\ndependencies = ["PyYAML>=5.1"]\n',
+        ("spec", "description/pyproject.toml"):
+            'dependencies = ["PyYAML>=6.0"]\ntest = ["pytest>=7"]\n',
         ("spec", "conformance/requirements.txt"):
             "jsonschema>=4.18\nPyYAML>=5.1\n",
     }
@@ -950,8 +952,8 @@ def _base_files():
         if ELSEWHERE_PIN_TEXT not in pin:
             files[(c.repo, c.pin_file)] = pin + ELSEWHERE_PIN_TEXT
     # A file can own a mirror and a copy checked elsewhere at once (the Python
-    # reader: the plugin's copy mirrors it, the ADK's lags). The mirror is
-    # byte-equal to whatever the owner ended up holding.
+    # reader did while the ADK's copy lagged). The mirror is byte-equal to
+    # whatever the owner ended up holding.
     for lrid, lrel, rrid, rrel, _ in D.identical:
         files[(rrid, rrel)] = files[(lrid, lrel)]
     for rid, rel in D.ci_gate_workflow.items():

@@ -238,6 +238,7 @@ jobs:
           git submodule update --init --depth 1 tools/chiplet-studio
           git submodule update --init \
             tools/chiplet_kicad_plugin \
+            tools/gds_to_kicad \
             tools/OpenIntM4TM2 \
             tools/IHP-Interconnect-IntM4TM2
 
@@ -250,9 +251,10 @@ jobs:
         run: /tmp/venv/bin/python3 -B ci/check_attach_plane.py --self-test
 
       - name: Every IntM4TM2 .chiplet sits on the PDK's plane
-        # No --pdk-copy here. The image build also compares the staged
-        # repositories' copies of the key file; those trees are fetched by
-        # staging.pin, not submodules, so this job does not have them.
+        # The staged census repositories and their copies of the key file
+        # (--pdk-copy) are fetched by staging.pin, not submodules, so this
+        # job does not have them: it names them --absent and the summary
+        # says so. The image build walks and compares them.
         run: |
           /tmp/venv/bin/python3 -B ci/check_attach_plane.py \
             --pdk tools/OpenIntM4TM2 \
@@ -260,6 +262,10 @@ jobs:
             --tree tools/chiplet_kicad_plugin=tools/chiplet_kicad_plugin \
             --tree tools/chiplet-studio=tools/chiplet-studio \
             --tree examples=examples \
+            --tree tools/gds_to_kicad=tools/gds_to_kicad \
+            --tree tools/IHP-Interconnect-IntM4TM2=tools/IHP-Interconnect-IntM4TM2 \
+            --absent chiplet-cosim --absent chiplet-spec \
+            --absent interposer-pnr --absent packaging-flow \
             --exemptions ci/attach-plane-exemptions.txt
 
   rulesets:

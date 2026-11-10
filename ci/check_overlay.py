@@ -158,7 +158,7 @@ def declared(project, work, python=sys.executable, wheelhouse=WHEELS):
     return infos[0]
 
 
-def compare(image, overlay):
+def compare_metadata(image, overlay):
     """The first difference between the image's metadata and the overlay's."""
     (image_eps, image_top), (overlay_eps, overlay_top) = image, overlay
     if image_top != overlay_top:
@@ -192,7 +192,7 @@ def check_tree(site_dirs, staged, projects, declare=declared):
                           "where the image installs a project")
         with tempfile.TemporaryDirectory() as work:
             try:
-                compare(read_meta(dist), read_meta(declare(project, work)))
+                compare_metadata(read_meta(dist), read_meta(declare(project, work)))
             except Refused as exc:
                 raise Refused(f"{dist.name}: {exc}", exc.detail) from None
         names.append(dist.name)
@@ -279,16 +279,19 @@ def self_test():
     assert eps == {"console_scripts": {"flow": "a.cli:main"}, "x.plugins": {"B": "b:mod"}}, eps
     cases += 1
     base = ({"console_scripts": {"flow": "a.cli:main"}}, ["a"])
-    assert refused(lambda: compare(base, ({"console_scripts": {"flow": "a.cli:main"}}, ["a"]))) is None
+    same = ({"console_scripts": {"flow": "a.cli:main"}}, ["a"])
+    assert refused(lambda: compare_metadata(base, same)) is None
     cases += 1
-    why = refused(lambda: compare(base, ({"console_scripts": {"flow": "a.cli:main",
-                                                              "new": "a.new:main"}}, ["a"])))
+    why = refused(lambda: compare_metadata(base, ({"console_scripts": {"flow": "a.cli:main",
+                                                                       "new": "a.new:main"}},
+                                                   ["a"])))
     assert why == "entry points [console_scripts] differ from the image's at new", why
     cases += 1
-    why = refused(lambda: compare(base, ({"console_scripts": {"flow": "a.cli:other"}}, ["a"])))
+    other = ({"console_scripts": {"flow": "a.cli:other"}}, ["a"])
+    why = refused(lambda: compare_metadata(base, other))
     assert why == "entry points [console_scripts] differ from the image's at flow", why
     cases += 1
-    why = refused(lambda: compare(base, (base[0], ["a", "b"])))
+    why = refused(lambda: compare_metadata(base, (base[0], ["a", "b"])))
     assert why == "top-level packages ['a', 'b'], the image's ['a']", why
     cases += 1
 
