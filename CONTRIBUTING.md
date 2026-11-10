@@ -33,9 +33,20 @@ schemas and both vendored `.chiplet` readers still byte-identical to
 chiplet-spec, every pin naming this superproject's track, every repository
 publishing a `ci-gate` that is a real gate, one KLayout across the ecosystem,
 and every pinned `*_PIP` satisfying what the repositories declare. Its refs come
-from the gitlinks and from `ci/integration-refs.json`, so it goes red because
-something changed here, never because somebody pushed elsewhere while a pull
-request was open. The run that follows the branch heads is
+from `ci/pin-set.json`, so it goes red because something changed here, never
+because somebody pushed elsewhere while a pull request was open; an entry the
+pin set records as local-only is refused by name.
+
+`ci/pin-set.json` is generated, never edited: `python3 ci/pin_set.py` joins
+`staging.pin`, the gitlinks, `ci/integration-refs.json` and the Dockerfile's
+pins into it, and the `ci` workflow fails when the tracked copy is not what
+those sources give. Commit it with the pin bump it follows. `ci/export-pins`
+exports the trees it names from their local sources, and is what
+`stage-sources.sh` runs for the image. `ci/pin-sources.json` says where each
+source is (the sibling of that name, or for `adk` the module store of the
+`tools/adk` submodule) and records each repository's root commits; a new
+repository gets its roots with `python3 ci/pin_set.py --record-roots
+--source-root <dir>`, and the exporter refuses a folder whose roots differ. The run that follows the branch heads is
 `integration-floating.yml`, weekly, which never blocks anything and reports
 through one issue.
 
@@ -60,9 +71,7 @@ iteration only.
 - **`docs/MAINTAINING.md`** -- how to bump a tool, add a new tool as a submodule,
   remove one, and cut a release. Read it before touching submodules or the
   `Dockerfile`.
-- **`docs/RELEASE_CHECKLIST.md`** -- the ordered release checklist, and the
-  record of the one-time work done for the first public release.
-- **`CHANGELOG.md`** -- release history.
+- **`docs/RELEASE_CHECKLIST.md`** -- the ordered release checklist.
 - **`NOTICE.md`** -- per-component licenses and the GPL corresponding-source
   obligation. Update it whenever you add or change a bundled component.
 

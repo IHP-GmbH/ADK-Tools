@@ -431,7 +431,7 @@ components:
       x: 100.0
       y: 100.0
     layer: TopMetal2
-  attachment_surface_z: 13.83
+  attachment_surface_z: 10.8103
 - id: U2
   type: die
   anchor: gds_origin
@@ -440,13 +440,13 @@ components:
   layout: ../chiplets/Metal_Test.gds
   orientation: flip_chip
   dimensions:
-    width: 770.0
-    height: 2606.339
+    width: 778.0
+    height: 2660.0
     thickness: 750.0
   position:
     x: 5170.233999999997
     y: 2420.2699999999895
-    z: 37.83
+    z: 34.8103
   rotation:
     z: 0.0
   top_cell: Metal_Test
@@ -458,13 +458,13 @@ components:
   layout: ../chiplets/Metal_Test.gds
   orientation: flip_chip
   dimensions:
-    width: 770.0
-    height: 2606.339
+    width: 778.0
+    height: 2660.0
     thickness: 750.0
   position:
     x: 1954.1210000000137
     y: 2332.4820000000036
-    z: 57.83
+    z: 54.8103
   rotation:
     z: 0.0
   top_cell: Metal_Test

@@ -1,0 +1,20 @@
+#!/bin/bash
+# The image carries no examples: they live in an adk-examples checkout on the
+# host, which run.sh --examples mounts read-only at /examples. This command
+# stays so that the name people type says where to get them instead of failing
+# as unknown.
+#
+# Usage: adk-example
+set -euo pipefail
+
+PROG="$(basename "$0")"
+cat >&2 <<MSG
+$PROG: this image carries no examples. Start it on the host with an
+adk-examples checkout, then follow the example's README.md; the checkout is at
+/examples, read-only:
+  "\${ADK_TOOLS_ROOT:-\$HOME/adk-tools}/run.sh" --examples "\${ADK_EXAMPLES_ROOT:-\$HOME/adk-examples}"
+MSG
+case "${1:-}" in
+    -h|--help) exit 0 ;;
+esac
+exit 1

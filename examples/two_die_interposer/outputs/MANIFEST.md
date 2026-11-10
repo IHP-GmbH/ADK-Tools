@@ -28,3 +28,9 @@ The .chiplet references the interposer GDS by a `layout/<file>` path, resolved a
 ## logs/
 
 Per-run export logs (git-ignored).
+
+## Previous-export content guard
+
+previous-export content guard: no baseline, nothing was checked (first export: no canonical file on disk yet); this export continues WITHOUT content-guard protection for this file
+
+This compares the .chiplet's exporter-owned content against the digest recorded when this exporter last wrote the file. It says nothing about whether the content is correct, whether the document is valid, or whether it agrees with the board.

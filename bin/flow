@@ -1,0 +1,135 @@
+#!/bin/bash
+# Run one packaging-flow or chiplet-system-description call in the adk-tools image, from
+# the host.
+#
+# Usage: bin/flow [--dry-run] [--lock FILE] [--image ID] -- <program> <args ...>
+#
+#   <program>       packaging-flow or chiplet-system-description; no other is run
+#
+#   --dry-run       print the docker command on stdout instead of running it
+#   --lock FILE     the release lock the image is held to
+#   --image ID      the image to run (sha256:<64 hex>), as the one you built
+#
+#   ADK_FLOW_LOCK   the release lock when --lock is not given
+#   ADK_WORK        the workspace mounted at /work, as run.sh mounts it
+#                   (default: ~/adk-work). The current directory has to be in
+#                   it, and the container starts in the same place below /work
+#   ADK_TOOLS_IMAGE the image when --image is not given; when neither is, the
+#                   reference image the lock names
+#   ADK_CPUS        the container CPU cap, as run.sh takes it (default: 2)
+#   ADK_MEM_LIMIT   the container memory cap, swap off (default: 5g)
+#
+# ADK_WORK, ADK_TOOLS_IMAGE and ADK_FLOW_LOCK may be unset, never set and
+# empty: VS Code's tasks set all three from the folder's adkTools.* settings,
+# and an empty one means the folder was opened without bin/adk-vscode, so
+# bin/flow refuses it by name rather than run on a default.
+#
+# The two caps are the exception: unset or empty takes 2 and 5g, lower than
+# run.sh's 4 and 8g, as the examples' shell runs are capped. LibreLane takes
+# its thread count from the CPUs it sees, so a call from VS Code, whose tasks
+# set neither, builds at 2 threads as those runs do. 5g holds the examples'
+# measured peaks (about 3.6 GiB for two_die_echo_shifted_gf180, 4.3 GiB for
+# driver_from_rtl_echo_gf180, in their READMEs) on an 8 GB laptop. A larger
+# design raises them by exporting both before VS Code starts.
+#
+# /work means one thing whoever starts the call: ADK_WORK, never the current
+# directory, so a run started here and continued from ./run.sh (or the other
+# way round) reads the same absolute paths. The current directory, symlinks
+# resolved, picks the container's working directory: <ADK_WORK>/a/b runs in
+# /work/a/b (run.sh --cwd a/b). A current directory outside ADK_WORK is refused.
+#
+# The lock is --lock FILE, else ADK_FLOW_LOCK, else release-lock.json in the
+# current directory (an example folder, where the examples repository puts
+# it). The image is --image, else ADK_TOOLS_IMAGE, else the lock's reference
+# image, held to the lock by run.sh: another image than the reference runs with
+# a note naming both, and has to carry the lock's pin set.
+#
+# The call is run.sh --batch: one --rm container with no stdin, no TTY and no
+# display, run.sh's mounts and Nix store paths, and the caps above
+# (docs/RUN_SH.md).
+# packaging-flow verify-open, which opens a window, alone adds --display: it
+# gets the display by run.sh's rules, still with no stdin and no TTY.
+# packaging-flow verify-sign and verify-accept, which ask the person at a
+# terminal, add --tty: with stdin and stdout both terminals they get that stdin
+# and a TTY, and are batch calls otherwise. The arguments reach the program as
+# given, so a relative path in them means the same file inside as outside. The
+# exit code is the container's, 1 for a refusal, or 129, 130 or 143 when a call
+# with a terminal got a hangup, an interrupt or a TERM (run.sh's docs/RUN_SH.md).
+#
+# This is a host launcher; .dockerignore keeps it out of the image.
+set -euo pipefail
+
+refuse() { echo "error: $*" >&2; exit 1; }
+
+CLONE="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+for pair in ADK_WORK:work ADK_TOOLS_IMAGE:image ADK_FLOW_LOCK:lock; do
+    name="${pair%%:*}"
+    if [ -n "${!name+x}" ] && [ -z "${!name}" ]; then
+        refuse "$name is set but empty (in VS Code, the setting adkTools.${pair#*:});" \
+            "run $CLONE/bin/adk-vscode <folder>"
+    fi
+done
+
+DRY_RUN=()
+LOCK=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dry-run) DRY_RUN=(--dry-run); shift ;;
+        --lock|--image)
+            [ $# -ge 2 ] && [ -n "$2" ] || refuse "$1 needs a value"
+            if [ "$1" = --lock ]; then LOCK="$2"; else ADK_TOOLS_IMAGE="$2"; fi
+            shift 2
+            ;;
+        --) shift; break ;;
+        *) break ;;
+    esac
+done
+
+PROGRAMS="packaging-flow or chiplet-system-description"
+case "${1:-}" in
+    packaging-flow|chiplet-system-description) ;;
+    "") refuse "no program: name $PROGRAMS after --" ;;
+    *) refuse "bin/flow runs $PROGRAMS, not '$1'" ;;
+esac
+
+# Both physical, as run.sh's realpath binds the workspace.
+WORK="$(realpath -m -- "${ADK_WORK:-$HOME/adk-work}")"
+HERE="$(pwd -P)"
+case "$HERE/" in
+    "${WORK%/}/"*) REL="${HERE#"${WORK%/}"}"; REL="${REL#/}" ;;
+    *) refuse "the current directory ($HERE) is outside the workspace ($WORK)," \
+           "which /work always is; run bin/flow from inside it, or set ADK_WORK" ;;
+esac
+
+[ -n "$LOCK" ] || LOCK="${ADK_FLOW_LOCK:-}"
+if [ -z "$LOCK" ] && [ -f "$HERE/release-lock.json" ]; then
+    LOCK="$HERE/release-lock.json"
+fi
+[ -n "$LOCK" ] || refuse "no release lock: pass --lock FILE, set ADK_FLOW_LOCK," \
+    "or put release-lock.json in the current directory ($HERE)"
+[ -f "$LOCK" ] || refuse "no release lock at $LOCK"
+
+# Only the image is read here, to name it to run.sh; run.sh reads the whole
+# lock in its canonical form and refuses any other. A lock of schema /2 also names
+# the manifest digest, the ID the containerd store gives the release archive;
+# that one is taken when the daemon holds it and not the config digest.
+if [ -z "${ADK_TOOLS_IMAGE:-}" ]; then
+    ADK_TOOLS_IMAGE="$(sed -n 's/^  "image": "\(sha256:[0-9a-f]\{64\}\)",$/\1/p' -- "$LOCK")"
+    [ -n "$ADK_TOOLS_IMAGE" ] || refuse "the release lock $LOCK names no image (sha256:<64 hex>)"
+    MANIFEST="$(sed -n 's/^  "image_manifest": "\(sha256:[0-9a-f]\{64\}\)",$/\1/p' -- "$LOCK")"
+    if [ -n "$MANIFEST" ] \
+            && ! docker image inspect --format '{{.Id}}' "$ADK_TOOLS_IMAGE" >/dev/null 2>&1 \
+            && docker image inspect --format '{{.Id}}' "$MANIFEST" >/dev/null 2>&1; then
+        ADK_TOOLS_IMAGE="$MANIFEST"
+    fi
+fi
+ADK_CPUS="${ADK_CPUS:-2}" ADK_MEM_LIMIT="${ADK_MEM_LIMIT:-5g}"
+export ADK_TOOLS_IMAGE ADK_WORK="$WORK" ADK_CPUS ADK_MEM_LIMIT
+
+# packaging-flow has no options of its own before its verb.
+BATCH=(--batch)
+case "$1 ${2:-}" in
+    "packaging-flow verify-open") BATCH+=(--display) ;;
+    "packaging-flow verify-sign"|"packaging-flow verify-accept") BATCH+=(--tty) ;;
+esac
+exec "$CLONE/run.sh" "${BATCH[@]}" "${DRY_RUN[@]}" --lock "$LOCK" --cwd "${REL:-.}" "$@"

@@ -7,9 +7,13 @@
 #   --pins    per-die pin list (gds_to_kicad's *.pins.json) making the export
 #             bump-aware; repeatable, one per die reference.
 #
-#   ADK_TOOLS_IMAGE        image providing the exporter (default: adk-tools:dev)
-#   OPENROAD_3DBLOX_IMAGE  image providing read_3dbx/check_3dblox
-#                          (default: the tag in openroad.pin)
+#   ADK_TOOLS_IMAGE   ID of the image providing the exporter, sha256:<64 hex>.
+#                     Required: there is no default, and a tag is refused
+#                     (the rule run.sh applies)
+#
+# The image providing read_3dbx/check_3dblox is the fixed tag openroad.pin
+# sets in OPENROAD_3DBLOX_IMAGE. The script sources that file, so a value of
+# OPENROAD_3DBLOX_IMAGE in the environment is not read.
 #
 # Two containers on purpose: the exporter runs from the adk-tools image, so
 # what gets tested is the exporter that actually ships, and OpenROAD stays in
@@ -26,7 +30,22 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=openroad.pin
 source "$HERE/openroad.pin"
 IMAGE="${OPENROAD_3DBLOX_IMAGE}"
-ADK_IMAGE="${ADK_TOOLS_IMAGE:-adk-tools:dev}"
+
+# The exporter image is named by its ID, never by a tag: the same rule and the
+# same answer as run.sh, whose comment says why. Checked before the arguments
+# are read, so a refusal creates nothing, not even the out-dir.
+ADK_IMAGE="${ADK_TOOLS_IMAGE:-}"
+if [[ ! "$ADK_IMAGE" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+    if [ -z "$ADK_IMAGE" ]; then
+        echo "error: ADK_TOOLS_IMAGE is unset or empty; check-3dblox.sh has no default image" >&2
+    else
+        echo "error: ADK_TOOLS_IMAGE must be an image ID, sha256:<64 hex> (got '$ADK_IMAGE')" >&2
+    fi
+    echo "       A tag is not taken: the daemon is shared and a tag can be moved." >&2
+    echo "       For an image you built, read its ID right after ./build.sh:" >&2
+    echo "         docker image inspect --format '{{.Id}}' adk-tools:dev" >&2
+    exit 1
+fi
 
 CHIPLET=""
 OUT_DIR=""
@@ -44,19 +63,21 @@ done
 [ -n "$CHIPLET" ] || { echo "usage: check-3dblox.sh <assembly.chiplet> [out-dir]" >&2; exit 1; }
 [ -f "$CHIPLET" ] || { echo "no such .chiplet: $CHIPLET" >&2; exit 1; }
 
-CHIPLET=$(cd "$(dirname "$CHIPLET")" && pwd)/$(basename "$CHIPLET")
-SRC_DIR=$(dirname "$CHIPLET")
-NAME=$(basename "$CHIPLET" .chiplet)
-OUT_DIR="${OUT_DIR:-$SRC_DIR/build_3dblox}"
-mkdir -p "$OUT_DIR"
-OUT_DIR=$(cd "$OUT_DIR" && pwd)
-
+# Both images are looked up before the out-dir is made, so an image the
+# daemon does not hold creates nothing either.
 for image in "$ADK_IMAGE" "$IMAGE"; do
     docker image inspect "$image" >/dev/null 2>&1 || {
         echo "missing image: $image" >&2
         [ "$image" = "$IMAGE" ] && echo "build it with ./openroad/build-image.sh" >&2
         exit 1; }
 done
+
+CHIPLET=$(cd "$(dirname "$CHIPLET")" && pwd)/$(basename "$CHIPLET")
+SRC_DIR=$(dirname "$CHIPLET")
+NAME=$(basename "$CHIPLET" .chiplet)
+OUT_DIR="${OUT_DIR:-$SRC_DIR/build_3dblox}"
+mkdir -p "$OUT_DIR"
+OUT_DIR=$(cd "$OUT_DIR" && pwd)
 
 # Bind the host uid so the exported files stay writable and readable on both
 # sides; neither image runs as the invoking user by default.

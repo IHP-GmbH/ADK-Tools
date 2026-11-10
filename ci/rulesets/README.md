@@ -14,6 +14,9 @@ Filenames are `<repository>[.<qualifier>].json`. The repository is everything up
 to the first dot, so one repository can carry more than one ruleset. The owner
 is `IHP-GmbH` for all ten.
 
+Rulesets for the six repositories awaiting confirmed GitHub names are deferred;
+they are not included in these counts.
+
 ## Why not the web UI
 
 The UI is convenient and it is also how this gets quietly broken. When a
@@ -37,14 +40,13 @@ ADK-Tools requires a second context, `integration`, the cross-repo run in
 `.github/workflows/integration.yml`. It is only here because this is the only
 repository where more than one repository exists at once.
 
-One context named in the original plan is still absent on purpose: `local/verify`,
-the verdict the local heavy gate posts, which is not built yet. Requiring a
-context that nothing publishes does not make a repository stricter, it makes
-every pull request unmergeable forever, so it lands in this JSON in the same
-change that makes its producer real and not before. That is not a hypothetical:
-adding `ci-gate` blocked a colleague's open pull request whose branch predated
-the CI, because the merge ref carried no workflow and the context could never
-appear on it.
+One more context is absent on purpose: `local/verify`, a verdict from a local
+build of the image, which nothing posts yet. Requiring a context that nothing
+publishes does not make a repository stricter, it makes every pull request
+unmergeable, so it lands in this JSON in the same change that makes its
+producer real and not before. The same holds for a branch that predates the
+CI: its merge ref carries no workflow, so a required context does not appear on
+it until the branch is pushed again with the workflow in it.
 
 ## Settled parameters
 

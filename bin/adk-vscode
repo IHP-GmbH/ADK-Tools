@@ -1,0 +1,334 @@
+#!/bin/bash
+# Open an example folder in VS Code with the four settings its flow tasks read.
+#
+# Usage: bin/adk-vscode [--lock FILE] [--image ID] [--vsix PATH] <folder>
+#
+#   <folder>      a directory under ADK_WORK (default: ~/adk-work), as a host
+#                 path or as /work/...; the folder bin/flow and run.sh mount
+#                 at /work is ADK_WORK, so nothing outside it is taken
+#   --lock FILE   the release lock; else ADK_FLOW_LOCK, else
+#                 <folder>/release-lock.json. When the folder has its own lock
+#                 and another is given, the two have to be the same bytes
+#   --image ID    the image the tasks run (sha256:<64 hex>), as the one you
+#                 built; else ADK_TOOLS_IMAGE, else the lock's reference image.
+#                 Another image than the reference is named in a note, and has
+#                 to carry the lock's pin set (its org.ihp.adk-tools.pin-set label)
+#   --vsix PATH   install this extension first; a SHA256SUMS beside it has to
+#                 list its file name with a matching sha256
+#
+# The four keys of <folder>/.vscode/settings.json it writes, always all four:
+#   adkTools.root   this clone, symlinks resolved
+#   adkTools.work   ADK_WORK, symlinks resolved
+#   adkTools.image  the image ID the tasks run
+#   adkTools.lock   the lock, symlinks resolved
+# Every other key, and the order of the keys, is kept; a file that already
+# holds the four values is left as it is. A settings.json that is not plain
+# JSON (comments included) is refused and left as it is; an empty one, or one
+# that starts with a byte order mark, is read as VS Code reads it.
+#
+# A process task reads the settings through options.env (bin/flow refuses one
+# that arrives empty), so the values reach a VS Code that is already running,
+# and a WSL2 shim that drops the caller's environment, alike. Last, a plain
+# `code <folder>`.
+#
+# A folder with no .vscode/tasks.json gets the flow's tasks first:
+# `packaging-flow tasks --vscode`, run through this clone's bin/flow with the
+# environment those tasks give it, writes them into a scratch folder inside
+# <folder>, and they are put in place only once whole, never over a file. A
+# tasks.json already there, whatever its bytes, or a link to a file, is the
+# folder's own and is left as it is; no container is started for it. A link
+# to nothing is refused: the extension would ask for adk-vscode again.
+#
+# Every check runs before anything is installed, written or opened. The exit
+# code is 0, or 1 for a refusal.
+#
+# This is a host launcher; .dockerignore keeps it out of the image.
+set -euo pipefail
+
+refuse() { echo "error: $*" >&2; exit 1; }
+say() { echo "adk-vscode: $*" >&2; }
+
+USAGE="usage: bin/adk-vscode [--lock FILE] [--image ID] [--vsix PATH] <folder>"
+LOCK=""
+VSIX=""
+GIVEN_IMAGE="${ADK_TOOLS_IMAGE:-}"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --lock|--image|--vsix)
+            [ $# -ge 2 ] && [ -n "$2" ] || refuse "$1 needs a value"
+            case "$1" in
+                --lock) LOCK="$2" ;;
+                --image) GIVEN_IMAGE="$2" ;;
+                *) VSIX="$2" ;;
+            esac
+            shift 2
+            ;;
+        --) shift; break ;;
+        -*) refuse "unknown option $1; $USAGE" ;;
+        *) break ;;
+    esac
+done
+[ $# -eq 1 ] || refuse "$USAGE"
+
+# The clone the launcher is in, through any link to it (~/.local/bin/adk-vscode
+# is fine): adkTools.root has to be a clone the tasks can run bin/flow from.
+CLONE="$(CDPATH= cd -- "$(dirname -- "$(realpath -- "${BASH_SOURCE[0]}")")/.." && pwd -P)"
+[ -x "$CLONE/bin/flow" ] || refuse "$CLONE has no bin/flow; run adk-vscode from an adk-tools clone"
+
+# The extension: its own name, its line in the SHA256SUMS beside it.
+if [ -n "$VSIX" ]; then
+    [ -f "$VSIX" ] || refuse "--vsix $VSIX is not a file"
+    VSIX="$(realpath -- "$VSIX")"
+    VSIX_DIR="$(dirname -- "$VSIX")"
+    VSIX_NAME="$(basename -- "$VSIX")"
+    [ -f "$VSIX_DIR/SHA256SUMS" ] || refuse "no SHA256SUMS beside $VSIX; the vsix is not installed"
+    # sha256sum's own line: 64 hex, a space, then a space or *, then the name
+    # as it is, spaces included; a CRLF file and upper-case hex read as
+    # sha256sum -c reads them. The name goes through the environment, which
+    # awk takes as it is (-v would expand backslashes).
+    WANT="$(VSIX_NAME="$VSIX_NAME" awk '{ sub(/\r$/, "") }
+        substr($0, 65, 1) == " " && substr($0, 67) == ENVIRON["VSIX_NAME"] &&
+        (substr($0, 66, 1) == " " || substr($0, 66, 1) == "*") {print tolower(substr($0, 1, 64)); exit}' \
+        "$VSIX_DIR/SHA256SUMS")"
+    [ -n "$WANT" ] || refuse "$VSIX_DIR/SHA256SUMS has no line for $VSIX_NAME"
+    GOT="$(sha256sum < "$VSIX")"
+    [ "${GOT%% *}" = "$WANT" ] || refuse "$VSIX_NAME does not match its line in $VSIX_DIR/SHA256SUMS"
+fi
+
+# The workspace, physical as run.sh binds it, and kept apart from the clone
+# both ways, with run.sh's lines: every task would refuse otherwise.
+WORK="$(realpath -m -- "${ADK_WORK:-$HOME/adk-work}")"
+case "$CLONE/" in
+    "${WORK%/}/"*)
+        echo "error: ADK_WORK ($WORK) holds this adk-tools clone ($CLONE)" >&2
+        echo "       Keep the clone outside the work dir, or point ADK_WORK elsewhere." >&2
+        exit 1
+        ;;
+esac
+case "$WORK/" in
+    "$CLONE/"*)
+        echo "error: ADK_WORK ($WORK) is inside this adk-tools clone ($CLONE)" >&2
+        echo "       A git clean in the clone would delete it; point ADK_WORK outside the clone." >&2
+        exit 1
+        ;;
+esac
+
+# The folder, under the workspace.
+GIVEN="$1"
+case "$GIVEN" in
+    /work) GIVEN="$WORK" ;;
+    /work/*) GIVEN="$WORK/${GIVEN#/work/}" ;;
+esac
+FOLDER="$(realpath -e -- "$GIVEN" 2>/dev/null)" && [ -d "$FOLDER" ] || FOLDER=""
+case "${FOLDER:-/nonexistent}/" in
+    "${WORK%/}/"*) ;;
+    *) refuse "$1 is not under ADK_WORK ($WORK)" ;;
+esac
+
+# The lock, read as run.sh reads it: the same pattern (tests/adk_vscode holds
+# the two lines and the schema's equal), then the schema: /1 names the image's config digest, /2
+# its manifest digest too, the ID the containerd store gives the release archive.
+LOCK_SCHEMA_1=adk-examples.release-lock/1
+LOCK_SCHEMA_2=adk-examples.release-lock/2
+read_lock() {  # $1 file; sets LOCK_IMAGE, LOCK_MANIFEST (empty for /1) and LOCK_PIN_SET, or refuses
+    local text
+    text="$(cat -- "$1" 2>/dev/null && printf x)" || text=""
+    text="${text%x}"
+    LOCK_RE=$'^\\{\n  "adk_tools": "([0-9a-f]{40})",\n  "image": "(sha256:[0-9a-f]{64})",\n(  "image_manifest": "(sha256:[0-9a-f]{64})",\n)?  "pin_set": "([0-9a-f]{64})",\n  "schema": "([^"]*)"\n\\}\n$'
+    [[ "$text" =~ $LOCK_RE ]] || refuse "$1 is not a release lock"
+    LOCK_IMAGE="${BASH_REMATCH[2]}"
+    LOCK_MANIFEST="${BASH_REMATCH[4]}"
+    LOCK_PIN_SET="${BASH_REMATCH[5]}"
+    LOCK_WANT="$LOCK_SCHEMA_1"; [ -z "$LOCK_MANIFEST" ] || LOCK_WANT="$LOCK_SCHEMA_2"
+    [ "${BASH_REMATCH[6]}" = "$LOCK_WANT" ] || refuse "$1 is of schema '${BASH_REMATCH[6]}';" \
+        "adk-vscode reads $LOCK_SCHEMA_1 without image_manifest and $LOCK_SCHEMA_2 with it"
+    [ "$LOCK_MANIFEST" != "$LOCK_IMAGE" ] || refuse "$1 names $LOCK_IMAGE as both image and image_manifest"
+}
+OWN="$FOLDER/release-lock.json"
+[ -n "$LOCK" ] || LOCK="${ADK_FLOW_LOCK:-}"
+if [ -n "$LOCK" ]; then
+    [ -f "$LOCK" ] || refuse "$LOCK is not a release lock"
+    LOCK="$(realpath -- "$LOCK")"
+    if [ -f "$OWN" ] && [ "$(realpath -- "$OWN")" != "$LOCK" ] && ! cmp -s -- "$OWN" "$LOCK"; then
+        refuse "$OWN is not the lock given ($LOCK)"
+    fi
+elif [ -f "$OWN" ]; then
+    LOCK="$(realpath -- "$OWN")"
+else
+    refuse "no release lock: pass --lock FILE, set ADK_FLOW_LOCK, or put release-lock.json in $FOLDER"
+fi
+read_lock "$LOCK"
+IMAGE="${GIVEN_IMAGE:-$LOCK_IMAGE}"
+REFERENCE=1
+[ "$IMAGE" = "$LOCK_IMAGE" ] || [ "$IMAGE" = "$LOCK_MANIFEST" ] || REFERENCE=""
+
+# The daemon holds the ID; one inspect, no container. Read as run.sh reads it:
+# the ID is the last line, and only "No such image" means the image is missing
+# (no daemon gives docker's own first line instead).
+command -v docker >/dev/null || refuse "no docker command on PATH"
+# A /2 lock's archive loaded on the containerd store is found by its manifest
+# digest only; the config digest stays the first choice.
+if [ -z "$GIVEN_IMAGE" ] && [ -n "$LOCK_MANIFEST" ] \
+        && ! docker image inspect --format '{{.Id}}' "$IMAGE" >/dev/null 2>&1 \
+        && docker image inspect --format '{{.Id}}' "$LOCK_MANIFEST" >/dev/null 2>&1; then
+    IMAGE="$LOCK_MANIFEST"
+fi
+if SEEN="$(docker image inspect --format '{{.Id}}' "$IMAGE" 2>&1)"; then
+    [ "${SEEN##*$'\n'}" = "$IMAGE" ] || refuse "docker image inspect $IMAGE gave another ID: '${SEEN##*$'\n'}'"
+elif [[ "$SEEN" != *"No such image"* ]]; then
+    refuse "docker image inspect $IMAGE failed: $(sed -n '/[^[:space:]]/{p;q}' <<< "$SEEN")"
+else
+    echo "error: no image $IMAGE on this docker daemon; build the image and pass its ID (--image or ADK_TOOLS_IMAGE), or load its archive" >&2
+    # On the containerd image store a loaded archive's ID is its manifest
+    # digest, and a lookup by the config digest a lock names finds nothing.
+    # The lines after the second are docs/RUN_SH.md's quoted block ("When the
+    # image is not there"), word for word (tests/adk_vscode holds them equal).
+    # A /2 lock is read on either store, so for it the switch is no advice:
+    # only the ID that store gives the archive is. Another ID, one a user built,
+    # is found on that store as on any other, so the lines are for the lock's
+    # image only.
+    if [ "$IMAGE" = "$LOCK_IMAGE" ] && [[ "$(docker info --format '{{json .DriverStatus}}' 2>/dev/null)" == *io.containerd.snapshotter* ]]; then
+        if [ -n "$LOCK_MANIFEST" ]; then
+            echo "       This daemon uses the containerd image store, which gives the release archive the lock's image_manifest, $LOCK_MANIFEST, as its ID." >&2
+        else
+            echo "       This daemon uses the containerd image store, which does not find an image by the ID the lock names." >&2
+            echo "       On Docker Desktop, turn off \"Use containerd for pulling and storing images\" (Settings, General)." >&2
+            echo "       On Docker Engine, set \"features\": {\"containerd-snapshotter\": false} in /etc/docker/daemon.json and restart the daemon." >&2
+            echo "       A rootless daemon reads ~/.config/docker/daemon.json instead." >&2
+            echo "       Then load the image's archive again (docker load -i <file>)." >&2
+            echo "       Images pulled, built or loaded while the containerd store is on are hidden while it is off, and come back when it is on again." >&2
+        fi
+    fi
+    exit 1
+fi
+# Another image than the reference: the lock's pin set, as run.sh holds it. Its
+# note comes with the settings line, once nothing is refused.
+REFERENCE_NOTE=""
+if [ -z "$REFERENCE" ]; then
+    PIN_SET_LABEL=org.ihp.adk-tools.pin-set
+    LABEL="$(docker image inspect --format "{{index .Config.Labels \"$PIN_SET_LABEL\"}}" "$IMAGE" 2>/dev/null)" \
+        || refuse "docker image inspect $IMAGE failed"
+    [ "$LABEL" != "<no value>" ] || LABEL=""
+    [ "$LABEL" = "$LOCK_PIN_SET" ] \
+        || refuse "$LOCK names the pin set $LOCK_PIN_SET; the image's $PIN_SET_LABEL label is '$LABEL'"
+    REFERENCE_NOTE="the image $IMAGE is not the reference image $LOCK_IMAGE${LOCK_MANIFEST:+ (on the containerd store $LOCK_MANIFEST)} the release lock $LOCK names; it runs held to the lock's pin set"
+fi
+
+# settings.json, read now and written only after the last check. An empty
+# file, or one that starts with a byte order mark, is taken as VS Code takes it.
+SETTINGS="$FOLDER/.vscode/settings.json"
+if [ -e "$FOLDER/.vscode" ]; then
+    [ -d "$FOLDER/.vscode" ] && [ -w "$FOLDER/.vscode" ]
+else
+    [ -w "$FOLDER" ]
+fi || refuse "$FOLDER/.vscode is not a directory adk-vscode can write"
+command -v python3 >/dev/null || refuse "no python3 on PATH"
+SETTINGS_PY='
+import json, os, sys, tempfile
+def load(path):
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8-sig") as f:
+        text = f.read()
+    data = json.loads(text) if text.strip() else {}
+    if not isinstance(data, dict):
+        raise ValueError("not an object")
+    return data
+mode, path = sys.argv[1:3]
+try:
+    old = load(path)
+except (OSError, ValueError):
+    sys.exit(3)
+if mode == "check":
+    # A linked settings.json is written through: its target has to be there,
+    # in a directory adk-vscode can write.
+    if os.path.islink(path):
+        target = os.path.realpath(path)
+        if not os.path.isfile(target) or not os.access(os.path.dirname(target), os.W_OK):
+            sys.exit(5)
+    sys.exit(0)
+root, work, image, lock = sys.argv[3:]
+data = dict(old or {})
+data.update({"adkTools.root": root, "adkTools.work": work,
+             "adkTools.image": image, "adkTools.lock": lock})
+# Unchanged values, in the same order: the file is left as it is, layout and
+# mtime included.
+if old is not None and list(data.items()) == list(old.items()):
+    sys.exit(4)
+# A linked settings.json stays a link: the file it names is the one written.
+path = os.path.realpath(path)
+mode = os.stat(path).st_mode & 0o7777 if old is not None else 0o644
+try:
+    fd, tmp = tempfile.mkstemp(prefix=".settings.", dir=os.path.dirname(path))
+except OSError:
+    sys.exit(5)
+try:
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(json.dumps(data, indent=4, ensure_ascii=False) + "\n")
+    os.chmod(tmp, mode)
+    os.replace(tmp, path)
+except BaseException:
+    os.unlink(tmp)
+    raise
+'
+settings_refuse() {  # $1 the settings code's exit
+    case "$1" in
+        3) refuse "$SETTINGS is not plain JSON; adkTools.* left unwritten" ;;
+        5) refuse "$SETTINGS links to a file adk-vscode cannot write" ;;
+        *) refuse "$SETTINGS could not be written (exit $1)" ;;
+    esac
+}
+rc=0
+python3 -I -c "$SETTINGS_PY" check "$SETTINGS" || rc=$?
+[ "$rc" = 0 ] || settings_refuse "$rc"
+command -v code >/dev/null || refuse "no code command on PATH"
+
+# The flow's tasks, written by the engine as every task runs it. A failed run
+# leaves the folder as it was.
+TASKS="$FOLDER/.vscode/tasks.json"
+TASKS_NEW=""
+if [ -L "$TASKS" ] && [ ! -e "$TASKS" ]; then
+    refuse "$TASKS links to nothing; move it away and run adk-vscode again"
+fi
+if [ ! -e "$TASKS" ] && [ ! -L "$TASKS" ]; then
+    SCRATCH="$(mktemp -d -- "$FOLDER/.adk-vscode-tasks.XXXXXX" 2>/dev/null)" \
+        || refuse "$FOLDER is not a directory adk-vscode can write"
+    trap 'rm -rf -- "$SCRATCH"' EXIT
+    say "tasks: running packaging-flow tasks --vscode through $CLONE/bin/flow"
+    rc=0
+    (cd -- "$FOLDER" && ADK_WORK="$WORK" ADK_TOOLS_IMAGE="$IMAGE" ADK_FLOW_LOCK="$LOCK" \
+        "$CLONE/bin/flow" -- packaging-flow tasks --vscode --out "${SCRATCH##*/}") >&2 || rc=$?
+    [ "$rc" = 0 ] || refuse "packaging-flow tasks --vscode failed (exit $rc); nothing written"
+    TASKS_NEW="$SCRATCH/.vscode/tasks.json"
+    [ -f "$TASKS_NEW" ] && [ ! -L "$TASKS_NEW" ] \
+        || refuse "packaging-flow tasks --vscode wrote no regular tasks file; nothing written"
+fi
+
+if [ -n "$VSIX" ]; then
+    rc=0
+    code --install-extension "$VSIX" >&2 || rc=$?
+    [ "$rc" = 0 ] || refuse "code --install-extension $VSIX failed (exit $rc)"
+    say "installed $VSIX_NAME, sha256 matches $VSIX_DIR/SHA256SUMS"
+fi
+
+mkdir -p -- "$FOLDER/.vscode" || refuse "$FOLDER/.vscode is not a directory adk-vscode can write"
+if [ -n "$TASKS_NEW" ]; then
+    # A hard link is all or nothing, and never replaces a name: a tasks.json that
+    # appeared meanwhile is kept, and refused.
+    ln -T -- "$TASKS_NEW" "$TASKS" 2>/dev/null || refuse "$TASKS could not be written, or appeared meanwhile; it is left as it is"
+    rm -rf -- "$SCRATCH"
+    trap - EXIT
+    say "tasks: $TASKS"
+else
+    say "tasks: $TASKS kept"
+fi
+rc=0
+python3 -I -c "$SETTINGS_PY" write "$SETTINGS" "$CLONE" "$WORK" "$IMAGE" "$LOCK" || rc=$?
+case "$rc" in
+    0) say "settings: $SETTINGS (adkTools.root, adkTools.work, adkTools.image, adkTools.lock)" ;;
+    4) say "settings: $SETTINGS unchanged" ;;
+    *) settings_refuse "$rc" ;;
+esac
+[ -z "$REFERENCE_NOTE" ] || say "$REFERENCE_NOTE"
+say "opening $FOLDER"
+exec code "$FOLDER"

@@ -1,0 +1,39 @@
+diff --git a/librelane/scripts/pyosys/ys_common.py b/librelane/scripts/pyosys/ys_common.py
+index 34016a4..db0125d 100644
+--- a/librelane/scripts/pyosys/ys_common.py
++++ b/librelane/scripts/pyosys/ys_common.py
+@@ -20,24 +20,24 @@ import sys
+ from typing import Iterable, List, Union
+ 
+ try:
+-    from pyosys import libyosys as ys
++    import libyosys as ys
+ except ImportError:
+     try:
+-        # flake8: noqa F401
+-        import libyosys
+-
+-        ys.log_error("Current versions of LibreLane require Yosys 0.59.1 or higher.")
+-        exit(-1)
++        from pyosys import libyosys as ys
+     except ImportError:
+-        ys.log_error(
+-            "Failed to import pyosys -- make sure Yosys is compiled with ENABLE_PYTHON set to 1.",
+-            file=sys.stderr,
++        import sys as _sys
++        print(
++            "Could not find pyosys/libyosys -- make sure Yosys is compiled with ENABLE_PYTHON set to 1.",
++            file=_sys.stderr,
+         )
+         exit(-1)
+ 
+ 
+ def _Design_run_pass(self, *command):
+-    ys.Pass.call(self, command)
++    if hasattr(ys.Pass, "call"):
++        ys.Pass.call(self, command)
++    else:
++        ys.Pass.call__YOSYS_NAMESPACE_RTLIL_Design__std_vector_string_(self, list(command))
+ 
+ 
+ ys.Design.run_pass = _Design_run_pass  # type: ignore

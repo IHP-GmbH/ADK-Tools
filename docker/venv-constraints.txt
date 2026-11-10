@@ -1,0 +1,19 @@
+# The tools venv's packages that the Dockerfile's *_PIP pins pull in, each at
+# the version the image resolved while only the direct requirements were
+# pinned. pip install -c: a constraint installs nothing by itself, it only holds
+# a package that something else requires to this version. A pinned direct
+# requirement that moves to a release needing another version of one of these
+# fails at that RUN; move both in the same commit.
+attrs==26.1.0
+execnet==2.1.1
+iniconfig==2.3.1
+jsonschema-specifications==2025.9.1
+markdown-it-py==4.2.0
+MarkupSafe==3.0.4
+mdurl==0.1.2
+Pygments==2.21.0
+PyQt6-Qt6==6.11.2
+PyQt6_sip==13.13.0
+referencing==0.37.0
+rpds-py==2026.9.1
+typing_extensions==4.16.0

@@ -14,10 +14,10 @@ green while the combination stops being the thing anyone tested.
 
 What each contract covers is no longer written here. It is declared once, as
 data, in `ci/contract-registry.json`, read by `ci/contract_registry.py`, and
-every list below is derived from it. The lists used to be nine Python literals
-in this file, which is nine places to forget: a new mirror had to be added to
-the pair list, its directory to the twin scan, and the repository it lives in to
-three more. The registry states the artifact once and this file derives the rest,
+every list below is derived from it. Nine Python literals in this file would be
+nine places to forget: a new mirror would have to be added to the pair list, its
+directory to the twin scan, and the repository it lives in to three more. The
+registry states the artifact once and this file derives the rest,
 so a mirror that is declared is scanned, and a scan cannot go stale relative to
 the pairs it is supposed to be guarding.
 
@@ -25,16 +25,14 @@ The contracts, and what each one is for:
 
   identical-files       declared byte-identity pairs, derived from the mirrors of
                         every artifact the registry judges by bytes. A hand-synced
-                        copy is a copy that drifts; the only question is when.
-  version-policy        the copies of every artifact the registry judges by the
-                        version it declares rather than by its bytes. A vendored
-                        reader is allowed to sit at an older same-major minor
-                        while the reference moves on; it is never allowed to
-                        carry different bytes under one declared version, which
-                        is the in-place edit no per-repository gate can see. The
-                        owner's own file is judged too, because a floor and a
-                        `current` that nothing reads back are two numbers in a
-                        file.
+                        copy is a copy that drifts; the only question is when. A
+                        copy declared `checked_elsewhere` is not compared: its
+                        own tree's suite guards it against the commit it
+                        declares. Here the copy, the guard test and the
+                        declaration have to be there, a NOTE prints both
+                        versions and the declared commit so the lag reads
+                        without opening anything, and a copy that has caught up
+                        with the pin fails until it is a mirror again.
   undeclared-twins      a basename living in two trees without a declared pair.
                         Without this, the check above covers exactly the files
                         somebody remembered to list, and a new shared schema
@@ -80,8 +78,8 @@ Usage:
     contracts.py --self-test
 
 `--root` holds one checkout per repository, named as in the registry's repos
-table; the integration workflow lays them out that way and this umbrella working
-directory already is that layout. A repository that is missing is a failure and
+table; the integration workflow lays them out that way and a directory holding all of the
+repositories side by side already is that layout. A repository that is missing is a failure and
 never a skip: a contract that quietly covers nine repositories reads exactly like
 one that covers ten.
 """
@@ -101,8 +99,8 @@ import resolve_refs
 
 HERE = pathlib.Path(__file__).resolve().parent
 
-# The registry is loaded once, here, and every list this file used to carry is a
-# view onto it. A registry that does not validate is exit 2 and not exit 1: the
+# The registry is loaded once, here, and every list this file uses is a view
+# onto it. A registry that does not validate is exit 2 and not exit 1: the
 # contracts were not evaluated, which is a different fact from any of them
 # failing, and reporting the second when the first happened sends somebody to
 # look at the repositories.
@@ -264,7 +262,7 @@ def requirement_lines(rid, rel, blob):
 # --------------------------------------------------------------------------
 
 
-def contract_identical_files(trees):
+def contract_identical_files(trees, notes=None):
     out = []
     for lrid, lrel, rrid, rrel, why in D.identical:
         left, right = trees.read(lrid, lrel), trees.read(rrid, rrel)
@@ -279,61 +277,77 @@ def contract_identical_files(trees):
         if left != right:
             out.append("%s:%s and %s:%s have drifted apart. They are declared "
                        "byte-identical: %s" % (lrid, lrel, rrid, rrel, why))
+    for c in D.elsewhere:
+        out.extend(checked_elsewhere(trees, c, notes))
     return out
 
 
-def version_policy_artifacts():
-    """The artifacts whose copies are judged by the version they declare.
+def checked_elsewhere(trees, c, notes=None):
+    """[failure, ...] for one copy its own tree guards; a NOTE when it holds.
 
-    Tool pins are excluded and not forgotten: a pin is judged against the
-    declarations the `klayout` and `pip-constraints` contracts already read, and
-    running it here as well would report one disagreement twice.
+    Nothing here compares the copy with anything. What is asserted is that
+    somebody still does: the copy, the guard test and the declared commit are
+    there, and both versions read. The one comparison made is the one that
+    retires the row: a copy equal to the pin's file needs no guard elsewhere.
     """
-    return [a for a in REGISTRY.artifacts
-            if a.identity == "version_policy" and a.kind != "tool_pin"]
-
-
-def contract_version_policy(trees):
-    """Copies judged by the version they declare rather than by their bytes.
-
-    `owner_head` is None throughout: this runs over the pinned checkouts, so the
-    owner's branch head is not on disk and `AHEAD_OF_PIN` is simply out of
-    reach. That is the honest shape. A copy that has been re-synced ahead of the
-    pin is reported here as drifted until the pin bump lands, and the
-    producer-side conformance run, which does fetch the head, is where that
-    distinction is made.
-    """
+    where = "%s:%s" % (c.repo, c.path)
+    guard = "%s::%s" % (c.guard_file, c.guard_test)
+    copy = trees.read(c.repo, c.path)
+    if copy is None:
+        return ["%s does not exist. It is declared checked in %s's own suite by "
+                "%s, which has nothing to check (%s)"
+                % (where, c.repo, guard, c.why)]
     out = []
-    for art in version_policy_artifacts():
-        owner_blob = trees.read(art.owner, art.path)
-        state, clauses = contract_registry.judge_owner(art, owner_blob)
-        if state not in contract_registry.GREEN_STATES:
-            for c in clauses:
-                out.append("%s: %s:%s, which owns the artifact, is %s. %s"
-                           % (art.id, art.owner, art.path, state, c))
-        for m in art.mirrors:
-            state, clauses = contract_registry.judge_mirror(
-                art, owner_blob, None, trees.read(m.repo, m.path))
-            if state in contract_registry.GREEN_STATES:
-                continue
-            for c in clauses:
-                out.append("%s: %s:%s is %s against %s:%s. %s (%s)"
-                           % (art.id, m.repo, m.path, state, art.owner,
-                              art.path, c, m.why))
+    gblob = trees.read(c.repo, c.guard_file)
+    if gblob is None:
+        out.append("%s:%s does not exist, and it is the guard %s is declared "
+                   "checked by. Without it nothing checks the copy anywhere."
+                   % (c.repo, c.guard_file, where))
+    elif not re.search(r"(?m)^def %s\(" % re.escape(c.guard_test),
+                       gblob.decode("utf-8", "replace")):
+        out.append("%s:%s no longer defines %s, the guard %s is declared "
+                   "checked by. Without it nothing checks the copy anywhere."
+                   % (c.repo, c.guard_file, c.guard_test, where))
+
+    pblob = trees.read(c.repo, c.pin_file)
+    pins = [] if pblob is None else re.findall(
+        c.pin_regex, pblob.decode("utf-8", "replace"))
+    if len(pins) != 1:
+        out.append("%s:%s declares %d commits for %s in the form %r, not one, "
+                   "so the commit the guard checks against cannot be named"
+                   % (c.repo, c.pin_file, len(pins), where, c.pin_regex))
+
+    owner = trees.read(c.owner, c.owner_path)
+    if owner is None:
+        out.append("%s:%s does not exist, so %s has no pinned reader to lag "
+                   "behind" % (c.owner, c.owner_path, where))
+        return out
+    if copy == owner:
+        out.append("%s is byte-equal to %s:%s at the pin. A copy that has "
+                   "caught up needs no guard elsewhere: return it to the "
+                   "mirrors of %s in the commit that notices."
+                   % (where, c.owner, c.owner_path, c.artifact))
+        return out
+
+    got = contract_registry.read_version(c.locator, copy)
+    want = contract_registry.read_version(c.locator, owner)
+    for label, value in ((where, got), ("%s:%s" % (c.owner, c.owner_path), want)):
+        if value is None:
+            out.append("%s declares no version this check reads at %s, so the "
+                       "lag of %s cannot be stated" % (label, c.locator, where))
+    if not out and notes is not None:
+        notes.append("%s: %s is %s as declared at %s; %s carries %s at the "
+                     "pin. Checked in %s's own suite by %s, not here."
+                     % (c.artifact, where, got, pins[0], c.owner, want, c.repo,
+                        guard))
     return out
 
 
 def contract_undeclared_twins(trees):
-    # Every declared path, whatever mode the artifact is judged in. Built from
-    # the registry rather than from the byte-identity pairs: an artifact that
-    # moves to a version policy leaves that list, and a scan that then reported
-    # its two copies as an undeclared twin would be reporting the one
-    # relationship this file knows most about.
     declared = set()
-    for art in REGISTRY.artifacts:
-        declared.add(os.path.basename(art.path))
-        for m in art.mirrors:
-            declared.add(os.path.basename(m.path))
+    for lrid, lrel, rrid, rrel, _ in D.identical:
+        declared.add(os.path.basename(lrel))
+        declared.add(os.path.basename(rrel))
 
     seen = {}
     for rid, rel in D.twin_scan:
@@ -427,7 +441,13 @@ def contract_gitmodules_track(trees, track):
         if entry.get("branch") != track:
             out.append("ci/integration-refs.json pins %s from branch %r while "
                        "this superproject is on %r" % (rid, entry.get("branch"), track))
-        if not re.fullmatch(r"[0-9a-f]{40}", str(entry.get("pin", ""))):
+        if "pin_from" in entry:
+            # Its pin is the staged one (ci/pin_set.py joins the two). A pin
+            # here as well would be a second copy of one repository's pin.
+            if "pin" in entry:
+                out.append("ci/integration-refs.json gives %s both a pin and "
+                           "pin_from; one repository has one pin" % rid)
+        elif not re.fullmatch(r"[0-9a-f]{40}", str(entry.get("pin", ""))):
             out.append("ci/integration-refs.json gives %s the pin %r, which is "
                        "not a 40-hex sha" % (rid, entry.get("pin")))
 
@@ -526,15 +546,18 @@ def contract_klayout(trees):
     return out
 
 
-def undeclared_dependency_files(trees):
+def undeclared_dependency_files(trees, exempt=None):
     """Tracked dependency files nothing compares against the image pins.
 
     The registered files close the instance; this closes the class. A repository
     that grows a second requirements file is unchecked from the moment it lands
-    and looks exactly like a repository that has none.
+    and looks exactly like a repository that has none. `exempt` defaults to the
+    registry's exemptions and is a parameter so the self-test can exercise an
+    exemption while the registry holds none.
     """
     out = []
-    known = set(D.requirement_files) | set(D.pins_exempt)
+    known = set(D.requirement_files) | set(
+        D.pins_exempt if exempt is None else exempt)
     for rid in D.file_repos:
         try:
             tracked = trees.tracked(rid)
@@ -604,9 +627,15 @@ def contract_pip_constraints(trees):
     return out
 
 
+def _notes(ctx, name):
+    """The list one contract's NOTE lines go to. Printed on stdout, never as a
+    failure: the floating run reads anything on stderr as drift."""
+    return ctx.setdefault("notes", {}).setdefault(name, [])
+
+
 CONTRACTS = [
-    ("identical-files", lambda t, ctx: contract_identical_files(t)),
-    ("version-policy", lambda t, ctx: contract_version_policy(t)),
+    ("identical-files",
+     lambda t, ctx: contract_identical_files(t, _notes(ctx, "identical-files"))),
     ("undeclared-twins", lambda t, ctx: contract_undeclared_twins(t)),
     ("gitmodules-track", lambda t, ctx: contract_gitmodules_track(t, ctx["track"])),
     ("ci-gate", lambda t, ctx: contract_ci_gate(ctx["fetch"], ctx["load_yaml"])),
@@ -634,8 +663,9 @@ def run(trees, ctx, only=None):
 # carrying its own copy of what the registry already says.
 # --------------------------------------------------------------------------
 
-#: The names the hand-lists had. A module-level assignment of one of these to
-#: anything other than a plain constant is one of them growing back.
+#: The names a hand-written copy of the registry's lists would take. A
+#: module-level assignment of one of these to anything other than a plain
+#: constant is such a copy.
 FORMER_HAND_LISTS = ("IDENTICAL", "TWIN_SCAN", "TWIN_EXEMPT", "CI_GATE_WORKFLOW",
                      "KLAYOUT_CONSUMERS", "PIP_ARGS", "REQUIREMENT_FILES",
                      "LAYOUT", "FILE_REPOS")
@@ -721,8 +751,8 @@ def tripwire(ci_dir=None, workflow_dir=None):
             if value is None or isinstance(value, ast.Constant):
                 continue
             out.append("%s assigns a top-level %s. That list is derived from the "
-                       "registry now; a second copy of it is the thing this "
-                       "migration removed." % (name, former))
+                       "registry; a second copy of it is the drift the "
+                       "registry exists to prevent." % (name, former))
         # (c) one home for the comparator and for the judgements.
         for fname in sorted(defs):
             if name == "contract_registry.py":
@@ -865,20 +895,17 @@ INTEGRATION_REFS = json.dumps({
 })
 
 
-def _declaring_blob(locator, version):
-    """A file that declares `version` where `locator` says to look for it."""
-    kind, arg = locator
-    if kind == "py_assign":
-        return '"""a reference reader."""\n%s = "%s"\nbody = 1\n' % (arg, version)
-    if kind == "json_pointer":
-        tokens = [t for t in arg.split("/") if t]
-        doc = version
-        for token in reversed(tokens):
-            doc = {token.replace("~1", "/").replace("~0", "~"): doc}
-        return json.dumps(doc, indent=2) + "\n"
-    if kind == "dockerfile_arg":
-        return "ARG %s=%s\n" % (arg, version)
-    raise ValueError("the self-test cannot synthesise a %r declaration" % (kind,))
+#: The reader at the pin, and a copy that lags it. Made-up versions and a
+#: made-up commit, in the form a run's note prints them.
+OWNER_READER = '__version__ = "1.10.0"\nbody = "pin"\n'
+LAGGING_COPY = '__version__ = "1.5.0"\nbody = "declared"\n'
+
+#: A declaration every checked-elsewhere row can read: the line adk's
+#: vendor/README.md carries and the constant the plugin's guard carries. A row
+#: that reads its pin some third way fails "matching copies pass" until its form
+#: is added here, which is when somebody should look at it.
+ELSEWHERE_PIN_TEXT = ("reader 1.5.0, from chiplet-spec `dev` at `abc1234`\n"
+                      'READER_COMMIT = "abc1234"\n')
 
 
 def _base_files():
@@ -896,29 +923,41 @@ def _base_files():
         ("plugin", "plugins/resizer_passive_elements/requirements.txt"):
             "PyYAML>=6.0.3\n",
         ("gds2kicad", "requirements.txt"): "PyQt6>=6.6.0\n",
+        ("adk", "pyproject.toml"):
+            'dependencies = ["klayout", "jinja2", "jsonschema", "PyYAML"]\n',
+        ("interposer", "pyproject.toml"):
+            'dependencies = ["klayout", "PyYAML", "psutil"]\n',
+        ("interconnect", "pyproject.toml"): 'dependencies = ["klayout", "jsonschema"]\n',
+        ("plugin", "pyproject.toml"):
+            'dependencies = ["klayout>=0.30.5", "PyYAML>=6.0.3"]\ntest = ["pytest>=8.1", "psutil"]\n',
+        ("gds2kicad", "pyproject.toml"):
+            'dependencies = ["PyQt6>=6.6.0", "PyYAML>=5.1", "klayout"]\n',
         ("spec", "reference/python/pyproject.toml"):
             'requires-python = ">=3.8"\ndependencies = ["PyYAML>=5.1"]\n',
+        ("spec", "description/pyproject.toml"):
+            'dependencies = ["PyYAML>=6.0"]\ntest = ["pytest>=7"]\n',
+        ("spec", "conformance/requirements.txt"):
+            "jsonschema>=4.18\nPyYAML>=5.1\n",
     }
     for lrid, lrel, rrid, rrel, _ in D.identical:
         files[(lrid, lrel)] = "same\n"
         files[(rrid, rrel)] = "same\n"
-    # The version-judged artifacts start out at the state the ecosystem is
-    # working towards: the reference and every copy carrying one reader release,
-    # byte for byte. Every negative case below moves one of them off it.
-    for art in version_policy_artifacts():
-        current = art.version_policy.current
-        if current == contract_registry.FROM_OWNER:
-            current = art.version_policy.floor
-        blob = _declaring_blob(art.version_policy.locator, current)
-        files[(art.owner, art.path)] = blob
-        for m in art.mirrors:
-            files[(m.repo, m.path)] = blob
+    for c in D.elsewhere:
+        files[(c.owner, c.owner_path)] = OWNER_READER
+        files[(c.repo, c.path)] = LAGGING_COPY
+        guard = files.get((c.repo, c.guard_file), "")
+        files[(c.repo, c.guard_file)] = (
+            guard + "def %s():\n    pass\n" % c.guard_test)
+        pin = files.get((c.repo, c.pin_file), "")
+        if ELSEWHERE_PIN_TEXT not in pin:
+            files[(c.repo, c.pin_file)] = pin + ELSEWHERE_PIN_TEXT
+    # A file can own a mirror and a copy checked elsewhere at once (the Python
+    # reader did while the ADK's copy lagged). The mirror is byte-equal to
+    # whatever the owner ended up holding.
+    for lrid, lrel, rrid, rrel, _ in D.identical:
+        files[(rrid, rrel)] = files[(lrid, lrel)]
     for rid, rel in D.ci_gate_workflow.items():
         files.setdefault((rid, rel), GATE_OK)
-    # conformance/requirements.txt is a declared pin file now that the spec
-    # pin carries it, so the base tree has to include it or pip-constraints
-    # reports it missing.
-    files[("spec", "conformance/requirements.txt")] = "jsonschema>=4.18\nPyYAML>=5.1\n"
     return files
 
 
@@ -960,101 +999,39 @@ def self_test(load_yaml):
            True, "drifted apart")
     expect("a deleted copy fails rather than passing vacuously",
            "identical-files",
-           mutate(**{"adk|config/schema/rule_params.schema.json": None}),
+           mutate(**{"adk|config/schema/layers.schema.json": None}),
            True, "does not exist")
 
-    # version-policy. The artifact behind every case below is the vendored
-    # `.chiplet` reader, which is the only one judged this way today; the
-    # fixtures are built from the registry rather than typed out, so a case
-    # cannot keep passing after the row it is about has gone.
-    cfio = {a.id: a for a in REGISTRY.artifacts}.get("cfio_python_reader")
-
-    def reader(version=None, body="body = 1\n"):
-        head = "" if version is None else '__version__ = "%s"\n' % version
-        return '"""the .chiplet reader."""\n%s%s' % (head, body)
-
-    def cfio_files(owner_blob, mirror_blob):
-        files = _base_files()
-        if owner_blob is None:
-            files.pop((cfio.owner, cfio.path), None)
-        else:
-            files[(cfio.owner, cfio.path)] = owner_blob
-        for m in cfio.mirrors:
-            if mirror_blob is None:
-                files.pop((m.repo, m.path), None)
-            else:
-                files[(m.repo, m.path)] = mirror_blob
-        return files
-
-    def cfio_result(owner_blob, mirror_blob):
-        trees = DictTrees(cfio_files(owner_blob, mirror_blob))
-        ctx = {"track": "dev", "load_yaml": load_yaml,
-               "fetch": lambda rid, rel: None}
-        return dict(run(trees, ctx, only={"version-policy"}))["version-policy"]
-
-    def vpcase(name, ok, detail=None):
-        cases.append((name, ok, detail))
-
-    expect("copies carrying the reference's reader release pass",
-           "version-policy", base, False)
-
-    vpcase("the vendored .chiplet reader is judged by the version it declares",
-           cfio is not None and cfio.identity == "version_policy"
-           and cfio.version_policy is not None
-           and cfio.version_policy.rule == "additive_minor"
-           and cfio.version_policy.current == "1.1.0"
-           and cfio.version_policy.floor == "1.1"
-           and cfio.version_policy.locator == ("py_assign", "__version__")
-           and len(cfio.mirrors) == 2,
-           cfio and (cfio.identity, cfio.version_policy, len(cfio.mirrors)))
-
-    # The state the ecosystem is actually in: the reference at the pinned commit
-    # and both hosted copies are the reader that has no release constant at all.
-    got = cfio_result(reader(None, body="reference = 1\n"),
-                      reader(None, body="vendored = 1\n"))
-    vpcase("when the reference and both copies declare no version the reader is "
-           "red on three clauses",
-           len(got) == 3 and all(g.startswith("cfio_python_reader:") for g in got)
-           and any("owns the artifact" in g for g in got), got)
-
-    got = cfio_result(reader("1.1.0"), reader(None))
-    vpcase("publishing the reference alone does not turn it green; both copies "
-           "have to be re-synced from it", len(got) == 2, got)
-
-    got = cfio_result(reader("1.1.0"), reader("1.1.0"))
-    vpcase("it goes green only once the reference and both copies carry one "
-           "reader release, byte for byte", got == [], got)
-
-    got = cfio_result(reader("1.1.0"), reader("1.1.0", body="body = 99\n"))
-    vpcase("a copy edited in place under the same declared version stays red",
-           len(got) == 2 and all("never different bytes" in g for g in got), got)
-
-    got = cfio_result(reader("1.1.0"), reader("1.0.0"))
-    vpcase("a copy below the declared floor is red, so 1.0 is not grandfathered",
-           len(got) == 2 and all("below the floor" in g for g in got), got)
-
-    got = cfio_result(reader("1.1.0"), reader("1.2.0"))
-    vpcase("a copy ahead of the reference is red rather than tolerated",
-           len(got) == 2 and all("ahead of the owner" in g for g in got), got)
-
-    got = cfio_result(reader("1.1.0"), reader("2.0.0"))
-    vpcase("a copy in another major is red", len(got) == 2
-           and all("different majors" in g for g in got), got)
-
-    got = cfio_result(reader("1.1.0"), None)
-    vpcase("a deleted copy is red rather than passing vacuously",
-           len(got) == 2 and all("not there" in g for g in got), got)
-
-    got = cfio_result(None, reader("1.1.0"))
-    vpcase("a missing reference is reported about the reference, and no copy is "
-           "declared fine on the strength of it",
-           len(got) == 3 and any("owns the artifact" in g for g in got)
-           and sum("nothing is known about the copy" in g for g in got) == 2, got)
-
-    got = cfio_result(reader("1.0.0"), reader("1.0.0"))
-    vpcase("a reference that disagrees with the version this registry declares "
-           "is red, because two declarations of one number move together",
-           any("move in one commit" in g for g in got), got)
+    # identical-files, a copy checked in its own tree
+    notes = []
+    got = contract_identical_files(DictTrees(base), notes)
+    cases.append(("a copy checked elsewhere passes with a note naming both "
+                  "versions and the declared commit",
+                  not got and len(notes) == len(D.elsewhere) and all(
+                      "1.5.0" in n and "1.10.0" in n and "abc1234" in n
+                      for n in notes), (got, notes)))
+    for c in D.elsewhere:
+        copy, guard = "%s|%s" % (c.repo, c.path), "%s|%s" % (c.repo, c.guard_file)
+        pin = "%s|%s" % (c.repo, c.pin_file)
+        expect("%s: a missing copy fails" % c.repo, "identical-files",
+               mutate(**{copy: None}), True, "does not exist")
+        expect("%s: a missing guard file fails" % c.repo, "identical-files",
+               mutate(**{guard: None}), True, "it is the guard")
+        expect("%s: a guard file without the guard test fails" % c.repo,
+               "identical-files",
+               mutate(**{guard: "def test_something_else():\n    pass\n"
+                         + ELSEWHERE_PIN_TEXT}),
+               True, "no longer defines")
+        expect("%s: a declaration the row cannot read fails" % c.repo,
+               "identical-files",
+               mutate(**{pin: "def %s():\n    pass\n" % c.guard_test}),
+               True, "declares 0 commits")
+        expect("%s: a copy with no version to read fails" % c.repo,
+               "identical-files", mutate(**{copy: "body = 1\n"}),
+               True, "declares no version")
+        expect("%s: a copy equal to the pin's reader fails and goes back to "
+               "mirrors" % c.repo, "identical-files",
+               mutate(**{copy: OWNER_READER}), True, "return it to the mirrors")
 
     # undeclared-twins
     expect("no undeclared twin passes", "undeclared-twins", base, False)
@@ -1089,6 +1066,17 @@ def self_test(load_yaml):
                "spec": {"branch": "dev", "pin": "dev"},
                "docs": {"branch": "dev", "pin": "d" * 40}})}),
            True, "not a 40-hex sha")
+    expect("a pin taken from staging.pin passes", "gitmodules-track",
+           mutate(**{"tools|ci/integration-refs.json": json.dumps({
+               "spec": {"branch": "dev", "pin_from": "staging.pin", "on_remote": False},
+               "docs": {"branch": "dev", "pin": "d" * 40}})}),
+           False)
+    expect("a pin taken from staging.pin and written here too fails",
+           "gitmodules-track",
+           mutate(**{"tools|ci/integration-refs.json": json.dumps({
+               "spec": {"branch": "dev", "pin_from": "staging.pin", "pin": "c" * 40},
+               "docs": {"branch": "dev", "pin": "d" * 40}})}),
+           True, "both a pin and pin_from")
     expect("a missing integration-refs.json fails", "gitmodules-track",
            mutate(**{"tools|ci/integration-refs.json": None}),
            True, "are unpinned")
@@ -1157,6 +1145,13 @@ def self_test(load_yaml):
     expect("a dependency file nobody registered fails", "pip-constraints",
            mutate(**{"adk|requirements-dev.txt": "pytest>=9.1.0\n"}),
            True, "neither reads it nor exempts it")
+    expect("a conformance floor above the image pin fails", "pip-constraints",
+           mutate(**{"spec|conformance/requirements.txt": "jsonschema>=4.27\n"}),
+           True, "exercised against a version it declares")
+    got = undeclared_dependency_files(
+        DictTrees(mutate(**{"adk|requirements-dev.txt": "pytest>=9.1.0\n"})),
+        exempt={("adk", "requirements-dev.txt")})
+    cases.append(("an exempted dependency file passes", not got, got))
 
     # the version comparator itself
     def vcase(name, ok, detail=None):
@@ -1176,9 +1171,6 @@ def self_test(load_yaml):
     # the registry itself: layout, re-encoding, and the tripwire
     fmt = contract_registry.fmt_check(contract_registry.REGISTRY_PATH)
     vcase("the registry is in canonical layout", not fmt, fmt)
-    vcase("the interconnect method schema is owned by the PDK that authors it",
-          {a.id: a.owner for a in REGISTRY.artifacts}.get(
-              "interconnect_methods_schema") == "interconnect")
     tw = tripwire()
     vcase("nothing has grown a second copy of the registry", not tw, tw)
     vcase("the tripwire notices a hand-list growing back",
@@ -1293,9 +1285,9 @@ def main():
     if args.table:
         for art in REGISTRY.artifacts:
             version = art.version_policy.current if art.version_policy else "-"
-            print("%-30s [%s/%s] %s:%s v%s  mirrors=%d"
+            print("%-30s [%s/%s] %s:%s v%s  mirrors=%d elsewhere=%d"
                   % (art.id, art.kind, art.identity, art.owner, art.path,
-                     version, len(art.mirrors)))
+                     version, len(art.mirrors), len(art.checked_elsewhere)))
         for note in REGISTRY.notes:
             print("NOTE %s" % note)
         return 0
@@ -1348,13 +1340,18 @@ def main():
               file=sys.stderr)
         return 2
 
+    notes = ctx.get("notes", {})
     if args.json:
-        print(json.dumps([{"contract": n, "failures": f} for n, f in results],
+        print(json.dumps([{"contract": n, "failures": f,
+                           "notes": notes.get(n, [])} for n, f in results],
                          indent=2))
     else:
         for name, failures in results:
             print("%-20s %s" % (name, "ok" if not failures else
                                 "%d FAILED" % len(failures)))
+        for name, _ in results:
+            for n in notes.get(name, []):
+                print("NOTE [%s] %s" % (name, n))
         for name, failures in results:
             for f in failures:
                 print("\nFAIL [%s] %s" % (name, f), file=sys.stderr)

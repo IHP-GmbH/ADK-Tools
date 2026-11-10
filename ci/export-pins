@@ -1,0 +1,458 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 IHP GmbH
+"""Export the repositories a pin set names, each as a fresh one-commit clone of
+its pinned sha, fetched from its local source: the sibling checkout, or for an
+entry exported from a submodule, that submodule's module store.
+
+Usage:
+    export-pins --pin-set FILE --out DIR [--source-root DIR] [--superproject DIR]
+                [--only id,...] [--override id=sha ...] [--stage-names] [--check]
+    export-pins --self-test
+
+  --source-root  where the siblings sit, as <root>/<id>; default this
+                 checkout's parent, the usual layout
+  --superproject the checkout whose module stores hold the submodule sources;
+                 default this one
+  --only         these ids; default every repository, or with --stage-names
+                 every staged one
+  --override     export this sha for that id instead of the pin set's; its
+                 extra commits still ride along
+  --stage-names  write DIR/<stage name> instead of DIR/<id> (the image build)
+  --check        resolve and report only; write nothing
+
+Each tree is `git init`, the sibling as its origin, a shallow fetch of the sha,
+a checkout of FETCH_HEAD, then a shallow fetch of each extra commit, never
+checked out. Then HEAD has to be the sha and the status clean, or the export
+fails. Not `git archive`: the tree keeps its .git, because packaging-flow's
+identity probe, chiplet-flow's and chiplet-spec's `git ls-files` all read it.
+A fetch takes a commit, so no uncommitted edit, untracked file or __pycache__
+of the sibling can ride along, and nothing is ever written in a sibling.
+
+Every id is resolved before anything is written: the source is a git
+repository, holds the sha and each extra, each is a full 40-hex sha, and the
+root commits of the sha are the ones the entry records. The roots are read in
+the source, never in the export: a shallow tree's roots are its shallow
+boundary, so a shallow source is refused too. A folder holding another
+repository under the id's name fails there. DIR has to be absent or empty. A
+failure exits 1 naming the id and the reason.
+"""
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+SCHEMA = "adk-pin-set/1"
+SHA = re.compile(r"[0-9a-f]{40}")
+DEFAULT_SUPER = Path(__file__).resolve().parent.parent
+DEFAULT_ROOT = DEFAULT_SUPER.parent
+ENV = {k: v for k, v in os.environ.items()
+       if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY")}
+
+
+class ExportError(Exception):
+    pass
+
+
+def git(cwd, *args, check=True):
+    done = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True,
+                          env=ENV)
+    if check and done.returncode:
+        raise ExportError("git %s: %s" % (" ".join(args), done.stderr.strip()))
+    return done
+
+
+def has_commit(repo, sha):
+    if git(repo, "cat-file", "-e", "%s^{commit}" % sha, check=False).returncode:
+        return False
+    return git(repo, "rev-parse", "%s^{commit}" % sha).stdout.strip() == sha
+
+
+def source_path(rid, entry, source_root, superproject):
+    """Where rid's commits are read from: <source_root>/<id>, or the module
+    store of the submodule it names in superproject."""
+    export_from = entry.get("export_from")
+    kind = (export_from or {}).get("kind")
+    if kind == "sibling":
+        return source_root / rid
+    if kind == "submodule":
+        store = git(superproject, "rev-parse", "--path-format=absolute", "--git-path",
+                    "modules/%s" % export_from["name"], check=False)
+        if store.returncode:
+            raise ExportError("%s is not a git checkout, so it holds no module store"
+                              % superproject)
+        return Path(store.stdout.strip())
+    raise ExportError("export_from is %r, not a sibling or a submodule" % (export_from,))
+
+
+def is_repo(repo, entry):
+    if entry["export_from"]["kind"] == "submodule":
+        return (repo / "HEAD").is_file() and (repo / "objects").is_dir()
+    return (repo / ".git").exists()
+
+
+def roots(repo, rev):
+    """The root commits of rev (a sha, or --all for every ref), read in repo,
+    which must not be shallow."""
+    shallow = git(repo, "rev-parse", "--is-shallow-repository").stdout.strip()
+    if shallow != "false":
+        raise ExportError("%s is shallow, so its roots are a shallow boundary, not the "
+                          "repository's" % repo)
+    return sorted(set(git(repo, "rev-list", "--max-parents=0", rev).stdout.split()))
+
+
+def source_problem(repo, entry, sha):
+    """None when repo is the entry's repository and holds sha and its extras,
+    else why not. Another repository is told apart from a stale clone of the
+    right one first, by the roots its refs reach: a sha's own roots are fixed by
+    the sha, so they only say anything once the sha is known to be there."""
+    if not is_repo(repo, entry):
+        if entry["export_from"]["kind"] == "submodule":
+            return ("%s is not a module store: initialise %s in that checkout or pass "
+                    "--superproject" % (repo, entry["export_from"]["name"]))
+        return "%s is not a git checkout" % repo
+    try:
+        held = roots(repo, "--all")
+    except ExportError as exc:
+        return str(exc)
+    want = entry["roots"]
+    if not set(held) & set(want):
+        return ("%s holds another repository: its roots are %s, the pin set records %s"
+                % (repo, " ".join(held) or "none", " ".join(want)))
+    if not has_commit(repo, sha):
+        return "%s does not have commit %s" % (repo, sha)
+    missing = [x for x in entry["extra"] if not SHA.fullmatch(x) or not has_commit(repo, x)]
+    if missing:
+        return "%s does not have extra commit %s" % (repo, ", ".join(missing))
+    got = roots(repo, sha)
+    if got != want:
+        return ("commit %s has roots %s in %s, the pin set records %s"
+                % (sha, " ".join(got), repo, " ".join(want)))
+    return None
+
+
+def plan(pin_set, source_root, only=None, overrides=None, stage_names=False,
+         superproject=DEFAULT_SUPER):
+    """[(id, dest name, sibling, sha, extra)], every id resolved, or ExportError
+    carrying one line per id that is not."""
+    if pin_set.get("schema") != SCHEMA:
+        raise ExportError("the pin set's schema is %r, not %s" % (pin_set.get("schema"), SCHEMA))
+    repos = pin_set["repos"]
+    overrides = dict(overrides or {})
+    if only is None:
+        only = sorted(rid for rid, e in repos.items() if e["stage_name"] or not stage_names)
+    bad = ["%s: not in the pin set" % rid for rid in only if rid not in repos]
+    bad += ["%s: overridden but not exported" % rid for rid in overrides if rid not in only]
+    if bad:
+        raise ExportError("\n".join(bad))
+    out = []
+    for rid in only:
+        entry = repos[rid]
+        sha = overrides.get(rid, entry["sha"])
+        name = entry["stage_name"] if stage_names else rid
+        why = None
+        try:
+            repo = source_path(rid, entry, source_root, superproject)
+        except ExportError as exc:
+            repo, why = None, str(exc)
+        if why:
+            pass
+        elif not name:
+            why = "has no stage name, so --stage-names cannot place it"
+        elif not entry.get("roots"):
+            why = "the pin set records no roots, so its source cannot be checked"
+        elif not SHA.fullmatch(sha):
+            why = "%s is not a full 40-hex sha" % sha
+        else:
+            why = source_problem(repo, entry, sha)
+        if why:
+            bad.append("%s: %s" % (rid, why))
+        else:
+            out.append((rid, name, repo, sha, list(entry["extra"])))
+    if bad:
+        raise ExportError("\n".join(bad))
+    return out
+
+
+def check_tree(dest, sha):
+    """None when the tree at dest is exactly sha, else why not."""
+    got = git(dest, "rev-parse", "HEAD").stdout.strip()
+    if got != sha:
+        return "the exported tree reports %s, expected %s" % (got, sha)
+    status = git(dest, "status", "--porcelain", "--ignored").stdout
+    if status.strip():
+        return "the exported tree is not clean: %s" % status.splitlines()[0].strip()
+    return None
+
+
+def export(item, out):
+    rid, name, repo, sha, extra = item
+    dest = out / name
+    dest.mkdir(parents=True)
+    git(dest, "init", "-q")
+    git(dest, "remote", "add", "origin", str(repo))
+    git(dest, "fetch", "-q", "--depth", "1", "origin", sha)
+    git(dest, "-c", "advice.detachedHead=false", "checkout", "-q", "FETCH_HEAD")
+    why = check_tree(dest, sha)
+    for x in extra:
+        if why:
+            break
+        git(dest, "fetch", "-q", "--depth", "1", "origin", x)
+        if not has_commit(dest, x):
+            why = "extra commit %s is not resolvable after fetching it" % x
+    why = why or check_tree(dest, sha)
+    if why:
+        raise ExportError("%s: %s" % (rid, why))
+
+
+def describe(repo, sha):
+    d = git(repo, "describe", "--tags", "--always", sha, check=False).stdout.strip()
+    branches = git(repo, "for-each-ref", "--contains", sha, "--format=%(refname:short)",
+                   "refs/heads", check=False).stdout.split()
+    return d or sha[:10], ",".join(branches) or "<no branch>"
+
+
+def run(pin_set, out, source_root, only=None, overrides=None, stage_names=False,
+        check_only=False, report=print, superproject=DEFAULT_SUPER):
+    source_root = Path(source_root)
+    if not source_root.is_absolute():
+        raise ExportError("--source-root must be absolute, not %s" % source_root)
+    items = plan(pin_set, source_root, only, overrides, stage_names, Path(superproject))
+    for rid, name, repo, sha, extra in items:
+        d, branches = describe(repo, sha)
+        report("  %-26s %s  %s  (%s)" % (name, sha[:12], d, branches))
+        for x in extra:
+            report("  %-26s   + %s (extra)" % ("", x[:12]))
+    if check_only:
+        report("export-pins: --check only, nothing written")
+        return
+    out = Path(out).absolute()
+    if out.exists() and (not out.is_dir() or any(out.iterdir())):
+        raise ExportError("%s is not empty; export-pins writes only into an empty "
+                          "directory" % out)
+    for _, _, repo, _, _ in items:
+        if out == repo.absolute() or repo.absolute() in out.parents:
+            raise ExportError("%s is inside the sibling %s; export-pins never writes "
+                              "in a source" % (out, repo))
+    out.mkdir(parents=True, exist_ok=True)
+    for item in items:
+        export(item, out)
+    report("export-pins: wrote %d trees to %s" % (len(items), out))
+
+
+def self_test():
+    cases = []
+
+    def expect(name, ok):
+        cases.append((name, bool(ok)))
+
+    def fails(fn, needle):
+        try:
+            fn()
+        except ExportError as exc:
+            return needle in str(exc)
+        return False
+
+    quiet = lambda *_: None  # noqa: E731
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        src = tmp / "src"
+        sib = src / "thing"
+        sib.mkdir(parents=True)
+        commit = ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm"]
+        git(sib, "init", "-q")
+        (sib / "f").write_text("one\n")
+        git(sib, "add", "f")
+        git(sib, *commit, "one")
+        old = git(sib, "rev-parse", "HEAD").stdout.strip()
+        (sib / "f").write_text("two\n")
+        git(sib, "add", "f")
+        git(sib, *commit, "two")
+        pin = git(sib, "rev-parse", "HEAD").stdout.strip()
+        (sib / "f").write_text("dirty\n")
+        (sib / "untracked").write_text("x\n")
+        before = (git(sib, "for-each-ref").stdout, git(sib, "status", "--porcelain").stdout)
+        sibling = {"kind": "sibling"}
+        pin_set = {"schema": SCHEMA, "repos": {
+            "thing": {"sha": pin, "extra": [old], "source": "staged", "stage_name": "th",
+                      "remote": None, "reachable": "local-only", "export_from": sibling,
+                      "roots": [old]},
+            "other": {"sha": "f" * 40, "extra": [], "source": "gitlink", "stage_name": None,
+                      "remote": None, "reachable": "remote", "export_from": sibling,
+                      "roots": ["f" * 40]}}}
+        thing = pin_set["repos"]["thing"]
+
+        out = tmp / "out1"
+        run(pin_set, out, src, only=["thing"], report=quiet)
+        tree = out / "thing"
+        expect("a tree is exported at the pin, with its .git, at DIR/<id>",
+               git(tree, "rev-parse", "HEAD").stdout.strip() == pin
+               and (tree / ".git").is_dir() and (tree / "f").read_text() == "two\n")
+        expect("its extra commit resolves but is not checked out",
+               has_commit(tree, old) and check_tree(tree, pin) is None)
+        expect("one commit deep",
+               git(tree, "rev-list", "--count", "HEAD").stdout.strip() == "1")
+        expect("the sibling's dirt does not ride along",
+               not (tree / "untracked").exists())
+        expect("nothing is written in the sibling",
+               (git(sib, "for-each-ref").stdout, git(sib, "status", "--porcelain").stdout)
+               == before)
+
+        run(pin_set, tmp / "out2", src, stage_names=True, report=quiet)
+        expect("--stage-names exports the staged entries at their stage name",
+               sorted(p.name for p in (tmp / "out2").iterdir()) == ["th"])
+
+        run(pin_set, tmp / "out3", src, only=["thing"], overrides={"thing": old}, report=quiet)
+        expect("--override exports the given sha",
+               git(tmp / "out3" / "thing", "rev-parse", "HEAD").stdout.strip() == old)
+
+        run(pin_set, tmp / "out4", src, only=["thing"], check_only=True, report=quiet)
+        expect("--check writes nothing", not (tmp / "out4").exists())
+
+        # Named mutation: an export over a dirty or wrong-sha tree.
+        expect("an export into a non-empty directory is refused",
+               fails(lambda: run(pin_set, out, src, only=["thing"], report=quiet),
+                     "is not empty"))
+        (tree / "stray").write_text("x\n")
+        expect("a dirty exported tree is reported", "not clean" in (check_tree(tree, pin) or ""))
+        (tree / "stray").unlink()
+        expect("a tree at another sha is reported",
+               "reports %s, expected %s" % (pin, old) in (check_tree(tree, old) or ""))
+        expect("a sha the sibling lacks fails, naming the id",
+               fails(lambda: run(pin_set, tmp / "o5", src, only=["thing"],
+                                 overrides={"thing": "e" * 40}, report=quiet),
+                     "thing: %s does not have commit %s" % (sib, "e" * 40)))
+        expect("an abbreviated sha fails",
+               fails(lambda: run(pin_set, tmp / "o6", src, only=["thing"],
+                                 overrides={"thing": pin[:12]}, report=quiet),
+                     "not a full 40-hex sha"))
+        expect("a sibling that is not a checkout fails, naming the id",
+               fails(lambda: run(pin_set, tmp / "o7", src, only=["other"], report=quiet),
+                     "other: %s is not a git checkout" % (src / "other")))
+        expect("an id not in the pin set fails",
+               fails(lambda: run(pin_set, tmp / "o8", src, only=["nope"], report=quiet),
+                     "nope: not in the pin set"))
+        expect("a gitlink cannot be placed by stage name",
+               fails(lambda: run(pin_set, tmp / "o9", src, only=["other"], stage_names=True,
+                                 report=quiet), "has no stage name"))
+        expect("nothing is written when one id fails",
+               not (tmp / "o7").exists() and not (tmp / "o5").exists())
+        expect("an output inside a sibling is refused",
+               fails(lambda: run(pin_set, sib / "x", src, only=["thing"], report=quiet),
+                     "never writes in a source"))
+        expect("a relative source root is refused",
+               fails(lambda: run(pin_set, tmp / "o10", Path("src"), report=quiet),
+                     "must be absolute"))
+        expect("an entry with no roots is refused",
+               fails(lambda: run({"schema": SCHEMA, "repos": {"thing": dict(thing, roots=[])}},
+                                 tmp / "o11", src, report=quiet), "records no roots"))
+
+        # Named mutation: the entry pointed at a folder holding another repository.
+        alien = tmp / "alien" / "thing"
+        alien.mkdir(parents=True)
+        git(alien, "init", "-q")
+        (alien / "g").write_text("x\n")
+        git(alien, "add", "g")
+        git(alien, *commit, "unrelated")
+        alien_root = git(alien, "rev-parse", "HEAD").stdout.strip()
+        expect("a folder with another root is refused as another repository, naming both",
+               fails(lambda: run(pin_set, tmp / "o12", tmp / "alien", only=["thing"],
+                                 report=quiet),
+                     "thing: %s holds another repository: its roots are %s, the pin set "
+                     "records %s" % (alien, alien_root, old)))
+        expect("a stale clone of the right repository is told apart: it lacks the sha",
+               fails(lambda: run(pin_set, tmp / "o13", src, only=["thing"],
+                                 overrides={"thing": "e" * 40}, report=quiet),
+                     "does not have commit"))
+
+        # Named mutation: the roots computed in the export. Its shallow boundary is
+        # the pin itself, not the root, so an honest entry would be refused.
+        expect("roots computed in the shallow export are its boundary, not the root",
+               git(tree, "rev-list", "--max-parents=0", pin).stdout.split() == [pin] != [old])
+        expect("so a shallow tree is refused as a source, with an honest entry",
+               "is shallow" in (source_problem(tree, thing, pin) or ""))
+        expect("the same honest entry passes in the source", source_problem(sib, thing, pin) is None)
+
+        # A submodule entry is read from the superproject's module store, not from
+        # a sibling folder of that name.
+        sup = tmp / "sup"
+        sup.mkdir()
+        git(sup, "init", "-q")
+        git(sup, "-c", "protocol.file.allow=always", "submodule", "add", "-q", str(sib),
+            "tools/thing")
+        git(sup, *commit, "sub")
+        from_store = dict(thing, export_from={"kind": "submodule", "name": "tools/thing"})
+        store_set = {"schema": SCHEMA, "repos": {"thing": from_store}}
+        run(store_set, tmp / "o14", tmp / "alien", report=quiet, superproject=sup)
+        expect("a submodule entry exports from the module store, ignoring the sibling",
+               git(tmp / "o14" / "thing", "rev-parse", "HEAD").stdout.strip() == pin)
+        bare = tmp / "bare-sup"
+        bare.mkdir()
+        git(bare, "init", "-q")
+        expect("a superproject with no module store for it fails, naming the store",
+               fails(lambda: run(store_set, tmp / "o15", src, report=quiet, superproject=bare),
+                     "%s is not a module store: initialise tools/thing"
+                     % (bare / ".git" / "modules" / "tools" / "thing")))
+
+        # A sha from a second history the folder also holds has other roots.
+        orphan = git(sib, "-c", "user.name=t", "-c", "user.email=t@t", "commit-tree",
+                     "%s^{tree}" % pin, "-m", "second").stdout.strip()
+        git(sib, "update-ref", "refs/heads/second", orphan)
+        expect("an override from another history in the folder is refused by its roots",
+               fails(lambda: run(pin_set, tmp / "o16", src, only=["thing"],
+                                 overrides={"thing": orphan}, report=quiet),
+                     "commit %s has roots %s in %s, the pin set records %s"
+                     % (orphan, orphan, sib, old)))
+        shutil.rmtree(out)
+
+    width = max(len(name) for name, _ in cases)
+    for name, ok in cases:
+        print("%-*s %s" % (width, name, "ok" if ok else "FAILED"))
+    return 0 if all(ok for _, ok in cases) else 1
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--pin-set", type=Path)
+    ap.add_argument("--out", type=Path)
+    ap.add_argument("--source-root", type=Path, default=DEFAULT_ROOT)
+    ap.add_argument("--superproject", type=Path, default=DEFAULT_SUPER)
+    ap.add_argument("--only", help="comma-separated ids")
+    ap.add_argument("--override", action="append", default=[], metavar="ID=SHA")
+    ap.add_argument("--stage-names", action="store_true")
+    ap.add_argument("--check", action="store_true")
+    args = ap.parse_args(argv)
+    if args.self_test:
+        return self_test()
+    if args.pin_set is None or (args.out is None and not args.check):
+        ap.error("--pin-set and --out are required (--out may be left out with --check)")
+    overrides = {}
+    for item in args.override:
+        rid, sep, sha = item.partition("=")
+        if not sep or not rid:
+            ap.error("--override takes id=sha, not %r" % item)
+        overrides[rid] = sha
+    only = [x for x in args.only.split(",") if x] if args.only else None
+    try:
+        pin_set = json.loads(args.pin_set.read_bytes())
+        run(pin_set, args.out, args.source_root, only, overrides, args.stage_names, args.check,
+            superproject=args.superproject.absolute())
+    except (OSError, ValueError) as exc:
+        print("export-pins: cannot read the pin set %s: %s" % (args.pin_set, exc), file=sys.stderr)
+        return 1
+    except ExportError as exc:
+        for line in str(exc).splitlines():
+            print("export-pins: %s" % line, file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

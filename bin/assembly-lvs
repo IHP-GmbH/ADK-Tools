@@ -1,0 +1,6 @@
+#!/bin/sh
+# Assembly-stage LVS. Takes a resolved/v2, v3 or v4 document, not a GDS plus a netlist:
+#   assembly-lvs verify <resolved.yaml> [--report <path>] [--quiet]
+# packaging-flow launches it as one of its stages; this wrapper is the standalone
+# route, outside any flow run.
+exec /opt/adk-tools/venv/bin/assembly-lvs "$@"

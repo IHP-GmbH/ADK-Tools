@@ -20,6 +20,7 @@ rest of the suite.
 
 ```bash
 ./openroad/build-image.sh                    # once; JOBS=8 by default
+export ADK_TOOLS_IMAGE=sha256:<64 hex>       # the adk-tools image, by ID
 ./openroad/check-3dblox.sh path/to/assembly.chiplet
 ./openroad/verify-live.sh                    # regression gate
 ```
@@ -36,6 +37,12 @@ from the OpenROAD image, so what gets exercised is the exporter that actually
 ships. It exits non-zero on any linter warning, not only on a crash. Pass
 `--pins REF=pins.json` (the `gds_to_kicad` artifact) once per die to make the
 export bump-aware and activate the bump-alignment check.
+
+`check-3dblox.sh` takes the adk-tools image the way `run.sh` does:
+`ADK_TOOLS_IMAGE` must be the image ID, `sha256:<64 hex>`, there is no default,
+and a tag is refused. For an image you built,
+`docker image inspect --format '{{.Id}}' adk-tools:dev` prints the ID right
+after `./build.sh`.
 
 `verify-live.sh` runs the ADK's `test_chiplet2dbx.py` suite against the pinned
 image in a local virtualenv (`openroad/.venv`, git-ignored). The suite's live

@@ -1,0 +1,60 @@
+#!/bin/bash -p
+# Die flow: one die per command. build-die runs LibreLane, the die view and the
+# ready-die emit; die-view, emit-ready-die and eda-views each run one of those
+# steps. run, resume, status and verify are packaging-flow's: here they print
+# one line naming it and exit 1.
+#
+# build-die runs LibreLane through the launcher CHIPLET_FLOW_LIBRELANE_LAUNCHER
+# names (the image's ENV sets it when the image carries its tools in its own
+# store; run.sh passes it in for an image without one, with the host's store
+# mounted), and reads the PDK under $PDK_ROOT. The image's own PDK_ROOT,
+# /opt/adk-tools/IHP-Open-PDK, is the subset its KLayout checks read and holds
+# no LibreLane files. So a build-die reads the materialized sg13g2 tree
+# ADK_NIX_SG13G2_PDK names instead, set by nix/build-env.sh's
+# adk_nix_die_build_env, the one the Nix build shell sets it with: for that one
+# process PDK_ROOT is that tree, PDK is ihp-sg13g2, and no LIBRELANE_CHECKOUT is
+# handed on. A PDK_ROOT the caller set to another root is kept, with a note;
+# the image's root or that tree, however the path is spelled (a trailing or
+# doubled slash, a dot), is not another root. A relative PDK_ROOT is read
+# against the current directory, as build-die would read it. The --pdk-root a build-die is
+# given replaces PDK_ROOT for its build (the die flow's
+# test_the_pdk_root_given_replaces_the_environment_for_the_build), so this
+# reads no argument; PDK and LIBRELANE_CHECKOUT stay as set here. The die's
+# PDK still comes from its configuration's PDK key, and that tree holds
+# ihp-sg13g2 only: a die configured for another PDK, gf180mcuD among them,
+# finds no such PDK under that root and its build fails, rather than building
+# against the wrong PDK. With no ADK_NIX_SG13G2_PDK (an
+# image without its own tools, launched without the host's store) nothing changes here.
+#
+# Only build-die is switched. A die-view of a die built here reads the same
+# tree when asked: PDK_ROOT="$ADK_NIX_SG13G2_PDK" chiplet-die-flow die-view ...
+#
+# bash -p reads no BASH_ENV and imports no function from the environment, as
+# the launcher does, so nothing the caller exports runs before the build.
+#
+# ADK_NIX_LIBRELANE with no launcher means run.sh found the host's LibreLane
+# is not the one the image's launcher was written for; build-die would then ask
+# for a LibreLane checkout, which is not the cause, so this names it first.
+IMAGE_PDK_ROOT=/opt/adk-tools/IHP-Open-PDK
+if [ "${1:-}" = build-die ]; then
+    if [ -n "${ADK_NIX_LIBRELANE:-}" ] && [ -z "${CHIPLET_FLOW_LIBRELANE_LAUNCHER:-}" ]; then
+        echo "chiplet-die-flow: note: ADK_NIX_LIBRELANE is set and no" \
+            "CHIPLET_FLOW_LIBRELANE_LAUNCHER was passed in; run.sh's start-up notes say why" >&2
+    fi
+    if [ -n "${ADK_NIX_SG13G2_PDK:-}" ]; then
+        # Compared as spelled out, without following links: / stays /.
+        caller_root="${PDK_ROOT:+$(realpath -ms -- "$PDK_ROOT")}"
+        if [ -n "$caller_root" ] && [ "$caller_root" != "$IMAGE_PDK_ROOT" ] \
+                && [ "$caller_root" != "$(realpath -ms -- "$ADK_NIX_SG13G2_PDK")" ]; then
+            echo "chiplet-die-flow: note: PDK_ROOT ($PDK_ROOT) is not the image's; build-die" \
+                "reads it, not ADK_NIX_SG13G2_PDK ($ADK_NIX_SG13G2_PDK)" >&2
+        else
+            ADK_NIX_LIB_ONLY=1 . "${ADK_TOOLS:-/opt/adk-tools}/nix/build-env.sh" || exit 1
+            adk_nix_die_build_env "$ADK_NIX_SG13G2_PDK" || \
+                echo "chiplet-die-flow: note: ADK_NIX_SG13G2_PDK ($ADK_NIX_SG13G2_PDK) has no" \
+                    "ihp-sg13g2/libs.tech/librelane; build-die reads the root its --pdk-root" \
+                    "names, else the image's PDK_ROOT, which holds no LibreLane files" >&2
+        fi
+    fi
+fi
+exec "${ADK_TOOLS:-/opt/adk-tools}/venv/bin/chiplet-die-flow" "$@"

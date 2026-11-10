@@ -1,0 +1,10 @@
+# adk-tools tests that must have run and passed wherever packaging-flow
+# imports: the image verify stage, step 0e of the Dockerfile, and the Nix
+# lane's gate. LiveParity runs packaging-flow's own tracked_tree_sha256 on
+# every fixture tree of nix/test_tracked_tree.py and requires the port's
+# answer; it skips where packaging_flow does not import, so
+# check_required_tests.py treats a skip here as a failure. The recorded
+# answers are listed too, so a run that collects only part of the file fails.
+
+adk-tools nix/test_tracked_tree.py::LiveParity::test_every_case_as_packaging_flow_reads_it
+adk-tools nix/test_tracked_tree.py::Cases::test_every_case_reads_as_recorded

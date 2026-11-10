@@ -1,0 +1,12 @@
+# interposer-pnr live route cases that must have run and passed in the image
+# verify stage, step 0g of the Dockerfile: the single-layer rdl_route backend
+# on the image's OpenROAD. They skip when no openroad binary is found, so
+# check_required_tests.py treats a skip here as a failure.
+#
+# The ids belong to the staged interposer-pnr pin (tests/test_router.py). A
+# case added, renamed or removed there changes this list in the same commit
+# as the pin.
+
+interposer-pnr tests/test_router.py::test_live_two_die_fully_routed
+interposer-pnr tests/test_router.py::test_live_routes_only_on_pin_layer
+interposer-pnr tests/test_router.py::test_live_routed_def_parses_back

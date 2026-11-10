@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "SPDX-License-Identifier: Apache-2.0. SPDX-FileCopyrightText: 2026 IHP GmbH",
+  "title": "adk-tools host-verify record, v1",
+  "description": "The record.json that host-verify.sh writes in the record directory, beside argv.txt, stdout.txt and stderr.txt, for every outcome it reaches once that directory exists. No record is written for a usage error (64), a refused record directory (73), a record that could not be written (74), a signal that came before the record directory existed (69), or SIGKILL. Every key is always present; a value that is unknown or does not apply is null, false or an empty list, as each description says.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "description": "The name and version of this format.",
+      "type": "string",
+      "const": "adk-tools-host-verify-record/v1"
+    },
+    "launcher_exit": {
+      "description": "The exit code the launcher returned for this run. When command_exit_code is null it is one of the launcher's own outcomes: 66 not executed, 69 interrupted, 70 launcher failure, 75 timed out. When command_exit_code is not null it equals it, whatever the value (a command may itself return 66, 70 or any other code). The launcher's own 64, 73 and 74 never appear here, because it writes no record in those cases.",
+      "type": "integer"
+    },
+    "executed": {
+      "description": "Whether the command started. true: the daemon reported the container started. false: it did not start (no docker run was attempted, or the daemon reported the container absent, or created but never started). null: unknown, exactly when container.created is null.",
+      "type": ["boolean", "null"]
+    },
+    "not_executed_reason": {
+      "description": "Why the launcher refused to run the command (exit 66), as a sentence for people: the image is absent or resolves to another ID, an input is missing or unreadable, a nested mountpoint does not fit, or the resource floor is not met. null on every other outcome.",
+      "type": ["string", "null"]
+    },
+    "launcher_failure": {
+      "description": "What went wrong when the launcher itself failed (exit 70), as a sentence for people: a docker inspect failed, the docker client did not start or ended without confirming the command, the container was not created, not started or not exited, the client's exit disagrees with the container's, or an internal error. null otherwise.",
+      "type": ["string", "null"]
+    },
+    "timed_out": {
+      "description": "true when limits.timeout_s ran out before the docker client ended; the launcher then stopped the container and the run ends 75. false otherwise, including runs that never reached the launch.",
+      "type": "boolean"
+    },
+    "interrupted": {
+      "description": "The signal, without its SIG prefix, that interrupted the run, which then ends 69. null when no signal decided the outcome; a signal that arrives as or after the docker client ends changes nothing and is not recorded.",
+      "type": ["string", "null"],
+      "enum": ["TERM", "INT", "HUP", null]
+    },
+    "command_exit_code": {
+      "description": "The command's exit code, set only once the launcher confirmed it: the docker client ended by itself (not by a signal), the container was created, started and exited, and its State.ExitCode equals the client's exit status, so a value from 0 to 255. null on every launcher outcome.",
+      "type": ["integer", "null"]
+    },
+    "image": {
+      "description": "The image ID given with --image. Only an ID is accepted, never a tag.",
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "image_id_inspected": {
+      "description": "The ID docker image inspect printed for image, not validated; it equals image when the context matched. null when that inspection was not reached, failed, or printed nothing.",
+      "type": ["string", "null"]
+    },
+    "command": {
+      "description": "The command and its arguments given after --, exactly as given, passed to docker run after the image ID with no shell. Never empty.",
+      "type": "array",
+      "items": {
+        "description": "One argument, verbatim.",
+        "type": "string"
+      }
+    },
+    "mounts": {
+      "description": "The bind mounts given with --mount, in order, as passed to docker run; empty when none were given.",
+      "type": "array",
+      "items": {
+        "description": "One read-only bind mount.",
+        "type": "object",
+        "properties": {
+          "source": {
+            "description": "The host path docker was given: the --mount host path as the kernel resolved it at startup, absolute with symlinks followed, and free of commas, double quotes and newlines. A host path that did not resolve is kept as written, made absolute against the working directory but not normalized, and the run is then refused (exit 66).",
+            "type": "string"
+          },
+          "target": {
+            "description": "The container path, as given: absolute, normalized, never / itself, and free of commas, double quotes and newlines.",
+            "type": "string"
+          },
+          "readonly": {
+            "description": "Always true: every mount is a recursive read-only bind.",
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": ["source", "target", "readonly"],
+        "additionalProperties": false
+      }
+    },
+    "env": {
+      "description": "The --env values in the order given, each passed to docker run -e as is; empty when none were given. The HOME=/tmp the launcher always sets is not listed here; docker_argv shows it.",
+      "type": "array",
+      "items": {
+        "description": "One NAME=VALUE; the value may be empty.",
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*="
+      }
+    },
+    "limits": {
+      "description": "The resource limits of the run, as given on the command line or the launcher's defaults.",
+      "type": "object",
+      "properties": {
+        "cpus": {
+          "description": "The --cpus value as the string given (default 2): a positive decimal below 1000 with at most three decimals, never zero, passed to docker run --cpus.",
+          "type": "string",
+          "pattern": "^[0-9]{1,3}([.][0-9]{1,3})?$"
+        },
+        "memory": {
+          "description": "The --memory value as the string given (default 6g): a positive whole number with a k, m or g suffix in either case, passed to docker run as both --memory and --memory-swap.",
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,8}[kmgKMG]$"
+        },
+        "timeout_s": {
+          "description": "The --timeout value as an integer number of seconds, 1 or more (default 900). When it runs out the container is stopped and the run ends 75.",
+          "type": "integer"
+        }
+      },
+      "required": ["cpus", "memory", "timeout_s"],
+      "additionalProperties": false
+    },
+    "container": {
+      "description": "The container as the daemon reported it after the docker client ended.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The name the launcher gave the container in docker run, adk-host-verify-<UTC time>-<pid>-<6 hex>. It is chosen before any check, so it is recorded even when no container was ever requested.",
+          "type": "string"
+        },
+        "created": {
+          "description": "Whether the daemon had the container. true: docker container inspect found it. false: no docker run was attempted, or the daemon reported no such container after a docker client that ended by itself. null: unknown, because docker container inspect failed, or because the client was killed (by a signal, or by the launcher after 60 s of docker kill) before the daemon reported the container; the daemon may still create it for that request.",
+          "type": ["boolean", "null"]
+        },
+        "started": {
+          "description": "Whether the daemon reported a start time for the container. true or false once inspected; false when created is false; null when created is null.",
+          "type": ["boolean", "null"]
+        },
+        "status": {
+          "description": "The container's State.Status as the daemon reported it, for example exited, created or running. null when the container was not inspected.",
+          "type": ["string", "null"]
+        },
+        "exit_code": {
+          "description": "The container's State.ExitCode as the daemon reported it, whatever its state and whether or not the launcher confirmed it; only command_exit_code is a confirmed result. null when the container was not inspected.",
+          "type": ["integer", "null"]
+        },
+        "oom_killed": {
+          "description": "The container's State.OOMKilled. true or false as the daemon reported it; null when the container was not inspected or the daemon printed neither.",
+          "type": ["boolean", "null"]
+        },
+        "removed": {
+          "description": "Whether docker rm -f by name succeeded. It is attempted whenever created is true or null, so it is true or false then; null when created is false and no removal was attempted. false means the container may still exist and has to be removed by hand.",
+          "type": ["boolean", "null"]
+        },
+        "inspect_error": {
+          "description": "Why docker container inspect failed, when it failed for any reason other than no such container: its stderr cut to 400 characters, or the launcher's own note when the call did not answer in time, could not start, or failed with empty stderr. null otherwise.",
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["name", "created", "started", "status", "exit_code", "oom_killed", "removed", "inspect_error"],
+      "additionalProperties": false
+    },
+    "docker_client_exit": {
+      "description": "The docker run client's exit status as a shell reports it (128+N when signal N ended it), so 0 to 255. null when no client was started, or it was not seen to end.",
+      "type": ["integer", "null"]
+    },
+    "docker_argv": {
+      "description": "The docker run command line the launcher built, one element per argument; argv.txt holds the same line shell-quoted. Empty when the launcher ended before building it (every refusal with exit 66, and an early 69 or 70). A non-empty list does not by itself mean docker was started.",
+      "type": "array",
+      "items": {
+        "description": "One argument, verbatim.",
+        "type": "string"
+      }
+    },
+    "stdout": {
+      "description": "File name, relative to the record directory, of the docker client's standard output as it arrived (the command's output as docker relays it); the launcher never reads it. The launcher writes stdout.txt.",
+      "type": "string"
+    },
+    "stderr": {
+      "description": "File name, relative to the record directory, of the docker client's standard error as it arrived (the command's and docker's own messages); the launcher never reads it. The launcher writes stderr.txt.",
+      "type": "string"
+    },
+    "started_utc": {
+      "description": "When the recorded part of the run began (the record directory had just been created, no docker call yet), in UTC as YYYY-MM-DDTHH:MM:SSZ with whole seconds.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "finished_utc": {
+      "description": "When the record was written, before the streams are replayed, in UTC as YYYY-MM-DDTHH:MM:SSZ with whole seconds.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "launcher": {
+      "description": "Which launcher script wrote the record.",
+      "type": "object",
+      "properties": {
+        "script": {
+          "description": "The launcher script's absolute path, symlinks resolved.",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "SHA-256 of the script file as read once at startup, in lowercase hex.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "adk_tools_commit": {
+          "description": "HEAD of the git checkout that holds the script, named only when that checkout tracks the script file; it is HEAD, not the last commit that changed the script, of whichever repository git finds from the script's directory. null when the script is not tracked, there is no checkout, or git fails.",
+          "type": ["string", "null"]
+        },
+        "script_modified_since_commit": {
+          "description": "Whether the script as read at startup differs from its version at adk_tools_commit. true when it differs or that commit lacks the file, false when identical, null when adk_tools_commit is null.",
+          "type": ["boolean", "null"]
+        }
+      },
+      "required": ["script", "sha256", "adk_tools_commit", "script_modified_since_commit"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["format", "launcher_exit", "executed", "not_executed_reason", "launcher_failure", "timed_out", "interrupted", "command_exit_code", "image", "image_id_inspected", "command", "mounts", "env", "limits", "container", "docker_client_exit", "docker_argv", "stdout", "stderr", "started_utc", "finished_utc", "launcher"],
+  "additionalProperties": false
+}

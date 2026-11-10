@@ -1,0 +1,13 @@
+{
+ "packages": {
+  "kicad-fork-base": "/nix/store/6f8n0w9zi37hpzfpz0p2n94qyp15sma3-kicad-base-5d12a25667.drv",
+  "sg13g2-pdk": "/nix/store/l6a03bppwv7wj1m4wvlhf1zsdbrqhi57-ihp-open-pdk-22f4335.drv",
+  "tail-export-python": "/nix/store/xka5s1yyzy4i0ls42pj6k8fc5n02js4f-adk-tail-export-python.drv",
+  "tail-wrappers": "/nix/store/zhvmppfvic7gjsj7a1vnq16cxd3fajbz-adk-tail-wrappers.drv"
+ },
+ "shells": {
+  "build": "/nix/store/5q6yp9khda3d3fky0gjz90c2pdz8d1n2-nix-shell.drv",
+  "cli": "/nix/store/agdr95wwslpwfsg5x0clbn5glzdk425n-nix-shell.drv",
+  "tail": "/nix/store/lh4lj3yarbk81d1iacmwmqcaha6micwc-nix-shell.drv"
+ }
+}

@@ -1,0 +1,19 @@
+#!@bash@ -p
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 IHP GmbH
+#
+# chiplet-export for devShells.tail, in the shape of bin/chiplet-export: the
+# plugin's chiplet_export_cli.py under the interpreter that has pcbnew, with the
+# arguments passed on whole. That interpreter is packages.tail-export-python
+# here (the KiCad fork's pcbnew, last on its import path), where the image has
+# its system Python. The plugin tree is the one nix-tail/tail-env.sh verified
+# or was given; the worker it starts is KICAD_CHIPLET_PYTHON, the PDK its
+# worker places PCells from is PDK_ROOT, and the tree the worker imports PinList
+# from is GDS_TO_KICAD_ROOT, all set by the same hook; unset, the plugin or the
+# worker would look for each elsewhere. -p: no BASH_ENV is read and no function
+# is taken from the caller.
+: "${ADK_NIX_PLUGIN_ROOT:?enter through devShells.tail}"
+: "${PDK_ROOT:?enter through devShells.tail}"
+: "${KICAD_CHIPLET_PYTHON:?enter through devShells.tail}"
+: "${GDS_TO_KICAD_ROOT:?enter through devShells.tail}"
+exec '@exportPython@/bin/python' "$ADK_NIX_PLUGIN_ROOT/plugins/chiplet_export/chiplet_export_cli.py" "$@"

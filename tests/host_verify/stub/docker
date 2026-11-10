@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Stand-in for docker in the host-verify tests: it never talks to a daemon. Each call is written to
+# its own file under $STUB_STATE/calls/, arguments NUL-separated, so the tests read exact argv.
+# Behaviour comes from STUB_* variables; container state lives in $STUB_STATE/ct_<name> as
+# status|StartedAt|ExitCode|OOMKilled. Like the daemon, kill refuses a container that does not
+# exist yet or is not running, and the delay knobs open the windows where that matters.
+set -u
+calls="$STUB_STATE/calls"; mkdir -p "$calls"
+printf '%s\0' "$@" > "$calls/$(date +%s%N)-$$"
+
+name_after() { local want="$1"; shift; while [ $# -gt 1 ]; do [ "$1" = "$want" ] && { echo "$2"; return; }; shift; done; }
+state() { echo "$1" > "$STUB_STATE/ct_$2.tmp" && mv "$STUB_STATE/ct_$2.tmp" "$STUB_STATE/ct_$2"; }
+status_of() { cut -d'|' -f1 "$STUB_STATE/ct_$1" 2>/dev/null; }
+
+case "$1" in
+    image)   # image inspect --format {{.Id}} <ref>
+        sleep "${STUB_INSPECT_DELAY:-0}"
+        if [ -n "${STUB_INSPECT_ERR:-}" ]; then echo "$STUB_INSPECT_ERR" >&2; exit 1; fi
+        ref="${!#}"
+        if [ -z "${STUB_INSPECT_ID:-}" ] || [ "$ref" != "${STUB_INSPECT_REF:-$ref}" ]; then
+            echo "Error response from daemon: No such image: $ref" >&2; exit 1
+        fi
+        echo "$STUB_INSPECT_ID" ;;
+    run)
+        name="$(name_after --name "$@")"
+        # The real client would forward these into the container; the tests check it never gets one.
+        for sig in INT TERM HUP; do trap "touch '$STUB_STATE/client_got_$sig'" "$sig"; done
+        sleep "${STUB_CREATE_DELAY:-0}"
+        if [ "${STUB_CREATE:-1}" = 0 ]; then echo "docker: Error response from daemon: invalid mount config" >&2; exit 125; fi
+        state "created|0001-01-01T00:00:00Z|0|false" "$name"
+        if [ "${STUB_START:-1}" = 0 ]; then
+            echo "docker: Error response from daemon: failed to create task" >&2; exit 125
+        fi
+        sleep "${STUB_START_DELAY:-0}"
+        state "running|2026-09-25T12:00:00Z|0|false" "$name"
+        [ -n "${STUB_LOCK_DIR:-}" ] && chmod 0555 "$STUB_LOCK_DIR"
+        [ -n "${STUB_STDOUT:-}" ] && printf '%s\n' "$STUB_STDOUT"
+        [ -n "${STUB_STDERR:-}" ] && printf '%s\n' "$STUB_STDERR" >&2
+        if [ -n "${STUB_SLEEP:-}" ]; then
+            sleep "$STUB_SLEEP" & echo $! > "$STUB_STATE/sleep_$name"
+            while kill -0 "$(cat "$STUB_STATE/sleep_$name")" 2>/dev/null; do wait; done
+            if [ -e "$STUB_STATE/killed_$name" ]; then
+                state "exited|2026-09-25T12:00:00Z|137|false" "$name"; exit 137
+            fi
+        fi
+        state "${STUB_END_STATUS:-exited}|2026-09-25T12:00:00Z|${STUB_STATE_RC:-${STUB_RC:-0}}|${STUB_OOM:-false}" "$name"
+        exit "${STUB_RC:-0}" ;;
+    kill)
+        sleep "${STUB_KILL_DELAY:-0}"
+        name="${!#}"
+        [ -e "$STUB_STATE/ct_$name" ] || { echo "Error response from daemon: No such container: $name" >&2; exit 1; }
+        [ "$(status_of "$name")" = running ] || { echo "Error response from daemon: container $name is not running" >&2; exit 1; }
+        touch "$STUB_STATE/killed_$name"
+        [ -e "$STUB_STATE/sleep_$name" ] && kill "$(cat "$STUB_STATE/sleep_$name")" 2>/dev/null
+        exit 0 ;;
+    container)   # container inspect --format ... <name>
+        sleep "${STUB_CT_INSPECT_DELAY:-0}"
+        if [ -n "${STUB_CT_INSPECT_ERR:-}" ]; then echo "$STUB_CT_INSPECT_ERR" >&2; exit 1; fi
+        name="${!#}"
+        [ -e "$STUB_STATE/ct_$name" ] || { echo "Error: No such container: $name" >&2; exit 1; }
+        cat "$STUB_STATE/ct_$name" ;;
+    rm)
+        name="${!#}"
+        [ "${STUB_RM_FAIL:-0}" = 1 ] && { echo "Error response from daemon: removal failed" >&2; exit 1; }
+        rm -f "$STUB_STATE/ct_$name"; exit 0 ;;
+    *) echo "stub docker: unexpected verb $1" >&2; exit 2 ;;
+esac

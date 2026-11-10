@@ -1,0 +1,20 @@
+# Licences of the files that carry no SPDX line of ours, in the REUSE format
+# (https://reuse.software). Where each one comes from is in NOTICE.md. A file
+# here gets no header because its bytes are pinned: a header would move a Nix
+# store path or the tools image key.
+version = 1
+
+[[annotations]]
+path = "patches/opensta-timing-model-clocked-output-exists.patch"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = "patches/librelane-ys_common.patch"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Recorded output of an earlier tree, kept byte for byte: a file's own SPDX
+# line, where it has one, is the licence it was recorded under and wins.
+[[annotations]]
+path = "tests/nix-tail/nix-2.30.1/**"
+SPDX-FileCopyrightText = "2026 IHP GmbH"
+SPDX-License-Identifier = "GPL-3.0-or-later"

@@ -40,13 +40,14 @@ if git submodule status --recursive | grep -qE '^[+-U]'; then
     git submodule status --recursive | grep -E '^[+-U]' >&2
     exit 1
 fi
-git describe --exact-match --tags HEAD 2>/dev/null | grep -qx "$VERSION_TAG" || {
+git describe --exact-match --tags --exclude '*/*' HEAD 2>/dev/null | grep -qx "$VERSION_TAG" || {
     echo "error: HEAD is not exactly at tag $VERSION_TAG; tag the release commit first" >&2
     exit 1
 }
 # Definitive check: cross-verify the baked image against the tag. build.sh sets
-# manifest `meta` from `git describe --tags --always --dirty`, so a clean tagged
-# build yields exactly vYYYY.MM; any -dirty / -N-gHASH suffix fails here.
+# manifest `meta` from `git describe --tags --always --dirty --exclude '*/*'`,
+# so a clean tagged build yields exactly vYYYY.MM; any -dirty / -N-gHASH suffix
+# fails here.
 built_meta="$(docker run --rm adk-tools:dev \
         cat /opt/adk-tools/manifest.json \
     | python3 -c 'import json,sys; print(json.load(sys.stdin)["meta"])')"

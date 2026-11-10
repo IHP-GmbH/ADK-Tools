@@ -9,7 +9,7 @@ repositories' required gates, and a required gate that `exec`s a file it pulled
 over the network is a supply-chain smell dressed up as a checker. A `.json` is
 parsed by the standard library on a bare runner and nothing in it can run.
 
-The discipline that a Python literal used to carry, then, has to live here
+The discipline a Python literal would carry, then, has to live here
 instead:
 
   * every closed vocabulary is a frozenset in this file, so an unknown literal in
@@ -85,6 +85,17 @@ OPS = ("===", "==", ">=", "<=", "!=", "~=", ">", "<")
 #: shape, and the declared mirror covers it.
 TWIN_KINDS = frozenset({"schema", "vocabulary", "data_registry"})
 
+#: Kinds whose copies may be declared `checked_elsewhere`, each with the locator
+#: that reads the version both sides declare. Such a copy is not compared here:
+#: its own tree's suite guards it against the commit it declares, which may be
+#: behind the pin. Only code has a guard of that shape, and the lag has to print
+#: as two versions without anybody opening either file, so a kind with no
+#: version to read cannot be one.
+ELSEWHERE_KINDS = types.MappingProxyType({"reader_py": ("py_assign", "__version__")})
+
+#: A guard is named as the test function that holds it.
+GUARD_TEST_RE = re.compile(r"^test_[A-Za-z0-9_]*$")
+
 #: The spelling that means "read the number out of the owner's file at run time
 #: rather than declaring it twice". Kept for a tool pin, where the image is the
 #: only declaration there is, and for an artifact whose owner releases on its own
@@ -93,8 +104,8 @@ TWIN_KINDS = frozenset({"schema", "vocabulary", "data_registry"})
 FROM_OWNER = "@owner"
 
 ARTIFACT_KEYS = ("id", "kind", "owner", "path", "identity", "version_policy",
-                 "mirrors", "producers", "consumers", "declarations",
-                 "packages", "why")
+                 "mirrors", "checked_elsewhere", "producers", "consumers",
+                 "declarations", "packages", "why")
 VERSION_POLICY_KEYS = ("rule", "current", "floor", "locator")
 TOP_KEYS = ("registry_version", "repos", "artifacts", "twin_exempt",
             "pins_exempt")
@@ -130,12 +141,16 @@ Repo = collections.namedtuple("Repo", "id dir checkout gate_workflow why")
 VersionPolicy = collections.namedtuple("VersionPolicy",
                                        "rule current floor locator")
 Mirror = collections.namedtuple("Mirror", "repo path why")
+#: `pin` is (file, regex): where the copy's tree declares the commit it was
+#: taken from, read the way the guard reads it.
+Elsewhere = collections.namedtuple("Elsewhere",
+                                   "repo path guard_file guard_test pin why")
 Ref = collections.namedtuple("Ref", "repo path why")
 Declaration = collections.namedtuple("Declaration", "repo path locator op why")
 Artifact = collections.namedtuple(
     "Artifact",
-    "id kind owner path identity version_policy mirrors producers consumers "
-    "declarations packages why")
+    "id kind owner path identity version_policy mirrors checked_elsewhere "
+    "producers consumers declarations packages why")
 Exempt = collections.namedtuple("Exempt", "key why")
 PinExempt = collections.namedtuple("PinExempt", "repo path why")
 Registry = collections.namedtuple(
@@ -143,8 +158,15 @@ Registry = collections.namedtuple(
 
 Derived = collections.namedtuple(
     "Derived",
-    "identical twin_scan twin_exempt layout file_repos ci_gate_workflow "
-    "klayout_arg klayout_consumers pip_args requirement_files pins_exempt")
+    "identical elsewhere twin_scan twin_exempt layout file_repos "
+    "ci_gate_workflow klayout_arg klayout_consumers pip_args requirement_files "
+    "pins_exempt")
+
+#: One copy checked in its own tree, flattened for the contract that notes it.
+CheckedCopy = collections.namedtuple(
+    "CheckedCopy",
+    "artifact owner owner_path repo path guard_file guard_test pin_file "
+    "pin_regex locator why")
 
 
 # --------------------------------------------------------------------------
@@ -457,6 +479,54 @@ def load_registry(blob, declared_ids=None):
             _why(bad, w, mwhy)
             mirrors.append(Mirror(mrid, mpath, mwhy))
 
+        # ---- copies checked in their own tree -----------------------------
+        elsewhere = []
+        for j, row in enumerate(rec["checked_elsewhere"]):
+            w = "%s checked_elsewhere[%d]" % (where, j)
+            if not _row(bad, w, row, 6):
+                continue
+            erid, epath, gfile, gtest, pin, ewhy = row
+            if kind not in ELSEWHERE_KINDS:
+                bad.append("R14 %s is a %r, and only %s copies can be checked "
+                           "in their own tree: the guard there is a test, and "
+                           "the note this gate prints needs a version to read"
+                           % (w, kind, ", ".join(sorted(ELSEWHERE_KINDS))))
+            if erid not in repo_ids:
+                bad.append("R2 %s names the repository %r, which has no row in "
+                           "the repos table" % (w, erid))
+            if erid == owner:
+                bad.append("R4 %s is in its own owner %r; a copy checked "
+                           "elsewhere is a copy in another tree" % (w, owner))
+            ekey = (erid, epath)
+            if ekey in owned:
+                bad.append("R4 %s:%s appears twice across owners, mirrors and "
+                           "copies checked elsewhere (%r and %r)"
+                           % (erid, epath, owned[ekey], aid))
+            owned[ekey] = aid
+            for label, value in (("path", epath), ("guard file", gfile)):
+                if not isinstance(value, str) or not value:
+                    bad.append("R9 %s has no %s" % (w, label))
+            if not isinstance(gtest, str) or not GUARD_TEST_RE.match(gtest):
+                bad.append("R14 %s names the guard %r, which is not a test "
+                           "function name" % (w, gtest))
+            if _row(bad, "%s pin" % w, pin, 2):
+                pfile, pregex = pin
+                if not isinstance(pfile, str) or not pfile:
+                    bad.append("R9 %s names no file declaring the pin" % w)
+                try:
+                    groups = re.compile(pregex).groups
+                except (re.error, TypeError) as e:
+                    bad.append("R14 %s reads the pin with %r, which does not "
+                               "compile (%s)" % (w, pregex, e))
+                else:
+                    if groups != 1:
+                        bad.append("R14 %s reads the pin with %r, which has %d "
+                                   "groups; the commit is the one group"
+                                   % (w, pregex, groups))
+                pin = tuple(pin)
+            _why(bad, w, ewhy)
+            elsewhere.append(Elsewhere(erid, epath, gfile, gtest, pin, ewhy))
+
         refs = {}
         for field in ("producers", "consumers"):
             rows = []
@@ -599,7 +669,8 @@ def load_registry(blob, declared_ids=None):
 
         artifacts.append(Artifact(
             aid, kind, owner, path, identity, policy, tuple(mirrors),
-            refs["producers"], refs["consumers"], tuple(declarations),
+            tuple(elsewhere), refs["producers"], refs["consumers"],
+            tuple(declarations),
             types.MappingProxyType(dict(packages)), rec["why"]))
 
     # ---- exempt tables ---------------------------------------------------
@@ -672,8 +743,7 @@ def twin_scan_dirs(registry):
 def derived(registry):
     """The lists contracts.py used to hand-maintain, rebuilt from the registry.
 
-    This exists so the W0 migration can assert that the re-encoding changed
-    nothing, and so contracts.py has one place to read rather than nine
+    This exists so contracts.py has one place to read rather than nine
     literals.
     """
     identical = []
@@ -682,6 +752,14 @@ def derived(registry):
             continue
         for m in art.mirrors:
             identical.append((art.owner, art.path, m.repo, m.path, m.why))
+
+    elsewhere = []
+    for art in registry.artifacts:
+        for c in art.checked_elsewhere:
+            elsewhere.append(CheckedCopy(
+                art.id, art.owner, art.path, c.repo, c.path, c.guard_file,
+                c.guard_test, c.pin[0], c.pin[1], ELSEWHERE_KINDS[art.kind],
+                c.why))
 
     layout = {r.id: r.dir for r in registry.repos}
     file_repos = tuple(r.id for r in registry.repos if r.checkout == "tree")
@@ -703,6 +781,7 @@ def derived(registry):
 
     return Derived(
         identical=tuple(identical),
+        elsewhere=tuple(elsewhere),
         twin_scan=twin_scan_dirs(registry),
         twin_exempt=frozenset(e.key for e in registry.twin_exempt),
         layout=types.MappingProxyType(layout),
@@ -856,7 +935,8 @@ def _artifact_lines(rec, last):
     for k in ARTIFACT_KEYS:
         tail = "" if k == ARTIFACT_KEYS[-1] else ","
         value = rec.get(k)
-        if k in ("mirrors", "producers", "consumers", "declarations"):
+        if k in ("mirrors", "checked_elsewhere", "producers", "consumers",
+                 "declarations"):
             out.extend(_rows(k, value or [], "      ", tail))
         elif k == "packages":
             items = list((value or {}).items())
@@ -932,6 +1012,7 @@ _MINIMAL = {
             "identity": "bytes",
             "version_policy": None,
             "mirrors": [["adk", "config/schema/a.schema.json", "a copy"]],
+            "checked_elsewhere": [],
             "producers": [],
             "consumers": [],
             "declarations": [],
@@ -948,6 +1029,11 @@ _MINIMAL = {
                                "floor": "1.1",
                                "locator": ["py_assign", "__version__"]},
             "mirrors": [["adk", "vendor/r/__init__.py", "a vendored reader"]],
+            "checked_elsewhere": [
+                ["tools", "vendor/r/__init__.py", "tests/test_r.py",
+                 "test_r_is_the_pinned_one",
+                 ["vendor/README.md", "at `([0-9a-f]{7,40})`"],
+                 "a copy its own suite guards at the commit it declares"]],
             "producers": [],
             "consumers": [],
             "declarations": [],
@@ -964,6 +1050,7 @@ _MINIMAL = {
                                "floor": None,
                                "locator": ["dockerfile_arg", "TOOL_PIP"]},
             "mirrors": [],
+            "checked_elsewhere": [],
             "producers": [],
             "consumers": [],
             "declarations": [["adk", "req.txt", ["regex", r"(?m)^t==([0-9.]+)$"],
@@ -1048,6 +1135,17 @@ def self_test():
            and d.file_repos == ("adk", "spec", "tools"))
     expect("derived klayout-shaped consumers come from the single-pin tool_pin",
            d.klayout_arg == "TOOL_PIP" and len(d.klayout_consumers) == 1)
+    expect("derived elsewhere carries the copy checked in its own tree, with "
+           "the locator its kind reads the version with",
+           d.elsewhere == (CheckedCopy(
+               "a_reader", "spec", "reference/python/r/__init__.py", "tools",
+               "vendor/r/__init__.py", "tests/test_r.py",
+               "test_r_is_the_pinned_one", "vendor/README.md",
+               "at `([0-9a-f]{7,40})`", ("py_assign", "__version__"),
+               "a copy its own suite guards at the commit it declares"),),
+           d.elsewhere)
+    expect("a copy checked elsewhere is not a byte-identity pair",
+           all(p[2] != "tools" for p in d.identical))
 
     # ---- negative cases, one per clause ---------------------------------
     def set_kind(b, kind):
@@ -1132,6 +1230,42 @@ def self_test():
             lambda b: b["artifacts"][0].__setitem__("notes", []), "unknown key")
     refuses("an artifact with a key missing is refused",
             lambda b: b["artifacts"][0].pop("packages"), "has no 'packages'")
+
+    # ---- checked_elsewhere, one per clause -------------------------------
+    def elsewhere_row(b):
+        return b["artifacts"][1]["checked_elsewhere"][0]
+
+    refuses("an artifact without checked_elsewhere is refused",
+            lambda b: b["artifacts"][1].pop("checked_elsewhere"),
+            "has no 'checked_elsewhere'")
+    refuses("a copy checked elsewhere on a kind with no guard of that shape is "
+            "refused",
+            lambda b: b["artifacts"][0]["checked_elsewhere"].append(
+                ["tools", "schemas/a.schema.json", "tests/test_a.py",
+                 "test_a", ["x.md", "at `([0-9a-f]+)`"], "why"]), "R14")
+    refuses("a copy checked elsewhere in an unknown repository is refused",
+            lambda b: elsewhere_row(b).__setitem__(0, "studio"), "R2")
+    refuses("a copy checked elsewhere in its owner's own tree is refused",
+            lambda b: elsewhere_row(b).__setitem__(0, "spec"), "R4")
+    refuses("one path both mirrored and checked elsewhere is refused",
+            lambda b: elsewhere_row(b).__setitem__(0, "adk"), "R4")
+    refuses("a guard that is not a test function name is refused",
+            lambda b: elsewhere_row(b).__setitem__(3, "tests/test_r.py::x"),
+            "R14")
+    refuses("a pin regex that does not compile is refused",
+            lambda b: elsewhere_row(b).__setitem__(
+                4, ["vendor/README.md", "at `("]),
+            "R14")
+    refuses("a pin regex without exactly one group is refused",
+            lambda b: elsewhere_row(b).__setitem__(
+                4, ["vendor/README.md", "at `x`"]),
+            "R14")
+    refuses("a pin that is not a (file, regex) pair is refused",
+            lambda b: elsewhere_row(b).__setitem__(4, "vendor/README.md"), "R9")
+    refuses("a short checked_elsewhere row is refused",
+            lambda b: elsewhere_row(b).pop(), "R9")
+    refuses("a copy checked elsewhere with an empty why is refused",
+            lambda b: elsewhere_row(b).__setitem__(5, " "), "R7")
 
     try:
         load_registry("{not json")
@@ -1258,6 +1392,11 @@ def self_test():
            once.index('"a_pin"') < once.index('"a_reader"') < once.index('"a_schema"'))
     expect("canonical_dump puts one row on one line",
            '["adk", "config/schema/a.schema.json", "a copy"]' in once)
+    expect("canonical_dump puts a checked_elsewhere row, pin and all, on one "
+           "line",
+           '["tools", "vendor/r/__init__.py", "tests/test_r.py", '
+           '"test_r_is_the_pinned_one", ["vendor/README.md", '
+           '"at `([0-9a-f]{7,40})`"], ' in once)
     expect("a reflowed file is not canonical",
            canonical_dump(json.dumps(_MINIMAL, indent=8)) == once)
 
@@ -1326,9 +1465,9 @@ def main():
         version = "-"
         if art.version_policy:
             version = art.version_policy.current
-        print("%-30s [%s/%s] %s:%s v%s  mirrors=%d"
+        print("%-30s [%s/%s] %s:%s v%s  mirrors=%d elsewhere=%d"
               % (art.id, art.kind, art.identity, art.owner, art.path, version,
-                 len(art.mirrors)))
+                 len(art.mirrors), len(art.checked_elsewhere)))
     for note in reg.notes:
         print("NOTE %s" % note)
     return 0

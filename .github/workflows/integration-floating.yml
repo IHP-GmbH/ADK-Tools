@@ -50,7 +50,7 @@ jobs:
           path: adk
       - uses: actions/checkout@v4
         with:
-          repository: IHP-GmbH/chiplet-spec
+          repository: IHP-GmbH/chiplet-system-spec
           ref: ${{ fromJSON(steps.refs.outputs.refs).spec }}
           path: chiplet-spec
       - uses: actions/checkout@v4
