@@ -5,7 +5,7 @@
 #
 #   ADK_PROJECTS_DIR   base dir for new projects
 #                      (default: /work/heterogenic-designs, the persistent
-#                       host<->container area seeded by adk-entrypoint)
+#                       host<->container area, made here on first use)
 #
 # Creates <base>/<name>/ with the same layout as the bundled example
 # (examples/two_die_interposer): a kicad/ source dir, a chiplets/ dir for the

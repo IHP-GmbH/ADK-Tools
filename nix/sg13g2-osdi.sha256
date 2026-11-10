@@ -1,0 +1,9 @@
+# The six sg13g2 OSDI files the image ships (staging.pin, "Mixed-signal engine"): sha256 and
+# name, as sha256sum prints them, sorted by name. Their identity is these bytes; build.sh refuses
+# a store path that holds others, and the verify stage reads them again in the image.
+fc0f74dde70a044cca23e5c24e55b56b0b95ff9b772d5cdf1b900b6784f815f3  cap_cmomf.osdi
+e649ff5d60d5f37d50a1dc8befde935fa7d3991deab557d19dc5575cc1dce48e  cap_cmomi.osdi
+aeafd7f93d276f41bafa1de8af3d7083500b8044baffa1347a1e14a414dd2053  mosvar.osdi
+fcc57da3bcfe6253edad267f09fdc21779a988f91aea73e8f3cdb31d985ca7f5  psp103.osdi
+3e0ed0cb86247690dfbb3e6ddb93c1e3414642bb92ebbfc7072864179e45fa21  psp103_nqs.osdi
+a09a386b12c19aa8691863fc0dca370c5a4ffd3165b05b8154c688560fe05c4b  r3_cmc.osdi

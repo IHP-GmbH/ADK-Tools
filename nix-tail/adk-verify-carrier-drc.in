@@ -1,0 +1,13 @@
+#!@bash@ -p
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 IHP GmbH
+#
+# adk-verify-carrier-drc for devShells.tail: bin/adk-verify-carrier-drc itself,
+# as the store copy of this revision's file, with the arguments passed on
+# whole. It runs under the shell's venv interpreter, and ADK_PYTHON names the
+# same one for the PDK's DRC runner it starts (unset, the script names the
+# image's venv). The deck runs the `klayout` on PATH, the shell's. -p: no
+# BASH_ENV is read and no function is taken from the caller.
+: "${ADK_NIX_VENV:?enter through devShells.tail}"
+export ADK_PYTHON="$ADK_NIX_VENV/bin/python"
+exec "$ADK_NIX_VENV/bin/python" '@carrierDrc@' "$@"

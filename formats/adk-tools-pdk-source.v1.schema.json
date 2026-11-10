@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "SPDX-License-Identifier: Apache-2.0. SPDX-FileCopyrightText: 2026 IHP GmbH",
+  "title": "PDK source statement",
+  "description": "The statement a materialized sg13g2 PDK tree makes about its own sources: the IHP-Open-PDK parent it was copied from, the submodules copied into it and the ones left out. Written by adk-tools' packages.sg13g2-pdk (composed in nix/pdk-source.nix, written by nix/sg13g2-pdk.nix) as pdk-source.json at the tree's root: a regular file without write permission, in a read-only store path. The build fails if the parent tree already has an entry of that name. Byte form: one line of compact JSON as builtins.toJSON writes it (object keys sorted, no whitespace, separators ',' and ':'), followed by exactly one newline; the same bytes as Python's json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=False) plus '\\n', UTF-8. Readers digest these exact bytes, so the byte form is part of the format. Every value is the evaluated flake input's own, never read from flake.lock. The statement describes the tree it sits in and authenticates nothing, the same class of assurance as a git HEAD.",
+  "type": "object",
+  "required": ["format", "materialized_at", "not_fetched", "parent", "submodules"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "description": "This format and its version.",
+      "type": "string",
+      "const": "adk-tools-pdk-source/v1"
+    },
+    "materialized_at": {
+      "description": "The tree's own store path, absolute, no trailing slash (the store directory is the Nix installation's, so the schema does not fix it). The writer's text holds builtins.placeholder \"out\" here and Nix substitutes the writing derivation's $out for it, so the value is never typed. It is the path of the tree the file sits in; any other value means the file was copied from another tree.",
+      "type": "string",
+      "pattern": "^/.*[^/]$"
+    },
+    "not_fetched": {
+      "description": "The paths the parent's .gitmodules declares whose submodules were not copied in, each once, sorted by builtins.lessThan (byte order), not in .gitmodules order. With the submodules' paths they account for every path the .gitmodules declares, exactly once. Empty when every declared submodule was copied in.",
+      "type": "array",
+      "items": {
+        "description": "A path value from the parent's .gitmodules, relative to the tree root, non-empty.",
+        "type": "string",
+        "pattern": "^[\\s\\S]+$"
+      }
+    },
+    "parent": {
+      "description": "The IHP-Open-PDK tree the whole tree was copied from.",
+      "type": "object",
+      "required": ["input", "narHash", "rev"],
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "The name of the flake input it came from, as the flake passes it; non-empty.",
+          "type": "string",
+          "pattern": "^[\\s\\S]+$"
+        },
+        "narHash": {
+          "description": "The input's src.narHash, in SRI form, sha256 only; the evaluation fails on any other.",
+          "type": "string",
+          "pattern": "^sha256-[A-Za-z0-9+/]{43}=$"
+        },
+        "rev": {
+          "description": "The input's src.rev, 40 lowercase hex; a path: input or a dirty tree has none and fails the evaluation.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      }
+    },
+    "submodules": {
+      "description": "The submodules copied into the tree, one entry per path, sorted by path in byte order (the order of builtins.attrNames). May be empty. Every path is one the parent's .gitmodules declares, declared once; the evaluation fails otherwise, and the build fails if the parent tree is not empty at that path.",
+      "type": "array",
+      "items": {
+        "description": "One submodule copied in, as the evaluated flake input states it.",
+        "type": "object",
+        "required": ["input", "narHash", "path", "rev"],
+        "additionalProperties": false,
+        "properties": {
+          "input": {
+            "description": "The name of the flake input it came from, as the flake passes it; non-empty.",
+            "type": "string",
+            "pattern": "^[\\s\\S]+$"
+          },
+          "narHash": {
+            "description": "The input's src.narHash, in SRI form, sha256 only; the evaluation fails on any other.",
+            "type": "string",
+            "pattern": "^sha256-[A-Za-z0-9+/]{43}=$"
+          },
+          "path": {
+            "description": "Where its content was copied, relative to the tree root: a path value from the parent's .gitmodules, non-empty.",
+            "type": "string",
+            "pattern": "^[\\s\\S]+$"
+          },
+          "rev": {
+            "description": "The input's src.rev, 40 lowercase hex; a path: input or a dirty tree has none and fails the evaluation.",
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          }
+        }
+      }
+    }
+  }
+}

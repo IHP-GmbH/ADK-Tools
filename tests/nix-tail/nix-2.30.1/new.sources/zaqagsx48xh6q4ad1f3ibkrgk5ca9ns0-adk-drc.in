@@ -1,0 +1,11 @@
+#!@bash@ -p
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 IHP GmbH
+#
+# adk-drc for devShells.tail, in the shape of bin/adk-drc: the ADK's
+# run_drc.py under the shell's venv interpreter (the image's venv there), with
+# the arguments passed on whole. The deck runs the `klayout` on PATH, the
+# shell's. -p: no BASH_ENV is read and no function is taken from the caller.
+: "${ADK_NIX_VENV:?enter through devShells.tail}"
+: "${ADK_ROOT:?enter through devShells.tail}"
+exec "$ADK_NIX_VENV/bin/python" "$ADK_ROOT/klayout/drc/run_drc.py" "$@"

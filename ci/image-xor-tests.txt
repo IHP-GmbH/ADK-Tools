@@ -1,0 +1,31 @@
+# chiplet-flow tests that must have run and passed in the image verify stage,
+# step 4d of the Dockerfile: every id of tests/test_view_xor.py, the emitter's
+# view XOR under the image's own KLayout. The 19 parametrised controls, X4, X5
+# and the binary test. They skip when no klayout is on PATH, so
+# check_required_tests.py treats a skip here as a failure.
+#
+# The ids belong to the staged chiplet-flow pin. A control added, renamed or
+# removed there changes this list in the same commit as the pin.
+
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X1]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X2]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X3]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X6a]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X6b]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X7]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X8a]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X8b]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X9a]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X9b]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X10]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X11]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X11b]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X11c]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X12]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X13]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X14]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X15]
+chiplet-flow tests/test_view_xor.py::test_each_control_reads_its_value[X16]
+chiplet-flow tests/test_view_xor.py::test_x4_an_xor_past_its_timeout_reads_timeout
+chiplet-flow tests/test_view_xor.py::test_x5_the_flows_own_fill_view_keeps_the_geometry_and_texts
+chiplet-flow tests/test_view_xor.py::test_the_emitter_runs_the_recorded_binary_and_records_its_version

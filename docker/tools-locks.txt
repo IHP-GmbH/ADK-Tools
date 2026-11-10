@@ -1,0 +1,7 @@
+# The tools image docker/apt.lock and docker/pip.lock were read from: its key
+# (ci/tools_key.py) and each file's sha256. Written by
+# ci/check_tools_locks.py --write, in the commit that moves the locks; build.sh
+# refuses a tree whose key or locks are not the ones recorded here.
+key f677ba30cd0f7873244053be8b09d6ed3c2c428b8f26e6092ce8527612c4e703
+apt.lock caa36d0024ad0e212219aa4cf5d2ab764e199782f2cc60acbe9e02d5e78d1722
+pip.lock 5c8e6bf0089b07619117f2664f871fe55302801a9e071db91316d66107ce9ca5

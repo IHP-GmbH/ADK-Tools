@@ -1,0 +1,12 @@
+#!/bin/sh
+# 2.5D place/route engine. A headless subcommand CLI (place, place-check,
+# bumps, io-pads, route, export, board-revision, report, signoff), NOT a GUI.
+#
+# `route` needs an OpenROAD, named through OPENROAD, which interposer-pnr takes
+# before `openroad` on PATH. The image carries one in its own store and sets
+# OPENROAD in its ENV; for an image without one, run.sh mounts the one the
+# image's label names (or ADK_OPENROAD's) from the host's store and passes it.
+# The label's is LibreLane's build, dcf36133; this engine's routing was tested
+# on the build its tools_manifest.json names, so a route result from here is not
+# backed by those tests.
+exec /opt/adk-tools/venv/bin/interposer-pnr "$@"

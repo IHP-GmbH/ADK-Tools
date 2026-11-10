@@ -23,10 +23,13 @@ an empty string that flows downstream.
 
 Two modes:
 
-  --pinned    the combination this repository names. Submodule gitlinks for the
-              seven tools, `ci/integration-refs.json` for chiplet-spec and the
-              docs. This is what the required check runs on, so it moves only
-              when somebody commits a bump here.
+  --pinned    the combination this repository names, read from
+              `ci/pin-set.json` (the seven gitlinks, chiplet-spec's staged pin
+              and the docs pin). This is what the required check runs on, so it
+              moves only when somebody commits a bump here. An entry the pin
+              set records as local-only is refused by name before any lookup:
+              testing another commit in its place would be a green run on a
+              combination nobody pinned.
   --floating  every repository at the head of its declared branch. This is the
               weekly run, which is allowed to be red and never blocks anything.
 
@@ -47,6 +50,8 @@ import sys
 import time
 import urllib.error
 import urllib.request
+
+import contract_registry
 
 API = "https://api.github.com"
 HERE = pathlib.Path(__file__).resolve().parent
@@ -154,20 +159,28 @@ def declared(gitmodules_text, extra):
     return out
 
 
-def gitlinks():
-    """{submodule path: sha} out of the current HEAD tree."""
-    out = {}
-    for line in git("ls-tree", "-r", "HEAD").splitlines():
-        meta, _, path = line.partition("\t")
-        parts = meta.split()
-        if parts[0] == "160000":
-            out[path] = parts[2]
-    return out
+def pinned(pin_set, layout):
+    """({id: sha}, {id: why}) from the pin set, by this script's ids: every
+    entry with a remote, and the reason each local-only one cannot be fetched.
+    `layout` is the contract registry's {id: folder}, the pin set's ids."""
+    by_folder = {folder: rid for rid, folder in layout.items()}
+    pins, local = {}, {}
+    for folder, entry in sorted(pin_set["repos"].items()):
+        if entry["remote"] is None:
+            continue
+        rid = by_folder.get(folder, folder)
+        pins[rid] = entry["sha"]
+        if entry["reachable"] != "remote":
+            local[rid] = ("%s %s not reachable on the remote: the pin set records it "
+                          "%s, so this run refuses rather than test another commit"
+                          % (folder, entry["sha"][:7], entry["reachable"]))
+    return pins, local
 
 
-def resolve(entries, pins, floating, api):
+def resolve(entries, pins, floating, api, local=None):
     """({id: sha}, {id: slug}, [failure, ...])."""
     refs, slugs, failures = {}, {}, []
+    local = local or {}
     for rid, slug, branch, declared_pin in entries:
         if rid is None:
             failures.append(
@@ -191,8 +204,11 @@ def resolve(entries, pins, floating, api):
                                 % (rid, branch, slug, status))
                 continue
             sha = body.get("sha", "")
+        elif rid in local:
+            failures.append("%s: %s" % (rid, local[rid]))
+            continue
         else:
-            sha = declared_pin or pins.get(rid) or ""
+            sha = pins.get(rid) or ""
 
         if not re.fullmatch(r"[0-9a-f]{40}", sha or ""):
             failures.append(
@@ -240,8 +256,8 @@ def self_test():
     def run(pins, api, floating=False, gitmodules=gm, ex=extra):
         return resolve(declared(gitmodules, ex), pins, floating, api)
 
-    refs, slugs, fails = run({"adk": good}, stub())
-    expect("a pinned run resolves both a submodule and a json pin",
+    refs, slugs, fails = run({"adk": good, "spec": other}, stub())
+    expect("a pinned run resolves every pin the pin set gives",
            not fails and refs == {"adk": good, "spec": other})
     expect("slugs come out alongside the refs",
            slugs.get("adk") == "IHP-GmbH/IHP-Open-ADK")
@@ -253,6 +269,25 @@ def self_test():
     _, _, fails = run({}, stub())
     expect("a missing pin fails rather than becoming an empty ref",
            any("not a 40-hex sha" in f for f in fails))
+
+    reg = {"spec": "chiplet-spec", "adk": "adk"}
+    ps = {"repos": {
+        "adk": {"sha": good, "remote": "u", "reachable": "remote"},
+        "chiplet-spec": {"sha": other, "remote": "u", "reachable": "local-only"},
+        "interposer-pnr": {"sha": good, "remote": None, "reachable": "local-only"}}}
+    pins, local = pinned(ps, reg)
+    expect("the pin set gives pins by this script's ids, skipping remote-less ones",
+           pins == {"adk": good, "spec": other} and set(local) == {"spec"})
+    calls = []
+
+    def counted(path):
+        calls.append(path)
+        return stub()(path)
+
+    refs, _, fails = resolve(declared(gm, extra), pins, False, counted, local)
+    expect("a local-only pin is refused by name, without asking the remote",
+           any("spec: chiplet-spec bbbbbbb not reachable on the remote" in f for f in fails)
+           and "spec" not in refs and not any(other in c for c in calls))
 
     _, _, fails = run({"adk": "abc123"}, stub())
     expect("a truncated sha fails",
@@ -353,12 +388,13 @@ def main():
               file=sys.stderr)
         return 1
     extra = json.loads((HERE / "integration-refs.json").read_text())
-    pins = {SUBMODULE_ID[p]: s for p, s in gitlinks().items() if p in SUBMODULE_ID}
+    pins, local = pinned(json.loads((HERE / "pin-set.json").read_text()),
+                         contract_registry.derived(contract_registry.load_default()).layout)
 
     entries = declared(gitmodules.read_text(), extra)
     api = make_api(token())
     try:
-        refs, slugs, failures = resolve(entries, pins, args.floating, api)
+        refs, slugs, failures = resolve(entries, pins, args.floating, api, local)
     except Unreachable as e:
         # Exit 2, not 1: no verdict was reached. Same distinction the local gate
         # makes, and the reason a traceback is not good enough here is that the

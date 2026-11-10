@@ -1,0 +1,11 @@
+#!/bin/sh
+# Headless chiplet export: KiCad board -> .chiplet + .hyp + interposer/complete
+# GDS + ADK assembly DRC. First-class CLI over the plugin pipeline's run_export.
+#
+# Runs under the SYSTEM python3, not the worker venv: pcbnew is importable there
+# and only there (the KiCad fork installs it into the system interpreter). The
+# worker python for hyp_to_gds.py is resolved separately by the pipeline, via
+# KICAD_CHIPLET_PYTHON.
+# ADK_TOOLS names an installed layout, not an adk-tools checkout.
+exec /usr/bin/python3 \
+    "${ADK_TOOLS:-/opt/adk-tools}/chiplet_kicad_plugin/plugins/chiplet_export/chiplet_export_cli.py" "$@"

@@ -15,7 +15,7 @@
   </category>
   <category>
    <name>ASM.b</name>
-   <description>ASM.b : Min. chiplet-to-chiplet spacing is 50.0 um</description>
+   <description>ASM.b : Min. chiplet-to-chiplet spacing is 200.0 um</description>
    <categories>
    </categories>
   </category>
@@ -28,6 +28,12 @@
   <category>
    <name>ASM.f</name>
    <description>ASM.f : Chiplet-attachment geometry overlapping a chiplet must be fully inside it</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>ASM.g</name>
+   <description>ASM.g : Min. die edge to wire-bond pad distance is 200.0 um</description>
    <categories>
    </categories>
   </category>
@@ -70,6 +76,18 @@
   <category>
    <name>IXN.e.unclaimed</name>
    <description>IXN.e.unclaimed : Min. attachment-point pitch is 50.0 um (pads outside every method region)</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>IXN.x.cupillar_opt1.unclaimed</name>
+   <description>IXN.x.cupillar_opt1.unclaimed : Min. spacing between cupillar_opt1 pads and pads outside every method region is 40.0 um</description>
+   <categories>
+   </categories>
+  </category>
+  <category>
+   <name>IXN.x.vendorx_microbump.unclaimed</name>
+   <description>IXN.x.vendorx_microbump.unclaimed : Min. spacing between vendorx_microbump pads and pads outside every method region is 15.0 um</description>
    <categories>
    </categories>
   </category>

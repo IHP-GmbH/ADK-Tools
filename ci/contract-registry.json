@@ -23,6 +23,7 @@
       "mirrors": [
         ["adk", "config/schema/boundary_manifest.schema.json", "the assembly-DRC boundary manifest is the PDK-agnostic contract between the exporters and the deck"]
       ],
+      "checked_elsewhere": [],
       "producers": [],
       "consumers": [],
       "declarations": [],
@@ -34,17 +35,18 @@
       "kind": "reader_py",
       "owner": "spec",
       "path": "reference/python/chiplet_format_io/__init__.py",
-      "identity": "version_policy",
-      "version_policy": {"rule": "additive_minor", "current": "1.1.0", "floor": "1.1", "locator": ["py_assign", "__version__"]},
+      "identity": "bytes",
+      "version_policy": null,
       "mirrors": [
-        ["adk", "vendor/chiplet_format_io/__init__.py", "the vendored Python .chiplet reader. adk's own suite cross-checks this when a chiplet-spec sibling happens to be discoverable, which on a bare runner it never is"],
-        ["plugin", "plugins/chiplet_export/vendor/chiplet_format_io/__init__.py", "the vendored Python .chiplet reader inside the KiCad plugin. H-A added it so hyp_to_gds and the clobber guard read through the shared loader; H-B keeps it byte-identical to the reference and this pins that"]
+        ["plugin", "plugins/chiplet_export/vendor/chiplet_format_io/__init__.py", "the vendored Python .chiplet reader inside the KiCad plugin, read by hyp_to_gds and the clobber guard. It caught up with the pin when the plugin re-vendored at the reader the pin carries, so it is compared here byte for byte; the plugin's own suite still pins its sha256 and the commit that carries it"],
+        ["adk", "vendor/chiplet_format_io/__init__.py", "the vendored Python .chiplet reader inside the ADK, read by its 3Dblox exporter, the resolved v2 entry and the pads-vs-pillars check. It caught up with the pin when the ADK re-vendored at the reader the pin carries, so it is compared here byte for byte; the ADK's own suite still compares it through git with the blob at the commit its vendor/README.md declares"]
       ],
+      "checked_elsewhere": [],
       "producers": [],
       "consumers": [],
       "declarations": [],
       "packages": {},
-      "why": "the reference .chiplet reader and its two vendored copies. Judged by the reader release it declares rather than by bytes, so a copy is allowed to sit at an older same-major minor while the reference moves; it is never allowed to carry different bytes under one declared version, which is the in-place edit no other gate in this ecosystem can see. At the pinned commits the reference exports __version__ and both copies are byte-identical to it, so this artifact is green by identity; the version-comparison path is exercised only by the self-test until a copy first diverges legitimately by version, so landing this policy is not yet governing a versioned divergence in production."
+      "why": "the reference .chiplet reader and the vendored copies of it. A mirror is compared with the pin byte for byte. A copy checked elsewhere is taken at a commit its own tree declares, and that tree's suite checks it against that commit, which may be behind the pin; a byte comparison with the pin would be red on a lag that is declared and guarded, so this gate asserts the copy, the guard and the declaration are there and prints both versions. A copy that catches up with the pin returns to mirrors in the same commit. More copies are not listed here: staging.pin's inventory of the image's six chiplet_format_io copies (above STAGE_CHIPLET_SPEC_REF) names each one and what checks it, ci/check_vendored_reader.py among them."
     },
     {
       "id": "chiplet_pads_vocabulary",
@@ -56,6 +58,7 @@
       "mirrors": [
         ["adk", "config/chiplet_pads.json", "the black-box chiplet pad vocabulary. adk has a strict-version gate that forces its copy forward, so the spec copy goes stale by construction unless something outside both repositories says otherwise"]
       ],
+      "checked_elsewhere": [],
       "producers": [],
       "consumers": [
         ["adk", "checks/pads_vs_pillars.py", "the pads-versus-pillars alignment check reads the vocabulary to know which layers are pads"],
@@ -73,10 +76,12 @@
       "identity": "bytes",
       "version_policy": {"rule": "additive_minor", "current": "@owner", "floor": "1.0", "locator": ["json_pointer", "/schema_version"]},
       "mirrors": [],
+      "checked_elsewhere": [],
       "producers": [],
       "consumers": [
         ["adk", "klayout/drc/run_drc.py", "the deck runner passes the method registry into the assembly DRC as a rule parameter"],
-        ["plugin", "plugins/chiplet_export/pipeline/orchestrator.py", "the export pipeline derives the per-connection interconnect method from this file"]
+        ["plugin", "plugins/chiplet_export/pipeline/orchestrator.py", "the export pipeline derives the per-connection interconnect method from this file"],
+        ["adk", "bridges/assembly_lvs/resolved_v2_entry.py", "the assembly-LVS bridge reads the registry for the method each connection binds, and the attachment-sidecar derivation reaches it through this loader. Unregistered until 2026-09-17, which is why its exact-match version test survived a row that declares the rule as additive_minor"]
       ],
       "declarations": [],
       "packages": {},
@@ -85,18 +90,19 @@
     {
       "id": "interconnect_methods_schema",
       "kind": "schema",
-      "owner": "interconnect",
-      "path": "manifest/schema/interconnect_methods.schema.json",
+      "owner": "spec",
+      "path": "schemas/interconnect_methods.schema.json",
       "identity": "bytes",
       "version_policy": null,
       "mirrors": [
-        ["spec", "schemas/interconnect_methods.schema.json", "the interconnect method registry. The PDK owns the file and the spec publishes it"]
+        ["interconnect", "manifest/schema/interconnect_methods.schema.json", "the interconnect method registry. The PDK owns the file and the spec publishes it"]
       ],
+      "checked_elsewhere": [],
       "producers": [],
       "consumers": [],
       "declarations": [],
       "packages": {},
-      "why": "the schema the interconnect method registry validates against. The interconnect PDK authors it, next to the registry file it governs, and chiplet-spec publishes a copy; the row now says so, so a failure names the PDK first and the publisher second. Under `bytes` the two sides are symmetric and the orientation costs nothing today; it decides which side wins the moment this row gets a version policy, which is why it is settled before then rather than during."
+      "why": "the schema the interconnect method registry validates against. The interconnect PDK is the authoritative author and chiplet-spec is the publisher; the row keeps the publisher as `owner` while the identity is `bytes`, where the two sides are symmetric, and the orientation is revisited in the wave that gives this row a version policy."
     },
     {
       "id": "interconnect_schema",
@@ -108,6 +114,7 @@
       "mirrors": [
         ["adk", "config/schema/interconnect.schema.json", "the interconnect block of a .chiplet document"]
       ],
+      "checked_elsewhere": [],
       "producers": [],
       "consumers": [],
       "declarations": [],
@@ -122,6 +129,7 @@
       "identity": "version_policy",
       "version_policy": {"rule": "satisfies", "current": "@owner", "floor": null, "locator": ["dockerfile_arg", "KLAYOUT_PIP"]},
       "mirrors": [],
+      "checked_elsewhere": [],
       "producers": [],
       "consumers": [],
       "declarations": [
@@ -143,6 +151,7 @@
       "mirrors": [
         ["adk", "config/schema/layers.schema.json", "the layer registry every consumer validates against"]
       ],
+      "checked_elsewhere": [],
       "producers": [],
       "consumers": [],
       "declarations": [],
@@ -157,15 +166,22 @@
       "identity": "version_policy",
       "version_policy": {"rule": "satisfies", "current": "@owner", "floor": null, "locator": null},
       "mirrors": [],
+      "checked_elsewhere": [],
       "producers": [],
       "consumers": [],
       "declarations": [
         ["plugin", "plugins/chiplet_export/requirements.txt", null, null, "the export plugin's own dependencies, installed into the KiCad scripting environment"],
         ["plugin", "plugins/resizer_passive_elements/requirements.txt", null, null, "the second plugin in the same repository, with its own file and therefore its own way to drift"],
         ["gds2kicad", "requirements.txt", null, null, "the converter's Qt and parsing dependencies"],
+        ["adk", "pyproject.toml", null, null, "the ADK suite's dependencies, unpinned there because the pin set constrains them, read so a floor added later is checked against the image pin"],
+        ["interposer", "pyproject.toml", null, null, "the interposer PDK suite's dependencies, the KLayout its decks run under among them"],
+        ["interconnect", "pyproject.toml", null, null, "the interconnect PDK suite's dependencies, the jsonschema its method registry is validated with among them"],
+        ["plugin", "pyproject.toml", null, null, "the KiCad plugin repository's own distribution metadata and test dependencies, beside the two per-plugin requirements files"],
+        ["gds2kicad", "pyproject.toml", null, null, "the converter's distribution metadata, beside its requirements.txt; the two can drift apart"],
         ["docs", "docs/requirements.txt", null, null, "the documentation build, which is also where the KLayout pin is declared"],
         ["spec", "reference/python/pyproject.toml", null, null, "the reference reader's distribution metadata, read as a dependency list rather than through a TOML parser"],
-        ["spec", "conformance/requirements.txt", null, null, "the conformance and schema-gate suite's own pins (jsonschema, PyYAML); present at the pinned spec commit, so it is checked rather than exempted"]
+        ["spec", "description/pyproject.toml", null, null, "the system description's distribution metadata; its PyYAML floor is checked against the image pin"],
+        ["spec", "conformance/requirements.txt", null, null, "the conformance suite's own test dependencies. jsonschema backs the executable schema gate there, so a floor raised above the image pin is a schema gate run against a version the image does not ship"]
       ],
       "packages": {
         "klayout": "KLAYOUT_PIP",
@@ -188,6 +204,7 @@
       "mirrors": [
         ["adk", "config/schema/rule_params.schema.json", "the JSON-parameterised DRC rule values"]
       ],
+      "checked_elsewhere": [],
       "producers": [],
       "consumers": [],
       "declarations": [],

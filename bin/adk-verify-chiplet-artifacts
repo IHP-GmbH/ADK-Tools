@@ -230,6 +230,13 @@ def main():
         if not os.path.exists(p):
             print(f"  [FAIL] missing input: {p}")
             FAILS.append('inputs')
+    if FAILS and not os.path.isdir(ex):
+        # Outside the verify stage the image carries no demo.
+        print("  The runtime image carries no demo, so pass --example-dir. Copy the\n"
+              "  demo on the host from the adk-tools clone you ran run.sh from:\n"
+              '    cp -r "${ADK_TOOLS_ROOT:-$HOME/adk-tools}/examples/two_die_interposer" '
+              '"${ADK_WORK:-$HOME/adk-work}/example"\n'
+              "  then pass --example-dir /work/example")
     if FAILS:
         return fail()
 

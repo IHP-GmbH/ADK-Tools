@@ -1,20 +1,63 @@
 #!/usr/bin/env python3
 """List the tools available in this image and their pinned versions."""
 import json
+import os
+import shutil
 import sys
 
 MANIFEST = "/opt/adk-tools/manifest.json"
 
-# command -> (tool key in manifest, one-line description)
+# command -> (tool key in manifest, one-line description). Refs come from the
+# "tools" map: submodules of this repository, built into the image.
 COMMANDS = [
     ("kicad",          "kicad",                "KiCad fork (GUI; pcbnew/kicad-cli also installed)"),
     ("chiplet-studio", "chiplet-studio",       "3D assembly viewer / .chiplet editor (GUI)"),
     ("gds-to-kicad",   "gds_to_kicad",         "GDS -> KiCad symbol + footprint generator (unified GUI)"),
     ("hyp-to-gds",     "chiplet_kicad_plugin", "HyperLynx -> GDS converter (CLI)"),
+    ("chiplet-export", "chiplet_kicad_plugin", "Headless export: board -> .chiplet + .hyp + GDS + DRC"),
     ("adk-drc",        "adk",                  "ADK assembly DRC runner (CLI)"),
     ("klayout",        "chiplet-studio",       "KLayout, pinned by the studio submodule"),
     ("adk-smoke",      "-",                    "End-to-end smoke test (demo export + dual DRC)"),
     ("adk-new-project","-",                    "Scaffold a new design under /work/heterogenic-designs"),
+    ("adk-example",    "-",                    "Say where the two-die demo is (not in the image)"),
+]
+
+# The same, for the trees installed from staging rather than as submodules.
+# Their refs live under "staged", not "tools", so they are looked up separately
+# instead of silently printing "-" for every one of them.
+#
+# The fourth field names an external program the tool's headline capability
+# needs, and the variable that tool reads first to find it. It is probed at run
+# time and reported below, because a wrapper that imports cleanly says nothing
+# about whether the thing it drives is here: `interposer-pnr route` needs
+# OpenROAD ($OPENROAD, else PATH), and a die build needs nix-shell or the
+# LibreLane launcher $CHIPLET_FLOW_LIBRELANE_LAUNCHER names. An image that
+# carries its tools in its own store sets both variables in its ENV; an older
+# one has them only when run.sh passes them in.
+STAGED_COMMANDS = [
+    ("interposer-pnr", "interposer-pnr",   "2.5D place/route engine (CLI)", ("openroad", "OPENROAD")),
+    ("assembly-lvs",   "assembly-lvs",     "Assembly-stage LVS over a resolved/v2, v3 or v4 document", None),
+    ("packaging-flow", "packaging-flow",   "Orchestrator: dies -> interposer -> assembly LVS",
+     ("nix-shell", "CHIPLET_FLOW_LIBRELANE_LAUNCHER")),
+    ("chiplet-die-flow", "chiplet-flow",   "Die flow: one LibreLane die build -> ready die",
+     ("nix-shell", "CHIPLET_FLOW_LIBRELANE_LAUNCHER")),
+    ("chiplet-system-description", "chiplet-spec",
+     "System description: tiers 0 and 1 over a source system.chiplet", None),
+]
+
+
+def found(needs):
+    """Whether the program is there: the variable names an executable, or it is on PATH."""
+    program, var = needs
+    named = os.environ.get(var, "")
+    return (bool(named) and os.path.isfile(named) and os.access(named, os.X_OK)) or \
+        shutil.which(program) is not None
+
+
+# Staged trees that are libraries: installed and importable, no command.
+STAGED_LIBS = [
+    ("chiplet-spec",   "Assembly spec schema and reader"),
+    ("chiplet-cosim",  "Co-simulation; its engine (cocotb, Icarus) is in $COSIM_DEVSHELL"),
 ]
 
 # data-only roots, no command
@@ -22,8 +65,29 @@ DATA = [
     ("OpenIntM4TM2",              "IntM4TM2 interposer PDK   $INTERPOSER_PDK_ROOT"),
     ("IHP-Interconnect-IntM4TM2", "Interconnect PDK          $INTERCONNECT_PDK_ROOT"),
     ("IHP-Open-PDK",              "SG13G2 PCell/tech slice   $PDK_ROOT"),
-    ("examples",                  "Demo designs              /opt/adk-tools/examples"),
+    ("gf180mcu",                  "GF180MCU sheet and decks  $GF180MCU_PDK_ROOT"),
 ]
+
+# The SG13G2 slice and the GF180 sheet are fetched by the Dockerfile rather than
+# carried as submodules, so build.sh's manifest never sees them and they would
+# print a dash. The Dockerfile writes what it actually fetched here, before
+# deleting the .git it read it from. The interposer PDK's .shipped-ref is not
+# listed: it belongs to that PDK's own version reader, and the build checks it.
+SHIPPED_REF_FILES = {
+    "IHP-Open-PDK": "/opt/adk-tools/IHP-Open-PDK/.shipped-ref",
+    "gf180mcu": "/opt/adk-tools/gf180mcu/.shipped-ref",
+}
+
+
+def shipped_ref(key):
+    path = SHIPPED_REF_FILES.get(key)
+    if not path:
+        return None
+    try:
+        with open(path) as fh:
+            return fh.read().strip()[:10] or None
+    except OSError:
+        return None
 
 
 def main():
@@ -33,24 +97,55 @@ def main():
     except (OSError, ValueError):
         manifest = {}
     tools = manifest.get("tools", {})
+    staged = manifest.get("staged", {})
+
+    def ref_of(source, key):
+        entry = source.get(key, {})
+        if not isinstance(entry, dict):
+            return "-"
+        return entry.get("describe") or entry.get("ref", "")[:10] or "-"
 
     built = manifest.get("built", "unknown")
     meta = manifest.get("meta", "unknown")
     print(f"adk-tools image  (meta-repo {meta}, built {built})")
     print()
-    print(f"{'command':<16} {'pinned ref':<14} description")
-    print("-" * 78)
+    w = max(len(cmd) for cmd, *_ in COMMANDS + STAGED_COMMANDS)
+    print(f"{'command':<{w}} {'pinned ref':<14} description")
+    print("-" * (w + 16 + len("description")))
     for cmd, key, desc in COMMANDS:
-        ref = tools.get(key, {}).get("describe") or tools.get(key, {}).get("ref", "")[:10] or "-"
-        print(f"{cmd:<16} {ref:<14} {desc}")
+        print(f"{cmd:<{w}} {ref_of(tools, key):<14} {desc}")
+
+    missing = []
+    if STAGED_COMMANDS:
+        print()
+        for cmd, key, desc, needs in STAGED_COMMANDS:
+            mark = ""
+            if needs and not found(needs):
+                missing.append((cmd, needs))
+                mark = f"  [{needs[0]} MISSING]"
+            print(f"{cmd:<{w}} {ref_of(staged, key):<14} {desc}{mark}")
+    for key, desc in STAGED_LIBS:
+        print(f"{'(library)':<{w}} {ref_of(staged, key):<14} {key}: {desc}")
+
+    if missing:
+        print()
+        print("not runnable in this image:")
+        for cmd, (program, var) in missing:
+            print(f"  {cmd:<16} installed and importable, but {program} is not on "
+                  f"PATH and ${var} names none, so its main job cannot run here")
+
     print()
     print("data roots:")
     for key, desc in DATA:
-        ref = tools.get(key, {}).get("describe") or tools.get(key, {}).get("ref", "")[:10] or "-"
+        ref = ref_of(tools, key)
+        if ref == "-":
+            ref = shipped_ref(key) or "-"
         print(f"  {key:<16} {ref:<14} {desc}")
     print()
-    print("Work area: /work (run.sh mounts ~/adk-work there).")
-    print("  /work/example              two-die interposer demo, seeded on start (disposable)")
+    print("Work area: /work (run.sh mounts ~/adk-work there); "
+          "nothing is written there unless you ask.")
+    print("  /work/example              two-die interposer demo, copied in from "
+          "your adk-tools clone (`adk-example` says how)")
     print("  /work/heterogenic-designs  your persistent designs; "
           "`adk-new-project <name>` scaffolds one")
     return 0

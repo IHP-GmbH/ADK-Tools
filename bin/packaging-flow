@@ -1,0 +1,11 @@
+#!/bin/sh
+# Orchestrator: from one spec, builds or admits each die, then runs the
+# interposer-pnr stages and assembly-lvs, and records a manifest that
+# `packaging-flow verify` recomputes from disk.
+#
+# `--tier smoke` is the short path (truncates at synthesis, leaves no die GDS).
+# `--tier hermetic` cannot run from the CLI at the pinned ref: the CLI injects
+# no builder and the default builder raises for every non-heavy tier. A die
+# build runs `chiplet-die-flow build-die`, which needs LibreLane; this image has
+# none, so only dies that are admitted, not built, run here.
+exec /opt/adk-tools/venv/bin/packaging-flow "$@"

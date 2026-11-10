@@ -1,0 +1,66 @@
+{
+  "_comment": [
+    "Where ci/export-pins takes each pinned repository from, and the root commits",
+    "that say which repository it is. ci/pin_set.py copies both into",
+    "ci/pin-set.json.",
+    "",
+    "export_from: an id not listed here is the sibling <root>/<id>. adk is",
+    "exported from the module store of this repository's tools/adk submodule,",
+    "because its pin is that gitlink: an umbrella folder named adk can be an",
+    "older clone that lacks the pinned commit.",
+    "",
+    "roots: written by python3 ci/pin_set.py --record-roots --source-root DIR,",
+    "read in the source each pin comes from, never in a shallow export. It adds",
+    "the ids that have none and refuses to change one that is recorded, since a",
+    "changed root is another repository. export-pins refuses a source whose",
+    "roots do not match."
+  ],
+  "export_from": {
+    "adk": "submodule"
+  },
+  "roots": {
+    "adk": [
+      "eb1409ef76760cb56b971ff98d5078da43a9655b"
+    ],
+    "adk-docs": [
+      "a211c2975baa41c2c21f9be2dd2e6a68025ab8f1"
+    ],
+    "assembly-lvs": [
+      "3480016e7afc5fe6ff58c6caba451679400afdcf"
+    ],
+    "chiplet-cosim": [
+      "49bc22e80acf1af35bf767a28eab9fcb19bec2c9"
+    ],
+    "chiplet-flow": [
+      "d22efd3d4e1ba349e7f254bdf2ce280d6a5fc6f1"
+    ],
+    "chiplet-spec": [
+      "8a782eb10dfea9c351320308c69010239838eb95"
+    ],
+    "chiplet-studio": [
+      "ad532d2e689cd72e5a9483f3be5e96345948d29b"
+    ],
+    "chiplet_kicad_plugin": [
+      "8f87581a1d7390f4ce56c14fe583012a97d73614"
+    ],
+    "gds_to_kicad": [
+      "03af0dc85d4528b13b05989fa7c1f4b85e9daa1a"
+    ],
+    "interconnect_pdk": [
+      "3d69357d9594a11eea425efd0a7e669195e04f7d"
+    ],
+    "interposer": [
+      "577c4e180cf419b62840ce9d3b1fea929591603a"
+    ],
+    "interposer-pnr": [
+      "07a36d25574d640be9ff51ffaf6655748aedaadb"
+    ],
+    "kicad": [
+      "23c40f7e8698b54e0dd497942ff4ae9f755333d2",
+      "c878e96ffc34e4e84cae3a0d7c55099c3d58476c"
+    ],
+    "packaging-flow": [
+      "7e0160f4c889583ebb018c66a171f41eaf4dae3a"
+    ]
+  }
+}
