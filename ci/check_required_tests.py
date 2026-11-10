@@ -47,7 +47,7 @@ def parse_manifest(text):
     fully whitespace-separated either, because a parametrised id contains
     spaces of its own, sometimes only spaces:
 
-        plugin tests/test_cmim_devices.py::test_parse_length_um_rejects_junk[   ]
+        plugin plugins/chiplet_export/tests/test_cmim_devices.py::test_parse_length_um_rejects_junk[   ]
 
     A `#` only starts a comment at the start of a line, for the same reason.
     """
