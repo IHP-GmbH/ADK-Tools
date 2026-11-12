@@ -91,7 +91,7 @@ def _absolute(path):
     return pathlib.Path(os.path.abspath(path))
 
 
-def compare(root, label, ref_files, reference):
+def compare_copy(root, label, ref_files, reference):
     """([difference], number of files compared) of root against the reference."""
     failures = []
     files, odd = files_under(root)
@@ -156,7 +156,7 @@ def check(staging, reference, copies, roots=(), exempt=()):
         if not root.is_dir():
             failures.append("%s: not a directory" % copy)
             continue
-        differences, count = compare(root, copy, ref_files, reference)
+        differences, count = compare_copy(root, copy, ref_files, reference)
         failures.extend(differences)
         compared.append((copy, count))
 
@@ -178,7 +178,7 @@ def check(staging, reference, copies, roots=(), exempt=()):
             failures.append("%s: an exemption that names no %s package (missing, "
                             "renamed or mistyped)" % (path, PACKAGE))
         else:
-            differences, _ = compare(root, path, ref_files, reference)
+            differences, _ = compare_copy(root, path, ref_files, reference)
             if not differences:
                 failures.append("%s: an exemption that would pass as a copy of the "
                                 "reference, so it is stale: declare it a --copy"
