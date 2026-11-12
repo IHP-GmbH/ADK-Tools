@@ -12,8 +12,11 @@
     "roots: written by python3 ci/pin_set.py --record-roots --source-root DIR,",
     "read in the source each pin comes from, never in a shallow export. It adds",
     "the ids that have none and refuses to change one that is recorded, since a",
-    "changed root is another repository. export-pins refuses a source whose",
-    "roots do not match."
+    "changed root is another repository. One case is edited by hand: when a",
+    "repository merges another history of itself in, the pinned commit gains a",
+    "root, and the list grows by it. The new pin descends from the old one, which",
+    "pin_set.py checks on the write. export-pins refuses a source whose roots do",
+    "not match the pinned commit's."
   ],
   "export_from": {
     "adk": "submodule"
@@ -41,7 +44,8 @@
       "ad532d2e689cd72e5a9483f3be5e96345948d29b"
     ],
     "chiplet_kicad_plugin": [
-      "8f87581a1d7390f4ce56c14fe583012a97d73614"
+      "8f87581a1d7390f4ce56c14fe583012a97d73614",
+      "da739ab03014debaab92c59d6ab59218a4b908de"
     ],
     "gds_to_kicad": [
       "03af0dc85d4528b13b05989fa7c1f4b85e9daa1a"
