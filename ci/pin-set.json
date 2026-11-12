@@ -69,7 +69,7 @@
       "roots": [
         "eb1409ef76760cb56b971ff98d5078da43a9655b"
       ],
-      "sha": "093ae2e75fbc0b1eb3838a426cc1a59d37240aa0",
+      "sha": "522ca99fe88ee87bb6ec657f1644fffdb504548a",
       "source": "gitlink",
       "stage_name": null
     },
@@ -139,7 +139,7 @@
       "roots": [
         "8a782eb10dfea9c351320308c69010239838eb95"
       ],
-      "sha": "48a30522451b3bcc45754fe01633196188cab2f0",
+      "sha": "9da50b2c4e31074792201b139743b93c3351e18d",
       "source": "staged",
       "stage_name": "chiplet-spec"
     },
@@ -168,7 +168,7 @@
         "8f87581a1d7390f4ce56c14fe583012a97d73614",
         "da739ab03014debaab92c59d6ab59218a4b908de"
       ],
-      "sha": "102fde2bfd2f69b8191909f67d6a6d6a25baf7a7",
+      "sha": "962a20eb696dca884ffba815555c4eafe6e0e0ef",
       "source": "gitlink",
       "stage_name": null
     },
@@ -210,7 +210,7 @@
       "roots": [
         "577c4e180cf419b62840ce9d3b1fea929591603a"
       ],
-      "sha": "a700e4a04724e0e2f266b3161eb19e0476b747d3",
+      "sha": "d69aab4d0cdd9230750adb3c1a9bc355337d96a0",
       "source": "gitlink",
       "stage_name": null
     },
@@ -224,7 +224,7 @@
       "roots": [
         "07a36d25574d640be9ff51ffaf6655748aedaadb"
       ],
-      "sha": "3e85398b8d118370796a22f643355bbe0e3a4638",
+      "sha": "23e5b317f2e36a9b5384db7527faed0de00c7f08",
       "source": "staged",
       "stage_name": "interposer-pnr"
     },
@@ -253,7 +253,7 @@
       "roots": [
         "7e0160f4c889583ebb018c66a171f41eaf4dae3a"
       ],
-      "sha": "56affc12e96e3702dcd5e5d503aa9607c17a136f",
+      "sha": "53a2ce80835c8b3248101460d9af782926fe608f",
       "source": "staged",
       "stage_name": "packaging-flow"
     }
