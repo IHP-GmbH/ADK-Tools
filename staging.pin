@@ -864,7 +864,7 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # example 8 terminal-map fixtures are taken again from a run whose writers declare the plane. No
 # pyproject dependency moves; the version stays 0.1.0.
 #
-# This ref (53a2ce8) adds three commits on 56affc12 and changes tests only. It is not on
+# An earlier move (53a2ce8) added three commits on 56affc12 and changed tests only. It was not on
 # packaging-flow's remote: the image stages it from the local sibling, ci/pin-set.json records it
 # as local-only, and the GitHub integration job does not check packaging-flow out.
 # REAL_TREE_SHA256, the digest of the interposer DRC deck's file set, takes the tools/OpenIntM4TM2
@@ -877,7 +877,21 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # tests/die_flow/PROVENANCE.md are unchanged, and no test id in ci/required-tests.txt,
 # ci/tracked-tree-tests.txt or ci/image-xor-tests.txt moves. The assembly-lvs, chiplet-flow and
 # chiplet-spec entries that name packaging-flow do not move for it. The version stays 0.1.0.
-STAGE_PACKAGING_FLOW_REF=53a2ce80835c8b3248101460d9af782926fe608f
+#
+# This ref (8c0b96df) is the merge of packaging-flow's pull request 1, seven commits on 53a2ce8.
+# packaging-flow's remote is private, so a second person still cannot obtain the commit from it:
+# the image stages it from the local sibling, ci/pin-set.json records it as local-only, and the
+# GitHub integration job does not check packaging-flow out. Every spec's interposer still passes
+# attachment_surface_z, so STAGE_CHIPLET_SPEC_REF must carry it; 6a627ad does. The interposer DRC
+# deck's file set is derived from the PDK's rule-deck registry instead of a pinned digest, so
+# REAL_TREE_SHA256 is gone and the live-roots test turns red when the registry's two halves
+# disagree, not when a deck is added or edited; the tools/OpenIntM4TM2 gitlink does not move for
+# it. A die whose technology the system does not declare is taken as a black box, and the
+# technology refusals are typed and kept inside the bundle, and the openings refusal gets its own
+# catalog row. No pyproject dependency moves, tests/die_flow and tests/fixtures/interposer_pdk are
+# unchanged, and no test id in ci/required-tests.txt, ci/tracked-tree-tests.txt or
+# ci/image-xor-tests.txt moves. The version stays 0.1.0.
+STAGE_PACKAGING_FLOW_REF=8c0b96df117cae98f90d813618e5d5c07ca1e288
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
@@ -1060,14 +1074,22 @@ STAGE_PACKAGING_FLOW_REF=53a2ce80835c8b3248101460d9af782926fe608f
 # ci/image-xor-tests.txt does not. packaging-flow names every die-flow refusal class, so
 # STAGE_PACKAGING_FLOW_REF moves with it.
 #
-# This ref (54f256d) adds one test-only commit on the previous pin: tests/test_die_view.py renames a test
+# An earlier move (54f256d) added one test-only commit on the pin before it: tests/test_die_view.py renames a test
 # pad whose name read like a phase tag. No package file moves, tests/test_view_xor.py does not
 # change, so ci/image-xor-tests.txt does not. packaging-flow's die-flow provenance names it, so
 # STAGE_PACKAGING_FLOW_REF moves with it.
+#
+# This ref (684f9d0) adds two commits on 54f256d. A die may state sbump_sac305, the solder-bump
+# method, as its attachment intent beside the two pillar methods: the accepted intents are one
+# list, ATTACHMENTS in chiplet_full, which CHIPLET_ATTACHMENT, the config check, the recipe check
+# and the receipt check all read, and a test holds every listed id to a method of the interconnect
+# registry. The intent stays metadata and qualifies nothing. No file packaging-flow copies and no
+# die_errors class moves, tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does
+# not, and no package dependency moves. packaging-flow's tests/die_flow/PROVENANCE.md names its
+# copies of chiplet-flow files by content, and none of those files moves, so it does not change;
+# packaging-flow's host suite at the pin above passes with chiplet-flow at this ref.
 STAGE_CHIPLET_FLOW_PATH=chiplet-flow
-# This ref (54f256d) is chiplet-flow dev after the v2026.11 release, on the previous pin
-# 54f256d: one commit, the v2026.11 release bytes (its public references); no code moves.
-STAGE_CHIPLET_FLOW_REF=54f256d55635d7aadd217a237ca591dfb1601108
+STAGE_CHIPLET_FLOW_REF=684f9d0f4a1dea5ff9f6bcb0900a198a01fb1580
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
@@ -1423,16 +1445,25 @@ STAGE_CHIPLET_COSIM_REF=50247f2c4e3441dd28c5de3fb3c4f82c650051eb
 # is staging/chiplet-spec and must be at this ref. The Nix build shell's LibreLane launcher also
 # puts this tree's reference/python on LibreLane's import path (nix/build-env.sh).
 #
-# This ref (9da50b2) adds the v2026.11.1 release merges, a format 1.2 reader test run from a
+# An earlier move (9da50b2) added the v2026.11.1 release merges, a format 1.2 reader test run from a
 # vendored copy, and reworded comments and docs. reference/python/chiplet_format_io, schemas/ and
 # conformance/fixtures/mount_plane are byte-identical to 48a3052's, so the reader stays 1.22.0
 # and every copy below stays byte-equal; description/src changes two comments only. The image and
 # the GitHub integration job (.github/workflows/integration.yml) stage this tree one commit deep,
-# so 48a3052 is not there: the plugin re-declares its copy at this ref, and the ADK's
+# so 48a3052 is not there: the plugin re-declared its copy at that ref, and the ADK's
 # vendor/README.md and the MOUNT_PLANE_PIN of its tests/test_chiplet2dbx.py name it, so the
 # tools/chiplet_kicad_plugin and tools/adk gitlinks move with it. interposer-pnr's and
 # gds_to_kicad's SOURCE files still name 48a3052; only bytes are checked for those copies, and
 # they are equal.
+#
+# This ref (6a627ad) adds four commits on 9da50b2, tests and docs only: a conformance test holds
+# the standard citations (3Dblox as IEEE 3537-2026), and two description tests check the package
+# set and that no install of the description reaches the frozen 1.2 reader.
+# reference/python/chiplet_format_io, schemas/ and conformance/fixtures are unchanged, so the
+# reader stays 1.22.0 and every copy below stays byte-equal. The staged clone is one commit deep,
+# so 9da50b2 is not there: the plugin's VENDORED.md and SOURCE and the ADK's vendor/README.md and
+# MOUNT_PLANE_PIN name this ref, and the tools/chiplet_kicad_plugin and tools/adk gitlinks move
+# with it.
 #
 # The image holds six Python copies of chiplet_format_io, three of them strict (strict: the copy
 # carries die_contract.py with STRICT_ADMISSION_API_VERSION): the installed one, whose revision the
@@ -1497,7 +1528,7 @@ STAGE_CHIPLET_COSIM_REF=50247f2c4e3441dd28c5de3fb3c4f82c650051eb
 # staged clone, so no extra commit is fetched. chiplet-spec's own test of its 1.2 reader runs from
 # the vendored fixture above, so it needs no commit outside this tree.
 STAGE_CHIPLET_SPEC_PATH=chiplet-spec
-STAGE_CHIPLET_SPEC_REF=9da50b2c4e31074792201b139743b93c3351e18d
+STAGE_CHIPLET_SPEC_REF=6a627ad95b1557bbf0febd1b8228f236585ca250
 
 # ----------------------------------------------------------------------
 # LibreLane
