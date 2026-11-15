@@ -13,6 +13,11 @@
 #   --tools-only   build the tools image for this tree's key and stop: the one
 #                  build a tree whose key moved can run, so the two locks in
 #                  docker/ can be read from it (ci/check_tools_locks.py).
+#   ADK_TOOLS_REQUIRE_SLOT=1
+#                  refuse to build outside a hostslot slot (HOSTSLOT_ID unset).
+#   ADK_TOOLS_CACHE
+#                  in a slot, where the tools image's OCI layout and the tools
+#                  build cache live (default: ${XDG_CACHE_HOME:-$HOME/.cache}/adk-tools).
 #
 # The tools image (the Dockerfile above its thin-layer line) builds first, and
 # only when no image carries its key (ci/tools_key.py). The verify stage builds
@@ -41,6 +46,10 @@ done
 VERIFY_TAG="${VERIFY_TAG:-verify}"
 if [[ ! "$VERIFY_TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
     echo "VERIFY_TAG is not a docker tag: '$VERIFY_TAG'" >&2
+    exit 1
+fi
+if [ -z "${HOSTSLOT_ID:-}" ] && [ "${ADK_TOOLS_REQUIRE_SLOT:-0}" = 1 ]; then
+    echo "Refusing to build: ADK_TOOLS_REQUIRE_SLOT=1 and this is not a hostslot slot" >&2
     exit 1
 fi
 if [ "$VERIFY_TAG" = "$TAG" ]; then
@@ -578,10 +587,51 @@ fi
 
 MANIFEST_B64="$(base64 -w0 manifest.json)"
 export DOCKER_BUILDKIT=1
-# Daemon's embedded builder: images land directly in `docker images`
-# (container-driver builders like buildx_buildkit_* need --load and keep a
-# duplicate multi-GB cache).
-export BUILDX_BUILDER=default
+# Which builder builds. Outside a hostslot slot, the daemon's embedded builder:
+# images land directly in `docker images`, and FROM ${TOOLS_IMAGE} reads the
+# local tools tag. In a slot, hostslot's docker shim sends every build to the
+# slot's own BuildKit, held to the slot's CPUs and memory, and refuses any
+# other builder. That BuildKit cannot read the daemon's image store, so the
+# tools image goes to it as an OCI layout named context (ci/tools_layout.py),
+# and each image comes back as an uncompressed docker tar (the daemon would
+# only unpack what BuildKit compressed). The tools target keeps a build cache
+# across slots, since each slot's BuildKit starts empty. ADK_TOOLS_CACHE holds
+# the layout and the cache, under a lock held until this script ends.
+# Everything slot-specific is decided here: the three tools_* functions and
+# OUTPUT_ARGS; the builds below call them the same way in both cases.
+OUTPUT_ARGS=()
+TOOLS_CACHE_ARGS=()
+if [ -n "${HOSTSLOT_ID:-}" ]; then
+    ADK_TOOLS_CACHE="${ADK_TOOLS_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/adk-tools}"
+    mkdir -p "$ADK_TOOLS_CACHE"
+    exec 9> "$ADK_TOOLS_CACHE/lock"
+    if ! flock -n 9; then
+        echo "Refusing to build: another build holds $ADK_TOOLS_CACHE/lock" >&2
+        exit 1
+    fi
+    OUTPUT_ARGS=(--output type=docker,compression=uncompressed)
+    tools_cache_begin() {
+        local args
+        args="$(python3 -B ci/tools_layout.py cache-begin --root "$ADK_TOOLS_CACHE")" || \
+            cosim_refuse "no tools build cache arguments"
+        mapfile -t TOOLS_CACHE_ARGS <<< "$args"
+    }
+    tools_cache_commit() {
+        python3 -B ci/tools_layout.py cache-commit --root "$ADK_TOOLS_CACHE" || \
+            cosim_refuse "the tools build cache was not put in place"
+    }
+    tools_context() {
+        local context
+        context="$(python3 -B ci/tools_layout.py layout --root "$ADK_TOOLS_CACHE" \
+            --ref "$TOOLS_REF" --id "$TOOLS_ID")" || cosim_refuse "no OCI layout of $TOOLS_REF"
+        TOOLS_ARGS+=(--build-context "$context")
+    }
+else
+    export BUILDX_BUILDER=default
+    tools_cache_begin() { :; }
+    tools_cache_commit() { :; }
+    tools_context() { :; }
+fi
 
 JOBS="${JOBS:-8}"
 
@@ -617,10 +667,14 @@ case "$(tools_label)" in
         echo "== tools image $TOOLS_REF carries this key; not rebuilt" ;;
     absent)
         echo "== building the tools image $TOOLS_REF (key $TOOLS_KEY)"
+        tools_cache_begin
         docker build --target tools -t "$TOOLS_REF" \
             --label "$TOOLS_KEY_LABEL=$TOOLS_KEY" \
+            "${OUTPUT_ARGS[@]}" \
+            "${TOOLS_CACHE_ARGS[@]}" \
             "${COSIM_ARGS[@]}" \
             --build-arg JOBS="$JOBS" .
+        tools_cache_commit
         [ "$(tools_label)" = "$TOOLS_KEY" ] || cosim_refuse "$TOOLS_REF does not carry the key it was built for" ;;
     *)
         cosim_refuse "$TOOLS_REF exists with key '$(tools_label)', not $TOOLS_KEY" ;;
@@ -632,6 +686,7 @@ if [ "$TOOLS_ONLY" -eq 1 ]; then
     exit 0
 fi
 TOOLS_ARGS=(--build-arg "TOOLS_IMAGE=$TOOLS_REF")
+tools_context
 
 # layers_on_tools <image>: the image's layers start with the tools image's, so
 # it is our code on exactly those tools.
@@ -659,6 +714,7 @@ RUNTIME_ARGS=(--build-arg "NIX_OPENROAD_OUTPATH=$NIX_OPENROAD_OUTPATH"
 if [ "$SKIP_VERIFY" -eq 0 ]; then
     echo "== building verify stage (compiles everything + runs all suites)"
     docker build --target verify -t "adk-tools:$VERIFY_TAG" \
+        "${OUTPUT_ARGS[@]}" \
         "${TOOLS_ARGS[@]}" \
         "${COSIM_ARGS[@]}" \
         "${RUNTIME_ARGS[@]}" \
@@ -671,8 +727,10 @@ if [ "$SKIP_VERIFY" -eq 0 ]; then
 fi
 
 echo "== tagging lean runtime image: adk-tools:$TAG"
-# The labels are image config only: no layer is rebuilt for them.
+# The labels are image config only: no layer is rebuilt for them. In a slot
+# the image is still streamed to the daemon whole.
 docker build --target runtime -t "adk-tools:$TAG" \
+    "${OUTPUT_ARGS[@]}" \
     --label "$PIN_SET_LABEL=$PIN_SET_SHA256" \
     --label "$REVISION_LABEL=$REVISION" \
     --label "$OPENROAD_LABEL=$NIX_OPENROAD_OUTPATH" \

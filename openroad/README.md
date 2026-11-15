@@ -29,8 +29,13 @@ export ADK_TOOLS_IMAGE=sha256:<64 hex>       # the adk-tools image, by ID
 `openroad/.openroad-src` (git-ignored, around 3 GB) and builds it with
 upstream's own Dockerfile. Set `OPENROAD_SRC` to reuse an existing checkout;
 it must already be at the pinned commit, the script will not move someone
-else's tree. The build is capped at `JOBS` compile jobs because upstream's
-Dockerfile otherwise takes every core on the machine.
+else's tree. The compile runs `JOBS` jobs because upstream's Dockerfile
+otherwise takes every core on the machine. JOBS does not bound the LTO link or
+the dependency build, which size their jobs by the CPUs the build sees, and a
+cap on the caller does not reach a build, which runs in BuildKit. Inside a
+hostslot slot the slot's docker shim runs the build on a BuildKit of the
+slot's own, held by docker to the slot's CPUs and memory; JOBS defaults to the
+slot's CPUs.
 
 `check-3dblox.sh` runs the exporter from the adk-tools image and the linter
 from the OpenROAD image, so what gets exercised is the exporter that actually
