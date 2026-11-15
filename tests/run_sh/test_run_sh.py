@@ -102,6 +102,9 @@ for i, arg in enumerate(sys.argv):
 # check-3dblox.sh passes only when the linter's run prints this marker.
 if "-exit" in sys.argv:
     print("CHECK_3DBLOX_OK")
+# The exporter's --list-layouts run: RUN_SH_TEST_LAYOUTS is what it prints.
+if "--list-layouts" in sys.argv:
+    sys.stdout.write(os.environ.get("RUN_SH_TEST_LAYOUTS", ""))
 # docker run writes the container's ID to --cidfile; the stub's is this.
 if sys.argv[1:2] == ["run"] and "--cidfile" in sys.argv:
     with open(sys.argv[sys.argv.index("--cidfile") + 1], "w") as cid:
@@ -2385,24 +2388,92 @@ class Check3dbloxImageTests(ImageRuleCases, unittest.TestCase):
     def test_id_reaches_the_exporter_unchanged(self):
         # The linter is openroad.pin's tag; the environment's is not read.
         self.env["OPENROAD_3DBLOX_IMAGE"] = "openroad-3dblox:from-the-env"
-        pins = ["--pins", "U1=pins file.json"]
-        result = self.invoke(IMAGE_ID, [str(self.chiplet), *pins])
+        result = self.invoke(IMAGE_ID)
         self.assertEqual(result.returncode, 0, result.stderr)
         common = ["run", "--rm",
                   "--user", "%d:%d" % (os.getuid(), os.getgid()),
                   "-v", "%s:%s" % (self.src, self.src),
-                  "-v", "%s:%s" % (self.out, self.out),
-                  "-w", str(self.out)]
+                  "-v", "%s:%s" % (self.out, self.out)]
         self.assertEqual(self.calls(), [
             ["image", "inspect", IMAGE_ID],
             ["image", "inspect", self.linter],
-            [*common,
-             "--entrypoint", "/opt/adk-tools/venv/bin/python3", IMAGE_ID,
-             "/opt/adk-tools/adk/openroad/chiplet2dbx.py",
-             "--chiplet", str(self.chiplet), "--out-dir", str(self.out),
-             "--name", "demo", *pins],
-            [*common, self.linter, "-exit",
+            [*common, "-w", str(self.out), *self.exporter(),
+             "--out-dir", str(self.out), "--name", "demo"],
+            [*common, "-w", str(self.out), self.linter, "-exit",
              "%s/check_3dblox.tcl" % self.out]])
+
+    def exporter(self):
+        return ["--entrypoint", "/opt/adk-tools/venv/bin/python3", IMAGE_ID,
+                "/opt/adk-tools/adk/openroad/chiplet2dbx.py",
+                "--chiplet", str(self.chiplet)]
+
+    def test_contracts_pins_and_layouts_are_mounted_read_only(self):
+        # Each input outside the assembly's directory reaches the exporter
+        # as an absolute path, its directory mounted read-only once; the die
+        # layouts are the ones the exporter's own --list-layouts names, and
+        # the linter, which reads only the out-dir, gets none of them.
+        inputs = self.base / "die inputs"
+        contract = inputs / "contract u1"
+        contract.mkdir(parents=True)
+        (inputs / "u1.pins.json").write_text("{}\n")
+        layouts = self.base / "dies"
+        self.env["RUN_SH_TEST_LAYOUTS"] = "%s/u1.gds\n%s/u2.gds\n%s/d.gds\n" % (
+            layouts, layouts, self.src)
+        args = [str(self.chiplet), "--contract", "U1=contract u1",
+                "--pins", "U1=u1.pins.json", "--contract", "U2=contract u1"]
+        result = self.invoke(IMAGE_ID, args, cwd=inputs)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        user = ["run", "--rm", "--user", "%d:%d" % (os.getuid(), os.getgid())]
+        contracts = ["--contract", "U1=%s" % contract,
+                     "--contract", "U2=%s" % contract]
+        common = [*user, "-v", "%s:%s" % (self.src, self.src),
+                  "-v", "%s:%s" % (self.out, self.out)]
+        self.assertEqual(self.calls(), [
+            ["image", "inspect", IMAGE_ID],
+            ["image", "inspect", self.linter],
+            [*user, "-v", "%s:%s:ro" % (self.src, self.src), *self.exporter(),
+             "--list-layouts", *contracts],
+            [*common, "-v", "%s:%s:ro" % (contract, contract),
+             "-v", "%s:%s:ro" % (inputs, inputs),
+             "-v", "%s:%s:ro" % (layouts, layouts),
+             "-w", str(self.out), *self.exporter(),
+             "--out-dir", str(self.out), "--name", "demo", *contracts,
+             "--pins", "U1=%s" % (inputs / "u1.pins.json")],
+            [*common, "-w", str(self.out), self.linter, "-exit",
+             "%s/check_3dblox.tcl" % self.out]])
+
+    def test_a_missing_input_creates_nothing(self):
+        # Checked before the out-dir is made, like the images.
+        for args, stderr in (
+                (["--contract", "U1=absent"],
+                 "--contract U1=absent: no such directory: absent\n"),
+                (["--pins", "U1=absent.json"],
+                 "--pins U1=absent.json: no such file: absent.json\n"),
+                (["--contract", "absent"],
+                 "--contract expects REF=PATH, got 'absent'\n"),
+                (["--pins", "=x"], "--pins expects REF=PATH, got '=x'\n")):
+            with self.subTest(args=args):
+                self.reset()
+                result = self.invoke(IMAGE_ID, [str(self.chiplet), *args],
+                                     cwd=self.base)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertEqual(result.stderr, stderr)
+                self.assertEqual([c[:2] for c in self.calls()],
+                                 [["image", "inspect"], ["image", "inspect"]])
+                self.assert_nothing_created()
+
+    def test_a_refused_layout_listing_creates_nothing(self):
+        # The exporter refuses the listing (an unknown ref, an unset
+        # variable): its own message stands and the run stops there.
+        (self.base / "c").mkdir()
+        self.env["RUN_SH_TEST_EXIT"] = "1"
+        result = self.invoke(IMAGE_ID, [str(self.chiplet), "--contract",
+                                        "U9=%s" % (self.base / "c")])
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual([c[:2] for c in self.calls()],
+                         [["image", "inspect"], ["image", "inspect"],
+                          ["run", "--rm"]])
+        self.assert_nothing_created()
 
 
 class LauncherRuleParityTests(unittest.TestCase):
