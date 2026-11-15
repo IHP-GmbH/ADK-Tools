@@ -2714,6 +2714,25 @@ class BuildShToolsImageTests(unittest.TestCase):
             with self.subTest(target=target):
                 self.assertIn('"${TOOLS_ARGS[@]}"', self.command(target))
         self.assertEqual(self.build.count('layers_on_tools "adk-tools:$'), 2)
+        self.assertIn('python3 -B ci/check_layer_prefix.py tools "$(image_layers "$TOOLS_ID")"',
+                      self.build)
+
+    def test_the_runtime_image_is_held_to_the_verify_image_it_ships_as(self):
+        # A runtime build that did not reuse the verify build's layers was never verified.
+        check = self.build.index(
+            'ci/check_layer_prefix.py runtime "$(image_layers "adk-tools:$TAG")"')
+        self.assertGreater(check, self.build.index("docker build --target runtime "))
+        self.assertLess(check, self.build.index('echo "Done: adk-tools:$TAG'))
+        guard = self.build.rindex("\nif ", 0, check)
+        self.assertTrue(self.build.startswith('\nif [ "$SKIP_VERIFY" -eq 0 ]; then\n', guard))
+        refusal = self.build[check:self.build.index("\nfi\n", check)]
+        self.assertIn('"$(image_layers "$VERIFY_ID")"', refusal)
+        self.assertIn('docker image rm "adk-tools:$TAG"', refusal)
+        self.assertIn("exit 1", refusal)
+        verify_id = self.build.index('VERIFY_ID="$(docker image inspect -f \'{{.Id}}\' '
+                                     '"adk-tools:$VERIFY_TAG")"')
+        self.assertGreater(verify_id, self.build.index("docker build --target verify "))
+        self.assertLess(verify_id, self.build.index("docker build --target runtime "))
 
     def test_the_runtime_names_its_tools_by_key_and_id(self):
         runtime = self.command("runtime")

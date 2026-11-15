@@ -688,17 +688,13 @@ fi
 TOOLS_ARGS=(--build-arg "TOOLS_IMAGE=$TOOLS_REF")
 tools_context
 
+image_layers() { docker image inspect -f '{{json .RootFS.Layers}}' "$1"; }
+
 # layers_on_tools <image>: the image's layers start with the tools image's, so
 # it is our code on exactly those tools.
 layers_on_tools() {
-    python3 -B - "$(docker image inspect -f '{{json .RootFS.Layers}}' "$TOOLS_ID")" \
-        "$(docker image inspect -f '{{json .RootFS.Layers}}' "$1")" "$1" <<'PY' || exit 1
-import json, sys
-tools, image = json.loads(sys.argv[1]), json.loads(sys.argv[2])
-if image[:len(tools)] != tools:
-    sys.exit("Refusing: %s is not built on the tools image's %d layers" % (sys.argv[3], len(tools)))
-print("== %s: %d tools layers, %d above them" % (sys.argv[3], len(tools), len(image) - len(tools)))
-PY
+    python3 -B ci/check_layer_prefix.py tools "$(image_layers "$TOOLS_ID")" \
+        "$1" "$(image_layers "$1")" || exit 1
 }
 
 # The runtime stage's fixed ENV: the tools a die build runs, from the closure
@@ -724,6 +720,7 @@ if [ "$SKIP_VERIFY" -eq 0 ]; then
         --build-arg JOBS="$JOBS" \
         --build-arg MANIFEST_B64="$MANIFEST_B64" .
     layers_on_tools "adk-tools:$VERIFY_TAG"
+    VERIFY_ID="$(docker image inspect -f '{{.Id}}' "adk-tools:$VERIFY_TAG")"
 fi
 
 echo "== tagging lean runtime image: adk-tools:$TAG"
@@ -763,6 +760,19 @@ docker build --target runtime -t "adk-tools:$TAG" \
     --build-arg JOBS="$JOBS" \
     --build-arg MANIFEST_B64="$MANIFEST_B64" .
 layers_on_tools "adk-tools:$TAG"
+# The runtime image is the verify image's lower part, so the image that ships
+# is the one the verify steps ran on. A runtime build that did not reuse all of
+# the verify build's layers (a builder that pruned its cache between the two)
+# compiled again, and that compile was never verified: its tag goes.
+if [ "$SKIP_VERIFY" -eq 0 ]; then
+    if ! python3 -B ci/check_layer_prefix.py runtime "$(image_layers "adk-tools:$TAG")" \
+            "adk-tools:$VERIFY_TAG" "$(image_layers "$VERIFY_ID")"; then
+        docker image rm "adk-tools:$TAG" >/dev/null || true
+        echo "Refusing: adk-tools:$TAG was compiled again, not taken from the verify" \
+             "build; its tag is removed" >&2
+        exit 1
+    fi
+fi
 [ "$(docker image inspect -f '{{.Id}}' "$TOOLS_REF")" = "$TOOLS_ID" ] || \
     cosim_refuse "$TOOLS_REF moved to another image during this build"
 
