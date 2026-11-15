@@ -79,6 +79,45 @@ Notes:
 - Bump only to a commit that exists on the tool's tracked branch (`.gitmodules`
   `branch = ...`), so a later `--remote` bump stays on the intended line of
   development.
+- Regenerate the pin set after staging the bump, and commit it with the
+  gitlink: `git add tools/<name> && python3 -B ci/pin_set.py`. The pin set takes
+  each tool's commit from the gitlink git has staged, not from the submodule's
+  checkout. The image is labelled with the committed pin set, and `build.sh`
+  refuses a `ci/pin-set.json` that differs from the commit or from what the
+  staged pins give.
+
+### Trying a branch of one tool
+
+```bash
+# an arbitrary branch of one tool against the rest of the pinned stack
+cd tools/chiplet-studio && git fetch && git checkout feature/x && cd ../..
+./build.sh
+```
+
+Nothing is staged here: the image carries `feature/x` while its
+`org.ihp.adk-tools.pin-set` label still names the pinned commit, so do not run
+such an image under an examples checkout's `release-lock.json`.
+
+To develop a Python tool against the pinned stack, mount your checkout over
+the baked-in copy:
+
+```bash
+docker run --rm -it -v "$PWD/chiplet_kicad_plugin":/opt/adk-tools/chiplet_kicad_plugin ... adk-tools:dev
+```
+
+### One-time cleanups of an old clone
+
+After `README.md`'s "Updating an existing clone", depending on how old the
+clone is:
+
+- Clones from before the demo moved into `examples/` still carry the
+  removed `kicad_designs` submodule as leftovers:
+  `rm -rf tools/kicad_designs .git/modules/tools/kicad_designs`
+- If the default job count changed since your last build (it keys the
+  compile layers), the heavy stages rebuild once (~40 min), then cache
+  normally again.
+- A `/work/example` from an older image stays as it is. It was the demo copied
+  from this clone; the examples now come from adk-examples.
 
 ---
 
@@ -330,7 +369,8 @@ the tag comes before the build.
 
 ## 8. See also
 
-- `README.md` -- user-facing quickstart and tool table.
+- `README.md` -- what the image is, the build sequence the documentation
+  copies, and the links to the documentation pages.
 - `RELEASE_CHECKLIST.md` -- the ordered pre-release checklist.
 - `NOTICE.md` -- per-component licenses and the GPL corresponding-source
   obligation.
