@@ -223,8 +223,8 @@ the `ENV` root, `bin/<command>`, the venv pins, the verify step, and the
 
 ## 6. Cutting a release
 
-Calendar versioning: `vYYYY.MM` (e.g. `v2026.07`). Continues the scheme started
-at `v2026.06`.
+Calendar versioning: `vYYYY.MM` (e.g. `v2026.07`), and `vYYYY.MM.N` for a point
+release of it (e.g. `v2026.11.2`). Continues the scheme started at `v2026.06`.
 
 The order and every check are in `RELEASE_CHECKLIST.md`; follow it. The
 mechanics behind its steps:
