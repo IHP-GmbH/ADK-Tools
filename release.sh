@@ -41,7 +41,7 @@ if git submodule status --recursive | grep -qE '^[+-U]'; then
     git submodule status --recursive | grep -E '^[+-U]' >&2
     exit 1
 fi
-git describe --exact-match --tags --exclude '*/*' HEAD 2>/dev/null | grep -qx "$VERSION_TAG" || {
+git describe --exact-match --tags --exclude '*/*' HEAD 2>/dev/null | grep -qxF "$VERSION_TAG" || {
     echo "error: HEAD is not exactly at tag $VERSION_TAG; tag the release commit first" >&2
     exit 1
 }
@@ -68,7 +68,7 @@ trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
 # first release the package does not exist yet -- the `gh api` 404 makes the
 # pipeline non-zero, the `if` is false, and we correctly proceed to publish.
 if gh api orgs/IHP-GmbH/packages/container/adk-tools/versions \
-        --jq '.[].metadata.container.tags[]' 2>/dev/null | grep -qx "$VERSION_TAG"; then
+        --jq '.[].metadata.container.tags[]' 2>/dev/null | grep -qxF "$VERSION_TAG"; then
     echo "error: $VERSION_TAG is already published and digests are immutable; cut a new version" >&2
     exit 1
 fi
