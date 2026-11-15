@@ -115,3 +115,17 @@ committed library:
 - `metal_test_chiplet.g2kproj` has the right format + layer selections and an
   embedded pin list matching `metal_test_chiplet.pins.json` in name + side + type
   -- strict.
+
+## Die contract for the reference export
+
+`metal_test_contract/die-contract.json` binds both dies of the demo for the 3Dblox export
+(`chiplet2dbx.py --contract U1=DIR --contract U2=DIR`): top cell `Metal_Test`, the bytes of
+`Metal_Test.gds` (sha256), its top-cell bbox in the die's own GDS frame (-389, -1298.798;
+389, 1361.202 um, measured with KLayout), and the pin list `metal_test_chiplet.pins.json`
+(sha256). The die's GDS origin is not its outline's centre, so the export places the outline
+from this box. The export reads the schema and version, the frame, the top cell, the layout
+digest, the box and the pin list's kind and digest; it takes the layout itself from the
+`.chiplet`. The file is written by hand and is not a full die-output contract: it has no build
+record and no terminals, so a strict die-output contract reader refuses it. Its `generator`
+says so. `tests/run_sh/test_example_contract.py` holds the two digests to the files, so a
+change to either file fails until the contract is regenerated.

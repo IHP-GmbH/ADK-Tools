@@ -1,0 +1,27 @@
+{
+  "schema": "die-output-contract",
+  "version": "1.1",
+  "generator": "hand-written: binds the die box, the layout and the pin list only; not a full die-output contract (no PDK version, build record or terminals), so a strict reader refuses it",
+  "die": {
+    "name": "Metal_Test",
+    "layout": "../Metal_Test.gds",
+    "layout_sha256": "4ef37b3ca225e970cae34bc689552fad653d7e2fa267f6b05d876be03977ed6c",
+    "top_cell": "Metal_Test",
+    "dbu_um": 0.001,
+    "bbox_um": [
+      -389.0,
+      -1298.798,
+      389.0,
+      1361.202
+    ],
+    "frame": "die_local_gds_origin"
+  },
+  "process": {
+    "pdk": "ihp-sg13g2"
+  },
+  "inventory": {
+    "kind": "pins_json",
+    "path": "../metal_test_chiplet.pins.json",
+    "sha256": "1a266e8fb096663df98b9bf402ffcc365bb802da7d02a100810f478f458d451e"
+  }
+}

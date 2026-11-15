@@ -21,7 +21,7 @@ rest of the suite.
 ```bash
 ./openroad/build-image.sh                    # once; JOBS=8 by default
 export ADK_TOOLS_IMAGE=sha256:<64 hex>       # the adk-tools image, by ID
-./openroad/check-3dblox.sh path/to/assembly.chiplet
+./openroad/check-3dblox.sh path/to/assembly.chiplet --contract U1=path/to/u1-contract ...
 ./openroad/verify-live.sh                    # regression gate
 ```
 
@@ -29,14 +29,27 @@ export ADK_TOOLS_IMAGE=sha256:<64 hex>       # the adk-tools image, by ID
 `openroad/.openroad-src` (git-ignored, around 3 GB) and builds it with
 upstream's own Dockerfile. Set `OPENROAD_SRC` to reuse an existing checkout;
 it must already be at the pinned commit, the script will not move someone
-else's tree. The build is capped at `JOBS` compile jobs because upstream's
-Dockerfile otherwise takes every core on the machine.
+else's tree. The compile runs `JOBS` jobs because upstream's Dockerfile
+otherwise takes every core on the machine. JOBS does not bound the LTO link or
+the dependency build, which size their jobs by the CPUs the build sees, and a
+cap on the caller does not reach a build, which runs in BuildKit. Inside a
+hostslot slot the slot's docker shim runs the build on a BuildKit of the
+slot's own, held by docker to the slot's CPUs and memory; JOBS defaults to the
+slot's CPUs.
 
 `check-3dblox.sh` runs the exporter from the adk-tools image and the linter
 from the OpenROAD image, so what gets exercised is the exporter that actually
 ships. It exits non-zero on any linter warning, not only on a crash. Pass
+`--contract REF=DIR` once per die anchored at its GDS origin (`gds_origin`):
+the die contract's `die.bbox_um` places the die's outline around that origin,
+and the exporter refuses such a die without one. Pass
 `--pins REF=pins.json` (the `gds_to_kicad` artifact) once per die to make the
-export bump-aware and activate the bump-alignment check.
+export bump-aware and activate the bump-alignment check. The exporter's
+container sees the assembly's directory and the out-dir, plus, read-only, each
+contract directory, each pin list's directory and each die layout a contract
+is checked against (`chiplet2dbx.py --list-layouts` names them first). A layout
+named through a variable needs that variable set inside the image, which it is
+not, so name the layout by a path relative to the `.chiplet` or an absolute one.
 
 `check-3dblox.sh` takes the adk-tools image the way `run.sh` does:
 `ADK_TOOLS_IMAGE` must be the image ID, `sha256:<64 hex>`, there is no default,
@@ -84,8 +97,11 @@ direction (3Dblox to `.chiplet`) is deliberately not provided.
 
 Chiplet Studio ships an equivalent two-step flow as an in-GUI example
 (`examples/openroad_3dblox/` in that repository) for running the same check
-from the Flow Pipeline dock. The scripts here are the host-side CLI
-equivalent; the Tcl they generate is intentionally identical.
+from the Flow Pipeline dock; the Tcl the scripts here generate is
+intentionally identical. At the Studio commit this repository pins, that
+example's two dies are anchored at their GDS origin and name neither a layout
+nor a contract, so the exporter pinned here refuses it until the example is
+updated.
 
 ## Known upstream issue
 

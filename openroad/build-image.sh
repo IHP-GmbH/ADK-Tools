@@ -3,9 +3,18 @@
 #
 # Usage: [JOBS=N] ./openroad/build-image.sh [--force]
 #
-#   JOBS      parallel compile jobs (default: 8). OpenROAD's own Dockerfile
-#             defaults to nproc, which would take the whole machine.
+#   JOBS      parallel compile jobs (default: the hostslot slot's
+#             HOSTSLOT_CPUS, else 8). OpenROAD's own Dockerfile defaults to
+#             nproc, which would take the whole machine.
 #   --force   rebuild even if the pinned tag already exists.
+#
+# JOBS bounds the compile, not the whole build: OpenROAD links with LTO
+# (-flto=auto) and its dependency installer, and both size their jobs by the
+# CPUs the build sees. A cap on this script's process does not reach the
+# build, which runs in BuildKit. Inside a hostslot slot the slot's docker shim
+# sends the build to a BuildKit of the slot's own, held by docker to the
+# slot's CPUs and memory, so nproc in the build reports the slot's CPUs.
+# Elsewhere the build runs on the current buildx builder and its limits.
 #
 #   OPENROAD_SRC   existing OpenROAD checkout to build from. Must already be
 #                  at the pinned commit; this script never moves someone
@@ -28,7 +37,10 @@ done
 
 # shellcheck source=openroad.pin
 source ./openroad.pin
-JOBS="${JOBS:-8}"
+JOBS="${JOBS:-${HOSTSLOT_CPUS:-8}}"
+case "$JOBS" in ''|*[!0-9]*) echo "JOBS=$JOBS: a whole number of jobs" >&2; exit 1 ;; esac
+JOBS=$((10#$JOBS))
+[ "$JOBS" -gt 0 ] || { echo "JOBS must be above 0" >&2; exit 1; }
 
 if [ "$FORCE" -eq 0 ] && docker image inspect "$OPENROAD_3DBLOX_IMAGE" >/dev/null 2>&1; then
     echo "$OPENROAD_3DBLOX_IMAGE already exists; use --force to rebuild."
@@ -61,7 +73,9 @@ head=$(git -C "$SRC" rev-parse HEAD)
     echo "checkout is at $head, expected $OPENROAD_COMMIT" >&2; exit 1; }
 
 echo "Building $OPENROAD_3DBLOX_IMAGE from $SRC @ ${OPENROAD_COMMIT:0:8} (jobs=$JOBS)"
-docker build \
+# --load: a docker-container or remote builder (a slot's) keeps the image
+# in its own store unless it is loaded into docker's.
+docker buildx build --load \
     --build-arg "numThreads=$JOBS" \
     --build-arg "orVersion=${OPENROAD_COMMIT:0:8}" \
     -t "$OPENROAD_3DBLOX_IMAGE" \
