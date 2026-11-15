@@ -893,10 +893,9 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # unchanged, and no test id in ci/required-tests.txt, ci/tracked-tree-tests.txt or
 # ci/image-xor-tests.txt moves. The version stays 0.1.0.
 #
-# This ref (38c00021) adds eight commits on 8c0b96df and moves with STAGE_CHIPLET_FLOW_REF, for
-# the die-flow refusal class and provenance row the chiplet-flow entry names. It is not on
-# packaging-flow's remote yet: the image stages it from the local sibling and ci/pin-set.json
-# records it as local-only. The interposer PDK root is read as a carrier technology package: its manifest,
+# An earlier move (38c00021) added eight commits on 8c0b96df and moved with STAGE_CHIPLET_FLOW_REF, for
+# the die-flow refusal class and provenance row the chiplet-flow entry names. It reached
+# packaging-flow's remote dev with its pull request 3. The interposer PDK root is read as a carrier technology package: its manifest,
 # libs.tech/adk/technology.json, marks the root and names the stack and the KLayout layer sheet
 # the flow reads, and a root without one is refused. tools/OpenIntM4TM2 at d69aab4 holds that
 # manifest, the bytes the hermetic interposer fixture copies, so the gitlink does not move. The
@@ -906,7 +905,14 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # contract helper's source row to chiplet-flow 7cf999a, and the black-box die chain, over a frozen
 # partner die that emit-partner-die wrote, runs in packaging-flow's merge-tier tests. No test id in ci/required-tests.txt,
 # ci/tracked-tree-tests.txt or ci/image-xor-tests.txt moves. The version stays 0.1.0.
-STAGE_PACKAGING_FLOW_REF=38c00021b2031f4b24dc7d67a752f6b06699bd94
+#
+# This ref (a202222) adds one commit on 38c00021 and moves with STAGE_CHIPLET_FLOW_REF:
+# tests/die_flow/PROVENANCE.md restates its commit line at chiplet-flow 7a746f8. No copy is taken
+# again, nothing under src/ moves, no pyproject dependency moves, and no test id in
+# ci/required-tests.txt, ci/tracked-tree-tests.txt or ci/image-xor-tests.txt moves. The version
+# stays 0.1.0. Until it reaches packaging-flow's remote, the image stages it from the local
+# sibling and ci/pin-set.json records it as local-only.
+STAGE_PACKAGING_FLOW_REF=a202222892f3e669cdc35fae7327e5fc482b55a2
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
@@ -1104,7 +1110,7 @@ STAGE_PACKAGING_FLOW_REF=38c00021b2031f4b24dc7d67a752f6b06699bd94
 # copies of chiplet-flow files by content, and none of those files moves, so it does not change;
 # packaging-flow's host suite at the pin above passes with chiplet-flow at this ref.
 #
-# This ref (7cf999a) adds 13 commits on 684f9d0. A new command, emit-partner-die, writes a
+# An earlier move (7cf999a) added 13 commits on 684f9d0. A new command, emit-partner-die, writes a
 # ready die directory from a die owner's package for a die designed elsewhere: the black-box pad
 # map at 1.1 with nets, roles, directions, the process, the thickness, the supply voltages and a
 # signoff statement. It runs the pads-only generator and refuses, as the new PartnerDieRefused
@@ -1116,8 +1122,19 @@ STAGE_PACKAGING_FLOW_REF=38c00021b2031f4b24dc7d67a752f6b06699bd94
 # the die-flow commit its copies are taken at and the source sha256 of each. No copy is taken
 # again, but tests/test_die_contract.py, the source of contract.py, changed in tests it does not
 # copy, so the commit line and that source row move, and STAGE_PACKAGING_FLOW_REF moves with it.
+#
+# This ref (7a746f8) is the merge of chiplet-flow's pull request 1, three commits on 7cf999a. A die
+# no longer states an attachment intent: CHIPLET_ATTACHMENT stays declared for this release as a
+# deprecated optional string, so a configuration that still states it loads and the flow logs one
+# warning under the id CDF-0001, and the materialization receipt and the build record no longer
+# carry attachment_intent. The method is chosen and checked at the assembly, against the
+# interconnect registry. The vehicles and the template stop stating the key, so the vehicle
+# receipt goldens and the DRIVER configuration digest move. No package dependency moves, no
+# die_errors class moves and tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does
+# not. packaging-flow's tests/die_flow/PROVENANCE.md names the die-flow commit its copies are taken
+# at, so STAGE_PACKAGING_FLOW_REF moves with it.
 STAGE_CHIPLET_FLOW_PATH=chiplet-flow
-STAGE_CHIPLET_FLOW_REF=7cf999a80e1123cf07702a3e613602463232321a
+STAGE_CHIPLET_FLOW_REF=7a746f8b57f5a0fc0edef2f4e6a94480aba7514c
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
