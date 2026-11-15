@@ -17,7 +17,7 @@ folder of an adk-examples checkout (`STAGE_DIE_VIEWS_DIR`). The two `--check`
 calls find a missing piece in seconds.
 
 ```bash
-# the clone lives at ADK_TOOLS_ROOT, outside ADK_WORK (see below); the
+# the clone lives at ADK_TOOLS_ROOT, outside ADK_WORK; the
 # die-views/ folder of the adk-examples checkout at ADK_EXAMPLES_ROOT has to
 # match die-views.sha256
 export ADK_TOOLS_ROOT=~/adk-tools ADK_EXAMPLES_ROOT=~/adk-examples
