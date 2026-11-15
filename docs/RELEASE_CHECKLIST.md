@@ -1,6 +1,6 @@
 # Release checklist
 
-The routine for cutting a `vYYYY.MM` tag. A release is this repository at the
+The routine for cutting a `vYYYY.MM` or `vYYYY.MM.N` tag. A release is this repository at the
 tag; no image is published, to a registry or as a download, and people who run
 a release build the image locally (`README.md`, Build). This repository and
 every repository it pins as a submodule must be anonymously clonable at the tag.
