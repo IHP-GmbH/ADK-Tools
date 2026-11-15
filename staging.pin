@@ -458,10 +458,11 @@ STAGE_INTERPOSER_PNR_REF=23e5b317f2e36a9b5384db7527faed0de00c7f08
 # defined but no identity path calls it, so verify in a container without a Docker CLI does not
 # refuse on that account.
 #
-# Declared runtime deps are pyyaml>=6.0, chiplet-system-description and chiplet-format-io>=1.15.0;
-# the chiplet-full extra adds the reader's strict extra at the same floor. The reader floor is a
-# plain dependency, so pip check reads it: a chiplet-spec pin below 1.15.0 fails the image's install
-# step (chiplet-cosim has the same floor, the die flow 1.12.0). 1.12.0 maps ihp-sg13cmos5l to
+# Declared runtime deps are pyyaml>=6.0, chiplet-system-description and
+# chiplet-format-io[strict]>=1.22.0, whose technology_package reads the carrier package manifest
+# the interposer root is resolved by; the chiplet-full extra names the same floor. The reader floor
+# is a plain dependency, so pip check reads it: a chiplet-spec pin below 1.22.0 fails the image's
+# install step. 1.12.0 maps ihp-sg13cmos5l to
 # sg13cmos5l, which the admission verdict for such a contract rests on (this ref declares sg13cmos5l
 # with no compose window, and says why), and holds READ_KINDS, which the die flow door imports.
 # 1.10.0 keys the KLayout check options (DRC_THREADS, DRC_OPTIONS) by PDK, and this package reads
@@ -878,7 +879,7 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # ci/tracked-tree-tests.txt or ci/image-xor-tests.txt moves. The assembly-lvs, chiplet-flow and
 # chiplet-spec entries that name packaging-flow do not move for it. The version stays 0.1.0.
 #
-# This ref (8c0b96df) is the merge of packaging-flow's pull request 1, seven commits on 53a2ce8.
+# An earlier move (8c0b96df) was the merge of packaging-flow's pull request 1, seven commits on 53a2ce8.
 # packaging-flow's remote is private, so a second person still cannot obtain the commit from it:
 # the image stages it from the local sibling, ci/pin-set.json records it as local-only, and the
 # GitHub integration job does not check packaging-flow out. Every spec's interposer still passes
@@ -891,7 +892,21 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # catalog row. No pyproject dependency moves, tests/die_flow and tests/fixtures/interposer_pdk are
 # unchanged, and no test id in ci/required-tests.txt, ci/tracked-tree-tests.txt or
 # ci/image-xor-tests.txt moves. The version stays 0.1.0.
-STAGE_PACKAGING_FLOW_REF=8c0b96df117cae98f90d813618e5d5c07ca1e288
+#
+# This ref (38c00021) adds eight commits on 8c0b96df and moves with STAGE_CHIPLET_FLOW_REF, for
+# the die-flow refusal class and provenance row the chiplet-flow entry names. It is not on
+# packaging-flow's remote yet: the image stages it from the local sibling and ci/pin-set.json
+# records it as local-only. The interposer PDK root is read as a carrier technology package: its manifest,
+# libs.tech/adk/technology.json, marks the root and names the stack and the KLayout layer sheet
+# the flow reads, and a root without one is refused. tools/OpenIntM4TM2 at d69aab4 holds that
+# manifest, the bytes the hermetic interposer fixture copies, so the gitlink does not move. The
+# runtime dependency floor moves to chiplet-format-io[strict] 1.22.0, which reads the manifest;
+# STAGE_CHIPLET_SPEC_REF (6a627ad) carries 1.22.0 and the venv carries jsonschema. chiplet-flow's
+# PartnerDieRefused gets its class, tests/die_flow/PROVENANCE.md moves its commit line and the
+# contract helper's source row to chiplet-flow 7cf999a, and the black-box die chain, over a frozen
+# partner die that emit-partner-die wrote, runs in packaging-flow's merge-tier tests. No test id in ci/required-tests.txt,
+# ci/tracked-tree-tests.txt or ci/image-xor-tests.txt moves. The version stays 0.1.0.
+STAGE_PACKAGING_FLOW_REF=38c00021b2031f4b24dc7d67a752f6b06699bd94
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
@@ -1079,7 +1094,7 @@ STAGE_PACKAGING_FLOW_REF=8c0b96df117cae98f90d813618e5d5c07ca1e288
 # change, so ci/image-xor-tests.txt does not. packaging-flow's die-flow provenance names it, so
 # STAGE_PACKAGING_FLOW_REF moves with it.
 #
-# This ref (684f9d0) adds two commits on 54f256d. A die may state sbump_sac305, the solder-bump
+# An earlier move (684f9d0) added two commits on 54f256d. A die may state sbump_sac305, the solder-bump
 # method, as its attachment intent beside the two pillar methods: the accepted intents are one
 # list, ATTACHMENTS in chiplet_full, which CHIPLET_ATTACHMENT, the config check, the recipe check
 # and the receipt check all read, and a test holds every listed id to a method of the interconnect
@@ -1088,8 +1103,21 @@ STAGE_PACKAGING_FLOW_REF=8c0b96df117cae98f90d813618e5d5c07ca1e288
 # not, and no package dependency moves. packaging-flow's tests/die_flow/PROVENANCE.md names its
 # copies of chiplet-flow files by content, and none of those files moves, so it does not change;
 # packaging-flow's host suite at the pin above passes with chiplet-flow at this ref.
+#
+# This ref (7cf999a) adds 13 commits on 684f9d0. A new command, emit-partner-die, writes a
+# ready die directory from a die owner's package for a die designed elsewhere: the black-box pad
+# map at 1.1 with nets, roles, directions, the process, the thickness, the supply voltages and a
+# signoff statement. It runs the pads-only generator and refuses, as the new PartnerDieRefused
+# (exit 1), a missing or misspelt key, a rule across keys that does not hold, a reference that does
+# not match its digest, or a generator that fails or writes another layout than the package's,
+# and leaves no directory behind. The ready-die writer may now state voltages and a conductor opening. No package
+# dependency moves and tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does not.
+# packaging-flow names every die-flow refusal class, and its tests/die_flow/PROVENANCE.md names
+# the die-flow commit its copies are taken at and the source sha256 of each. No copy is taken
+# again, but tests/test_die_contract.py, the source of contract.py, changed in tests it does not
+# copy, so the commit line and that source row move, and STAGE_PACKAGING_FLOW_REF moves with it.
 STAGE_CHIPLET_FLOW_PATH=chiplet-flow
-STAGE_CHIPLET_FLOW_REF=684f9d0f4a1dea5ff9f6bcb0900a198a01fb1580
+STAGE_CHIPLET_FLOW_REF=7cf999a80e1123cf07702a3e613602463232321a
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
