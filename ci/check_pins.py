@@ -21,10 +21,9 @@ Two properties are checked, per submodule:
   on-branch   the pinned sha is contained in the branch `.gitmodules` declares.
               `git submodule update --remote` follows that declaration, so a
               pin that is not on it gets silently dragged elsewhere the first
-              time anyone runs it. The plugin's `main` and `dev` have no common
-              ancestor at all, which is what makes this more than pedantry
-              here: the wrong declaration moves the pin onto a disjoint
-              history.
+              time anyone runs it. A release commit sits on `main` only until
+              `dev` merges it in, so a pin on the wrong branch can land on a
+              commit the other one does not hold.
 
 Both use the GitHub API rather than a fetch. Proving containment by fetching
 would mean pulling the history of seven repositories, one of which is KiCad,

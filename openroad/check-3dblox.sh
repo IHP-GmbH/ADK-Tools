@@ -1,11 +1,20 @@
 #!/bin/bash
 # Export a .chiplet assembly to 3Dblox and lint it with OpenROAD.
 #
-# Usage: ./openroad/check-3dblox.sh <assembly.chiplet> [out-dir] [--pins REF=pins.json ...]
+# Usage: ./openroad/check-3dblox.sh <assembly.chiplet> [out-dir]
+#            [--contract REF=DIR ...] [--pins REF=pins.json ...]
 #
-#   out-dir   default: <assembly dir>/build_3dblox
-#   --pins    per-die pin list (gds_to_kicad's *.pins.json) making the export
-#             bump-aware; repeatable, one per die reference.
+#   out-dir     default: <assembly dir>/build_3dblox
+#   --contract  the die contract directory of a die; one per gds_origin die,
+#               since its die.bbox_um places the die's outline around its GDS
+#               origin. The exporter refuses a gds_origin die without one.
+#   --pins      per-die pin list (gds_to_kicad's *.pins.json) making the export
+#               bump-aware; repeatable, one per die reference.
+#
+# The exporter's container sees the assembly's directory and the out-dir, and
+# read-only each contract directory, each pin list's directory and each die
+# layout a contract is checked against (the exporter's --list-layouts names
+# them, resolved as the .chiplet does, in a first run of the same image).
 #
 #   ADK_TOOLS_IMAGE   ID of the image providing the exporter, sha256:<64 hex>.
 #                     Required: there is no default, and a tag is refused
@@ -50,9 +59,11 @@ fi
 CHIPLET=""
 OUT_DIR=""
 PINS=()
+CONTRACTS=()
 while [ $# -gt 0 ]; do
     case "$1" in
-        --pins) PINS+=("--pins" "${2:?--pins needs REF=path}"); shift 2 ;;
+        --pins) PINS+=("${2:?--pins needs REF=path}"); shift 2 ;;
+        --contract) CONTRACTS+=("${2:?--contract needs REF=DIR}"); shift 2 ;;
         -*) echo "unknown option: $1" >&2; exit 1 ;;
         *)  if [ -z "$CHIPLET" ]; then CHIPLET="$1"
             elif [ -z "$OUT_DIR" ]; then OUT_DIR="$1"
@@ -60,7 +71,7 @@ while [ $# -gt 0 ]; do
             fi; shift ;;
     esac
 done
-[ -n "$CHIPLET" ] || { echo "usage: check-3dblox.sh <assembly.chiplet> [out-dir]" >&2; exit 1; }
+[ -n "$CHIPLET" ] || { echo "usage: check-3dblox.sh <assembly.chiplet> [out-dir] [--contract REF=DIR ...] [--pins REF=pins.json ...]" >&2; exit 1; }
 [ -f "$CHIPLET" ] || { echo "no such .chiplet: $CHIPLET" >&2; exit 1; }
 
 # Both images are looked up before the out-dir is made, so an image the
@@ -75,20 +86,61 @@ done
 CHIPLET=$(cd "$(dirname "$CHIPLET")" && pwd)/$(basename "$CHIPLET")
 SRC_DIR=$(dirname "$CHIPLET")
 NAME=$(basename "$CHIPLET" .chiplet)
+
+# Inputs outside the assembly's directory are passed as absolute paths, each
+# with the directory the container must see; a missing one stops the run
+# before the out-dir is made.
+REF_ARGS=()
+INPUT_DIRS=()
+absolute() {  # <option> <REF=path> <test flag>
+    local ref="${2%%=*}" path="${2#*=}"
+    if [ "$ref" = "$2" ] || [ -z "$ref" ] || [ -z "$path" ]; then
+        echo "$1 expects REF=PATH, got '$2'" >&2; exit 1
+    fi
+    [ "$3" "$path" ] || { echo "$1 $2: no such ${4}: $path" >&2; exit 1; }
+    if [ -d "$path" ]; then path=$(cd "$path" && pwd)
+    else path=$(cd "$(dirname "$path")" && pwd)/$(basename "$path"); fi
+    REF_ARGS+=("$1" "$ref=$path")
+    if [ -d "$path" ]; then INPUT_DIRS+=("$path")
+    else INPUT_DIRS+=("$(dirname "$path")"); fi
+}
+for spec in "${CONTRACTS[@]}"; do absolute --contract "$spec" -d directory; done
+CONTRACT_ARGS=("${REF_ARGS[@]}")
+for spec in "${PINS[@]}"; do absolute --pins "$spec" -f file; done
+
+# Bind the host uid so the exported files stay writable and readable on both
+# sides; neither image runs as the invoking user by default.
+USER_ARGS=(--rm --user "$(id -u):$(id -g)")
+EXPORTER=(--entrypoint /opt/adk-tools/venv/bin/python3 "$ADK_IMAGE"
+          /opt/adk-tools/adk/openroad/chiplet2dbx.py --chiplet "$CHIPLET")
+
+# The layouts the contracts are checked against, as the exporter resolves
+# them. A layout outside every mounted directory would read as missing.
+if [ ${#CONTRACTS[@]} -gt 0 ]; then
+    layouts=$(docker run "${USER_ARGS[@]}" -v "$SRC_DIR:$SRC_DIR:ro" \
+        "${EXPORTER[@]}" --list-layouts "${CONTRACT_ARGS[@]}") || exit 1
+    while IFS= read -r layout; do
+        [ -n "$layout" ] && INPUT_DIRS+=("$(dirname "$layout")")
+    done <<< "$layouts"
+fi
+
 OUT_DIR="${OUT_DIR:-$SRC_DIR/build_3dblox}"
 mkdir -p "$OUT_DIR"
 OUT_DIR=$(cd "$OUT_DIR" && pwd)
 
-# Bind the host uid so the exported files stay writable and readable on both
-# sides; neither image runs as the invoking user by default.
-DOCKER_COMMON=(--rm --user "$(id -u):$(id -g)" -v "$SRC_DIR:$SRC_DIR")
+DOCKER_COMMON=("${USER_ARGS[@]}" -v "$SRC_DIR:$SRC_DIR")
 [ "$OUT_DIR" = "$SRC_DIR" ] || DOCKER_COMMON+=(-v "$OUT_DIR:$OUT_DIR")
+EXPORT_MOUNTS=()
+declare -A mounted=(["$SRC_DIR"]=1 ["$OUT_DIR"]=1)
+for dir in "${INPUT_DIRS[@]}"; do
+    [ -n "${mounted[$dir]:-}" ] && continue
+    mounted["$dir"]=1
+    EXPORT_MOUNTS+=(-v "$dir:$dir:ro")
+done
 
 echo "== export: $NAME -> $OUT_DIR"
-docker run "${DOCKER_COMMON[@]}" -w "$OUT_DIR" \
-    --entrypoint /opt/adk-tools/venv/bin/python3 "$ADK_IMAGE" \
-    /opt/adk-tools/adk/openroad/chiplet2dbx.py \
-        --chiplet "$CHIPLET" --out-dir "$OUT_DIR" --name "$NAME" "${PINS[@]}"
+docker run "${DOCKER_COMMON[@]}" "${EXPORT_MOUNTS[@]}" -w "$OUT_DIR" \
+    "${EXPORTER[@]}" --out-dir "$OUT_DIR" --name "$NAME" "${REF_ARGS[@]}"
 
 cat > "$OUT_DIR/check_3dblox.tcl" <<EOF
 read_3dbx $NAME.3dbx

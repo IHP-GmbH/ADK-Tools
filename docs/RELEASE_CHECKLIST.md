@@ -1,6 +1,6 @@
 # Release checklist
 
-The routine for cutting a `vYYYY.MM` tag. A release is this repository at the
+The routine for cutting a `vYYYY.MM` or `vYYYY.MM.N` tag. A release is this repository at the
 tag; no image is published, to a registry or as a download, and people who run
 a release build the image locally (`README.md`, Build). This repository and
 every repository it pins as a submodule must be anonymously clonable at the tag.
@@ -94,7 +94,7 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
           if r["stage_name"]))'
       for t in staging/*/; do (
           n=$(basename "$t")
-          row=$(grep -E "^\| $n \|" NOTICE.md | cut -d'|' -f3 |
+          row=$(grep -E "^\| $n( \([^|]*\))? \|" NOTICE.md | cut -d'|' -f3 |
               sed 's/`//g; s/^ *//; s/ *$//')
           echo "== $n (row: ${row:-NONE})"
           cd "$t" || { echo "UNREADABLE"; exit 1; }
@@ -131,7 +131,8 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
       It passes when all of this holds; if not, delete the local tag, fix on
       `dev`, and start again:
       - the file has one `==` section per stage name it starts with (from
-        `ci/pin-set.json`), none `UNREADABLE` and none with row `NONE`;
+        `ci/pin-set.json`), none `UNREADABLE` and none with row `NONE` (a row's
+        label is its stage name, optionally followed by a note in parentheses);
       - the root `LICENSE` or `COPYING` is the row license's text, and
         `LICENSES/`, where present, holds no license other than the row's
         and the exceptions';

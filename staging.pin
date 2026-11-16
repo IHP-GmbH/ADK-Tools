@@ -96,7 +96,7 @@
 # runner, which can also name the image's IHP-Open-PDK and gf180mcu commits (SG13G2_REF,
 # GF180MCU_REF). No package or test file changes.
 #
-# This ref (27e8508, 0.8.0) adds three commits on the previous pin: resolved/v5 is v4 plus a declared pin
+# An earlier move (27e8508, 0.8.0) added three commits on the pin before it: resolved/v5 is v4 plus a declared pin
 # tie, a group of pads a die declares as one pin (evidence kind declared_component_contract, an
 # assembly-lvs.component-certificate/v3 naming the declaration it was read from). A declared tie
 # joins nothing: each pad is still judged as its own terminal, and report/v6 lists the declared
@@ -104,9 +104,13 @@
 # unchanged content apart from engine.version and the run id, so the staged packaging-flow's v4
 # runs read as before. The dependency ranges do not move.
 STAGE_ASSEMBLY_LVS_PATH=assembly-lvs
-# This ref (27e8508) is assembly-lvs dev after the v2026.11 release, on the previous pin
-# 27e8508: one commit, the v2026.11 release bytes (its public references); no code moves.
-STAGE_ASSEMBLY_LVS_REF=27e850825e11035871a8023d94573b502f32af87
+# An earlier move (27e8508) was assembly-lvs dev after the v2026.11 release, on the pin before
+# it: one commit, the v2026.11 release bytes (its public references); no code moves.
+#
+# This ref (a672ac5) adds one commit on 27e8508: the README takes the short form and points at the
+# documentation page. Only README.md changes, so the version (0.8.0), the arguments and the reports
+# are 27e8508's.
+STAGE_ASSEMBLY_LVS_REF=a672ac50d03847599e0fb5d9f737e1d6d09dbc53
 
 # 2.5D place/route engine, distribution interposer-pnr 0.5.0. Console script `interposer-pnr`
 # (interposer_pnr.cli:main), a headless subcommand CLI, not a GUI: place, place-check, bumps,
@@ -391,15 +395,45 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # vendored reader moves to chiplet-spec's 1.22.0 (the vendored __init__.py changes only its
 # release string).
 #
-# This ref (3e85398) adds five commits, all under tests/: every fixture and test assembly that
+# An earlier move (3e85398) added five commits, all under tests/: every fixture and test assembly that
 # seats dies declares the interposer's attachment_surface_z, and the bump-obstruction and
 # draft-path cases are elaborated again with it (only the chiplet digest moves in their bumps.json
-# and sheet). No src/ file moves, so routing, placement and the version (0.5.0) hold. It moves with
-# ci/check_attach_plane.py, which walks this tree (step 0c). The vendored reader's SOURCE names
-# an earlier commit than STAGE_CHIPLET_SPEC_REF; the bytes are equal and nothing
-# reads that commit, so it is aligned at the next reader move. No KiCad rule pair,
+# and sheet). No src/ file moves, so routing, placement and the version (0.6.0.dev0) hold. It moves
+# with ci/check_attach_plane.py, which walks this tree (step 0c). No KiCad rule pair,
 # tests/test_router.py or pyproject dependency moves, so ci/ipnr-route-tests.txt is unchanged.
-STAGE_INTERPOSER_PNR_REF=3e85398b8d118370796a22f643355bbe0e3a4638
+#
+# An earlier move (23e5b31) added ten commits. It ships ihp_sg13g2_intm4tm2_rdl2_sbump, the rdl2
+# descriptor with the die landing on the solder-bump UBM opening instead of the pillar's, and the
+# carrier pad domains accept the anchors some shipped descriptor attaches through, instead of the
+# pillar's alone. --tech also takes a carrier package manifest (libs.tech/adk/technology.json,
+# with an optional #variant), reads the routing member it names and refuses bytes that differ from
+# the stated sha256; a descriptor path or shipped name still reads as before. Its
+# test_descriptor_package_copies holds every shipped IHP descriptor to a variant of the interposer
+# package, and only the tools/OpenIntM4TM2 gitlink at d69aab4 has rdl2_sbump, so this entry and
+# that gitlink move together. pyproject.toml changes only its list of declared skips: the two
+# two-die cases that need a live OpenROAD run take an empty tiers list, since no test tier
+# selects them. No vendored file, KiCad rule pair or tests/test_router.py moves;
+# ci/ipnr-route-tests.txt is unchanged and the version stays 0.6.0.dev0. The vendored reader's
+# _vendor/chiplet_format_io.SOURCE names chiplet-spec 48a3052, not STAGE_CHIPLET_SPEC_REF; its
+# bytes equal that ref's reader and nothing resolves the commit, so it is aligned at the next
+# reader move. The ihp_sg13g2_intm4tm2_rdl2_sbump descriptor is Apache-2.0 like the other
+# OpenIntM4TM2 descriptors (its REUSE.toml, and NOTICE.md here).
+#
+# An earlier move (a99d7e6) was interposer-pnr dev after its pull requests 1 to 3, 16 commits on 23e5b31.
+# The board stack, the KiCad rule pair and power-check's default EM limits are read through the
+# carrier package the --tech root names (libs.tech/adk/technology.json), each member against its
+# stated sha256; pdn and pdn-plan move into the pdn analysis, their reports carry a version and one
+# common header, and pdn-plan's refusal ids sit in their own module. The README takes the short
+# form. No pyproject line moves, nothing under _vendor moves, and tests/test_router.py does not
+# change, so ci/ipnr-route-tests.txt is unchanged; the version stays 0.6.0.dev0.
+#
+# This ref (a0528cb) is the merge of interposer-pnr's pull request 4 on a99d7e6. Tests only: the
+# escape tests read a zombie grandchild as dead (and a short /proc stat line as not a zombie), and
+# the special-net Tcl test builds its router on the fake binary, so it no longer needs OpenROAD on
+# PATH. Only tests/test_escape_step.py and tests/test_reserved.py change; nothing under src/ or
+# _vendor moves, pyproject.toml does not change, no id in ci/ipnr-route-tests.txt moves, and the
+# version stays 0.6.0.dev0.
+STAGE_INTERPOSER_PNR_REF=a0528cb272d1b90f917b5a6d655f4625189ecad2
 
 # Orchestrator that chains die builds into the interposer flow from one spec: distribution
 # packaging_flow, console script `packaging-flow` (packaging_flow.cli:main). In the image the
@@ -443,10 +477,11 @@ STAGE_INTERPOSER_PNR_REF=3e85398b8d118370796a22f643355bbe0e3a4638
 # defined but no identity path calls it, so verify in a container without a Docker CLI does not
 # refuse on that account.
 #
-# Declared runtime deps are pyyaml>=6.0, chiplet-system-description and chiplet-format-io>=1.15.0;
-# the chiplet-full extra adds the reader's strict extra at the same floor. The reader floor is a
-# plain dependency, so pip check reads it: a chiplet-spec pin below 1.15.0 fails the image's install
-# step (chiplet-cosim has the same floor, the die flow 1.12.0). 1.12.0 maps ihp-sg13cmos5l to
+# Declared runtime deps are pyyaml>=6.0, chiplet-system-description and
+# chiplet-format-io[strict]>=1.22.0, whose technology_package reads the carrier package manifest
+# the interposer root is resolved by; the chiplet-full extra names the same floor. The reader floor
+# is a plain dependency, so pip check reads it: a chiplet-spec pin below 1.22.0 fails the image's
+# install step. 1.12.0 maps ihp-sg13cmos5l to
 # sg13cmos5l, which the admission verdict for such a contract rests on (this ref declares sg13cmos5l
 # with no compose window, and says why), and holds READ_KINDS, which the die flow door imports.
 # 1.10.0 keys the KLayout check options (DRC_THREADS, DRC_OPTIONS) by PDK, and this package reads
@@ -689,7 +724,7 @@ STAGE_INTERPOSER_PNR_REF=3e85398b8d118370796a22f643355bbe0e3a4638
 # from its records, and verify-status reads acceptances behind its own flag. Each pad of a
 # repeated die pin gets its own terminal, and a die's multi-pad pins are tied at assembly LVS on
 # its own declaration (component-certificate/v3, assembly.lvs kind reader v2); this needs
-# assembly-lvs 0.8.0, which the assembly-lvs pin (27e8508) carries. The version stays 0.1.0.
+# assembly-lvs 0.8.0, which the assembly-lvs pin (a672ac5) carries. The version stays 0.1.0.
 #
 # An earlier move adds six commits. An ihp-sg13cmos5l die's DRC verdict reads that
 # technology's rows, which chiplet-spec 1.19.0 adds: a run over its official runsets and options
@@ -841,16 +876,81 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # v2026.11 release bytes (its public references), then verify's text headlines
 # pinned to its verdict words, with the not-all-built verdict said as a sentence.
 #
-# This ref (56affc12) adds nine commits. Every spec's interposer passes the PDK plane as
-# attachment_surface_z, so each design.chiplet it elaborates declares its mount plane; that field
-# comes from chiplet-spec's system description, so this entry needs a
-# STAGE_CHIPLET_SPEC_REF that carries it (pip check cannot see it). The system.terminal_map kind
-# gains a bumps role and keys bumps, traces and route by projection, and the external signature
+# An earlier move (56affc12) added nine commits. Every spec's interposer passes the PDK plane as
+# attachment_surface_z, so each design.chiplet it elaborates declares its mount plane. The
+# system.terminal_map kind gains a bumps role and keys bumps, traces and route by projection, and the external signature
 # keys the map by projection, so a rerun in another folder keeps its key; the registry digest moves
-# (cc5f8010 to fe140b58), so terminal-map keys recorded before this ref no longer match. The
+# (cc5f8010 to fe140b58), so terminal-map keys recorded before 56affc12 no longer match. The
 # example 8 terminal-map fixtures are taken again from a run whose writers declare the plane. No
 # pyproject dependency moves; the version stays 0.1.0.
-STAGE_PACKAGING_FLOW_REF=56affc12e96e3702dcd5e5d503aa9607c17a136f
+#
+# An earlier move (53a2ce8) added three commits on 56affc12 and changed tests only. It was not on
+# packaging-flow's remote: the image stages it from the local sibling, ci/pin-set.json records it
+# as local-only, and the GitHub integration job does not check packaging-flow out.
+# REAL_TREE_SHA256, the digest of the interposer DRC deck's file set, takes the tools/OpenIntM4TM2
+# gitlink's d69aab4 tree (its 6_9_solderbump.drc changed; the set and its count did not), and the
+# fixture PROVENANCE.md that states the live-roots pin names it, so this entry and that gitlink
+# move together. One declared skip is dropped, test_pad_pitch's, and the console's SIGINT test
+# gets 20 s to start and to wind down. Every spec's interposer still passes attachment_surface_z,
+# a field of chiplet-spec's system description, so STAGE_CHIPLET_SPEC_REF must carry it (pip
+# check cannot see it); 9da50b2 does. Nothing under src/ moves, no pyproject dependency moves, tests/fixtures/interposer_pdk and
+# tests/die_flow/PROVENANCE.md are unchanged, and no test id in ci/required-tests.txt,
+# ci/tracked-tree-tests.txt or ci/image-xor-tests.txt moves. The assembly-lvs, chiplet-flow and
+# chiplet-spec entries that name packaging-flow do not move for it. The version stays 0.1.0.
+#
+# An earlier move (8c0b96df) was the merge of packaging-flow's pull request 1, seven commits on 53a2ce8.
+# packaging-flow's remote is private, so a second person still cannot obtain the commit from it:
+# the image stages it from the local sibling, ci/pin-set.json records it as local-only, and the
+# GitHub integration job does not check packaging-flow out. Every spec's interposer still passes
+# attachment_surface_z, so STAGE_CHIPLET_SPEC_REF must carry it; 6a627ad does. The interposer DRC
+# deck's file set is derived from the PDK's rule-deck registry instead of a pinned digest, so
+# REAL_TREE_SHA256 is gone and the live-roots test turns red when the registry's two halves
+# disagree, not when a deck is added or edited; the tools/OpenIntM4TM2 gitlink does not move for
+# it. A die whose technology the system does not declare is taken as a black box, and the
+# technology refusals are typed and kept inside the bundle, and the openings refusal gets its own
+# catalog row. No pyproject dependency moves, tests/die_flow and tests/fixtures/interposer_pdk are
+# unchanged, and no test id in ci/required-tests.txt, ci/tracked-tree-tests.txt or
+# ci/image-xor-tests.txt moves. The version stays 0.1.0.
+#
+# An earlier move (38c00021) added eight commits on 8c0b96df and moved with STAGE_CHIPLET_FLOW_REF, for
+# the die-flow refusal class and provenance row the chiplet-flow entry names. It reached
+# packaging-flow's remote dev with its pull request 3. The interposer PDK root is read as a carrier technology package: its manifest,
+# libs.tech/adk/technology.json, marks the root and names the stack and the KLayout layer sheet
+# the flow reads, and a root without one is refused. tools/OpenIntM4TM2 at d69aab4 holds that
+# manifest, the bytes the hermetic interposer fixture copies, so the gitlink does not move. The
+# runtime dependency floor moves to chiplet-format-io[strict] 1.22.0, which reads the manifest;
+# STAGE_CHIPLET_SPEC_REF (6a627ad) carries 1.22.0 and the venv carries jsonschema. chiplet-flow's
+# PartnerDieRefused gets its class, tests/die_flow/PROVENANCE.md moves its commit line and the
+# contract helper's source row to chiplet-flow 7cf999a, and the black-box die chain, over a frozen
+# partner die that emit-partner-die wrote, runs in packaging-flow's merge-tier tests. No test id in ci/required-tests.txt,
+# ci/tracked-tree-tests.txt or ci/image-xor-tests.txt moves. The version stays 0.1.0.
+#
+# An earlier move (a202222) added one commit on 38c00021 and moves with STAGE_CHIPLET_FLOW_REF:
+# tests/die_flow/PROVENANCE.md restates its commit line at chiplet-flow 7a746f8. No copy is taken
+# again, nothing under src/ moves, no pyproject dependency moves, and no test id in
+# ci/required-tests.txt, ci/tracked-tree-tests.txt or ci/image-xor-tests.txt moves. The version
+# stays 0.1.0. Until it reaches packaging-flow's remote, the image stages it from the local
+# sibling and ci/pin-set.json records it as local-only.
+#
+# An earlier move (6114386) was packaging-flow dev after its pull requests 4 to 6. The buildability check
+# computes the padring pitch the way LibreLane places the pads, and the README takes the short
+# form. tests/die_flow/PROVENANCE.md still names chiplet-flow 7a746f8: every die-flow test module
+# it copies from has the same bytes at the chiplet-flow ref below, so no copy is taken again.
+# Nothing in pyproject.toml moves and the version stays 0.1.0.
+#
+# The move after it was the merge of packaging-flow's pull request 7. The assembly-lvs report test
+# holds the frozen engine by its commit, report schema and module location and only records the
+# version the engine reports, the pcbnew case is fed the route report recorded with its traces (its
+# PROVENANCE.md says who replays it), and four example READMEs record the assembly-lvs engine the
+# image runs.
+#
+# This ref (a3695a4) is the merge of packaging-flow's pull request 8 on that merge. The assembly-LVS
+# partition gives each NO_CONNECT die pin a net of its own, refuses such a pin only when a net wires
+# it to something else, and decides in one place, for both verify paths, whether a run made before
+# resolved/v4 holds its recorded derivation. Under src/ only assembly_bundle.py and manifest.py move,
+# pyproject.toml does not change, no test id in ci/required-tests.txt, ci/tracked-tree-tests.txt or
+# ci/image-xor-tests.txt names a changed module, and the version stays 0.1.0.
+STAGE_PACKAGING_FLOW_REF=a3695a43b50e8f8035ea31ddb1d1f4e82d26543f
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
@@ -1033,14 +1133,53 @@ STAGE_PACKAGING_FLOW_REF=56affc12e96e3702dcd5e5d503aa9607c17a136f
 # ci/image-xor-tests.txt does not. packaging-flow names every die-flow refusal class, so
 # STAGE_PACKAGING_FLOW_REF moves with it.
 #
-# This ref (54f256d) adds one test-only commit on the previous pin: tests/test_die_view.py renames a test
+# An earlier move (54f256d) added one test-only commit on the pin before it: tests/test_die_view.py renames a test
 # pad whose name read like a phase tag. No package file moves, tests/test_view_xor.py does not
 # change, so ci/image-xor-tests.txt does not. packaging-flow's die-flow provenance names it, so
 # STAGE_PACKAGING_FLOW_REF moves with it.
+#
+# An earlier move (684f9d0) added two commits on 54f256d. A die may state sbump_sac305, the solder-bump
+# method, as its attachment intent beside the two pillar methods: the accepted intents are one
+# list, ATTACHMENTS in chiplet_full, which CHIPLET_ATTACHMENT, the config check, the recipe check
+# and the receipt check all read, and a test holds every listed id to a method of the interconnect
+# registry. The intent stays metadata and qualifies nothing. No file packaging-flow copies and no
+# die_errors class moves, tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does
+# not, and no package dependency moves. packaging-flow's tests/die_flow/PROVENANCE.md names its
+# copies of chiplet-flow files by content, and none of those files moves, so it does not change;
+# packaging-flow's host suite at the pin above passes with chiplet-flow at this ref.
+#
+# An earlier move (7cf999a) added 13 commits on 684f9d0. A new command, emit-partner-die, writes a
+# ready die directory from a die owner's package for a die designed elsewhere: the black-box pad
+# map at 1.1 with nets, roles, directions, the process, the thickness, the supply voltages and a
+# signoff statement. It runs the pads-only generator and refuses, as the new PartnerDieRefused
+# (exit 1), a missing or misspelt key, a rule across keys that does not hold, a reference that does
+# not match its digest, or a generator that fails or writes another layout than the package's,
+# and leaves no directory behind. The ready-die writer may now state voltages and a conductor opening. No package
+# dependency moves and tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does not.
+# packaging-flow names every die-flow refusal class, and its tests/die_flow/PROVENANCE.md names
+# the die-flow commit its copies are taken at and the source sha256 of each. No copy is taken
+# again, but tests/test_die_contract.py, the source of contract.py, changed in tests it does not
+# copy, so the commit line and that source row move, and STAGE_PACKAGING_FLOW_REF moves with it.
+#
+# An earlier move (7a746f8) was the merge of chiplet-flow's pull request 1, three commits on 7cf999a. A die
+# no longer states an attachment intent: CHIPLET_ATTACHMENT stays declared for this release as a
+# deprecated optional string, so a configuration that still states it loads and the flow logs one
+# warning under the id CDF-0001, and the materialization receipt and the build record no longer
+# carry attachment_intent. The method is chosen and checked at the assembly, against the
+# interconnect registry. The vehicles and the template stop stating the key, so the vehicle
+# receipt goldens and the DRIVER configuration digest move. No package dependency moves, no
+# die_errors class moves and tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does
+# not. packaging-flow's tests/die_flow/PROVENANCE.md names the die-flow commit its copies are taken
+# at, so STAGE_PACKAGING_FLOW_REF moves with it.
 STAGE_CHIPLET_FLOW_PATH=chiplet-flow
-# This ref (54f256d) is chiplet-flow dev after the v2026.11 release, on the previous pin
-# 54f256d: one commit, the v2026.11 release bytes (its public references); no code moves.
-STAGE_CHIPLET_FLOW_REF=54f256d55635d7aadd217a237ca591dfb1601108
+#
+# This ref (0923149) is the merge of chiplet-flow's pull request 2, ten commits on 7a746f8. It adds
+# a flip-chip pad master per IHP process, drawn from the PDK's own PCell and held to its octagon,
+# which pad-frame can place; the template names ihp-sg13cmos5l among its processes, and the README
+# takes the short form. No package dependency moves, no die_errors class moves and
+# tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does not. No test module that
+# packaging-flow copies changes.
+STAGE_CHIPLET_FLOW_REF=0923149978e757b766e99acd8a24b4f704b6b7da
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
@@ -1164,11 +1303,15 @@ STAGE_CHIPLET_COSIM_PATH=chiplet-cosim
 # An earlier move (dcd7fdc) was chiplet-cosim dev after the v2026.11 release, on the pin before
 # it, dcd7fdc: one commit, the v2026.11 release bytes (its public references).
 #
-# This ref (50247f2) adds two data commits: vehicle/io_ring_two_die.chiplet declares the
+# An earlier move (50247f2) added two data commits: vehicle/io_ring_two_die.chiplet declares the
 # interposer's attachment_surface_z (so the lock's assembly digest and the test's DOCUMENT_SHA
 # move), and the Xschem sheet fixture is taken again from a design that declares its plane (its
 # netlists unchanged). No package file, pyproject or version moves.
-STAGE_CHIPLET_COSIM_REF=50247f2c4e3441dd28c5de3fb3c4f82c650051eb
+#
+# This ref (c76192e) adds two commits on 50247f2: the README takes the short form, points at the
+# chiplet-cosim documentation page and keeps the verdict contract the package docstring refers
+# to. Only README.md changes; no package file, pyproject or version moves.
+STAGE_CHIPLET_COSIM_REF=c76192e93943819e42024f934eb1e66d71bee8ed
 
 # chiplet-spec: the .chiplet reference reader and writer, installed as the distribution
 # chiplet-format-io from reference/python with the `strict` extra, and the system description,
@@ -1371,7 +1514,7 @@ STAGE_CHIPLET_COSIM_REF=50247f2c4e3441dd28c5de3fb3c4f82c650051eb
 # tools/chiplet_kicad_plugin gitlinks move with it. packaging-flow's floors (1.20.0),
 # chiplet-flow's (1.19.0) and chiplet-cosim's (1.15.0) are met, so those entries do not move.
 #
-# This ref (48a3052) carries the mount-plane work on top of the 1.22.0 reader: the file's
+# An earlier move (48a3052) carried the mount-plane work on top of the 1.22.0 reader: the file's
 # attachment_surface_z is the only mount plane (an exporter refuses an interposer that seats dies
 # without it; neither dimensions.thickness nor the stackup stands in for it), and a die's z adds
 # the interposer's position.z. The description's Interposer takes an optional
@@ -1379,10 +1522,8 @@ STAGE_CHIPLET_COSIM_REF=50247f2c4e3441dd28c5de3fb3c4f82c650051eb
 # one; the description's fixtures and KiCad forms declare it, and conformance/fixtures/mount_plane
 # holds the cases each tool that computes z runs. reference/python/chiplet_format_io and schemas/
 # do not change, so the reader stays 1.22.0, STRICT_ADMISSION_API_VERSION 4, and every copy below
-# stays byte-equal. The plugin re-declares its copy at this ref, and the ADK's vendor/README.md
-# names it. interposer-pnr's and gds_to_kicad's SOURCE files keep naming 7031df5, whose reader
-# files are this ref's byte for byte; 7031df5 is not in this ref's history and not on
-# chiplet-spec's remote. They are aligned at the next reader move.
+# stays byte-equal. The plugin re-declared its copy at 48a3052, and the ADK's vendor/README.md
+# named it.
 #
 # The ADK's strict admission refuses its own vendored copy on purpose: when chiplet_format_io
 # resolves into the ADK's vendor/, load_admission() refuses and admission reports UNDECIDABLE,
@@ -1398,6 +1539,26 @@ STAGE_CHIPLET_COSIM_REF=50247f2c4e3441dd28c5de3fb3c4f82c650051eb
 # is staging/chiplet-spec and must be at this ref. The Nix build shell's LibreLane launcher also
 # puts this tree's reference/python on LibreLane's import path (nix/build-env.sh).
 #
+# An earlier move (9da50b2) added the v2026.11.1 release merges, a format 1.2 reader test run from a
+# vendored copy, and reworded comments and docs. reference/python/chiplet_format_io, schemas/ and
+# conformance/fixtures/mount_plane are byte-identical to 48a3052's, so the reader stays 1.22.0
+# and every copy below stays byte-equal; description/src changes two comments only. The image and
+# the GitHub integration job (.github/workflows/integration.yml) stage this tree one commit deep,
+# so 48a3052 is not there: the plugin re-declared its copy at that ref, and the ADK's
+# vendor/README.md and the MOUNT_PLANE_PIN of its tests/test_chiplet2dbx.py name it, so the
+# tools/chiplet_kicad_plugin and tools/adk gitlinks move with it. interposer-pnr's and
+# gds_to_kicad's SOURCE files still name 48a3052; only bytes are checked for those copies, and
+# they are equal.
+#
+# An earlier move (6a627ad) added four commits on 9da50b2, tests and docs only: a conformance test holds
+# the standard citations (3Dblox as IEEE 3537-2026), and two description tests check the package
+# set and that no install of the description reaches the frozen 1.2 reader.
+# reference/python/chiplet_format_io, schemas/ and conformance/fixtures are unchanged, so the
+# reader stays 1.22.0 and every copy below stays byte-equal. The staged clone is one commit deep,
+# so 9da50b2 is not there: the plugin's VENDORED.md and SOURCE and the ADK's vendor/README.md and
+# MOUNT_PLANE_PIN name this ref, and the tools/chiplet_kicad_plugin and tools/adk gitlinks move
+# with it.
+#
 # The image holds six Python copies of chiplet_format_io, three of them strict (strict: the copy
 # carries die_contract.py with STRICT_ADMISSION_API_VERSION): the installed one, whose revision the
 # strict consumers select, and the description's and gds_to_kicad's, which read die contracts
@@ -1412,7 +1573,7 @@ STAGE_CHIPLET_COSIM_REF=50247f2c4e3441dd28c5de3fb3c4f82c650051eb
 #     Its emit, which packaging-flow calls, writes .chiplet documents through it.
 #   - packaging-flow, chiplet-flow and chiplet-cosim carry no copy; they import the installed one.
 #   - interposer-pnr, src/interposer_pnr/_vendor/chiplet_format_io (a private name): 1.22.0,
-#     __init__.py and footprint_ids.py, byte-identical to this ref's and to 7031df5's, the commit
+#     __init__.py and footprint_ids.py, byte-identical to this ref's and to 48a3052's, the commit
 #     its _vendor/chiplet_format_io.SOURCE declares. Its form export names footprints through it.
 #     interposer-pnr's own test_sheet_form holds the copy to its SOURCE, and step 0b holds it to
 #     this tree.
@@ -1432,8 +1593,13 @@ STAGE_CHIPLET_COSIM_REF=50247f2c4e3441dd28c5de3fb3c4f82c650051eb
 #   - tools/gds_to_kicad, _vendor/chiplet_format_io (a private name): 1.22.0, __init__.py,
 #     die_contract.py, footprint_ids.py, pad_numbers.py, sheet_names.py, supply_domains.py and
 #     technology.py, byte-identical to this tree's reference/python ones (step 0b checks it),
-#     copied from 7031df5, the commit its _vendor/chiplet_format_io.SOURCE declares. Its
+#     copied from 48a3052, the commit its _vendor/chiplet_format_io.SOURCE declares. Its
 #     die-folder handout (die_handout.py) reads die contracts and names footprints through it.
+#
+# The tree also carries description/tests/fixtures/reader_1_2, the description's format 1.2 reader
+# kept for its 1.2 test, with its own _vendor/chiplet_format_io. It is deliberately not this ref's
+# reader and nothing imports it outside that test, which holds it to its own SHA256SUMS; it is not
+# counted among the copies above, and step 0b names it with --exempt.
 #
 # A copy is not redundancy to clean up here: each tool decides which reader it imports. The
 # verify stage checks that the installed reader resolves inside this staged tree and that the
@@ -1453,12 +1619,19 @@ STAGE_CHIPLET_COSIM_REF=50247f2c4e3441dd28c5de3fb3c4f82c650051eb
 # this file does not assert it.
 #
 # Every commit the ADK and the plugin declare for their copies is this ref, the HEAD of the
-# staged clone, so no extra commit is fetched. chiplet-spec's own test of its 1.2 reader archives a commit
-# that no public history carries. It is not fetched here, so that test skips when run on this
-# staged tree; the image runs no description tests, and the T2 description entry reads a
-# full-history export.
+# staged clone, so no extra commit is fetched. chiplet-spec's own test of its 1.2 reader runs from
+# the vendored fixture above, so it needs no commit outside this tree.
+#
+# This ref (c87c5b3) is chiplet-spec dev after its pull requests 15 to 17: the black-box pad map 1.1
+# for a partner die package (docs/partner_die_package.md and a conformance test with its fixture),
+# SG13CMOS5L dies admitted on the IHP attachment methods by the system description, and a short
+# README. reference/python/chiplet_format_io, conformance/fixtures/mount_plane and
+# conformance/fixtures/top_level_blocks_cases.json are byte-identical to 6a627ad's, so the reader
+# stays 1.22.0 and every copy above stays byte-equal. The plugin's VENDORED.md and SOURCE and the
+# ADK's vendor/README.md and MOUNT_PLANE_PIN name this ref, so the tools/chiplet_kicad_plugin and
+# tools/adk gitlinks move with it.
 STAGE_CHIPLET_SPEC_PATH=chiplet-spec
-STAGE_CHIPLET_SPEC_REF=48a30522451b3bcc45754fe01633196188cab2f0
+STAGE_CHIPLET_SPEC_REF=c87c5b378e7130e784a2fe2029c8014527daea9a
 
 # ----------------------------------------------------------------------
 # LibreLane

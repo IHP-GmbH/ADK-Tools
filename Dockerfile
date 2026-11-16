@@ -1159,13 +1159,16 @@ COPY nix/test_tracked_tree.py nix/cli-env.sh /opt/adk-tools/nix/
 #     the system description's and interposer-pnr's copies under staging/, and
 #     gds_to_kicad's at /opt/adk-tools/gds_to_kicad, outside staging/, hence its
 #     --root. The checker's docstring states the rule. Before steps 1 and 2 on
-#     purpose: nothing has imported any copy yet in this stage.
+#     purpose: nothing has imported any copy yet in this stage. The one exemption
+#     is chiplet-spec's frozen format 1.2 reader, a test fixture that is meant to
+#     differ from the reference and is held to its own SHA256SUMS there.
 RUN /opt/adk-tools/venv/bin/python3 -B /opt/adk-tools/ci/check_vendored_reader.py /opt/adk-tools/staging \
         --reference chiplet-spec/reference/python/chiplet_format_io \
         --copy chiplet-spec/description/src/chiplet_system_description/_vendor/chiplet_format_io \
         --copy interposer-pnr/src/interposer_pnr/_vendor/chiplet_format_io \
         --root /opt/adk-tools/gds_to_kicad \
-        --copy /opt/adk-tools/gds_to_kicad/_vendor/chiplet_format_io
+        --copy /opt/adk-tools/gds_to_kicad/_vendor/chiplet_format_io \
+        --exempt "chiplet-spec/description/tests/fixtures/reader_1_2/src/chiplet_system_description/_vendor/chiplet_format_io=the frozen format 1.2 reader the description's 1.2 test runs, held to its own SHA256SUMS"
 
 # The demo, for the checks below only. The runtime stage ships no examples, so
 # this is the first place the tree exists in the build; same path the verify

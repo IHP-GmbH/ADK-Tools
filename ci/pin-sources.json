@@ -12,8 +12,11 @@
     "roots: written by python3 ci/pin_set.py --record-roots --source-root DIR,",
     "read in the source each pin comes from, never in a shallow export. It adds",
     "the ids that have none and refuses to change one that is recorded, since a",
-    "changed root is another repository. export-pins refuses a source whose",
-    "roots do not match."
+    "changed root is another repository. One case is edited by hand: when a",
+    "repository merges another history of itself in, the pinned commit gains a",
+    "root, and the list grows by it. The new pin descends from the old one, which",
+    "pin_set.py checks on the write. export-pins refuses a source whose roots do",
+    "not match the pinned commit's."
   ],
   "export_from": {
     "adk": "submodule"
