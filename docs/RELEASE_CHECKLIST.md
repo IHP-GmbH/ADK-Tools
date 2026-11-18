@@ -159,12 +159,6 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
       examples go with (adk-examples `docs/RELEASE_LOCK.md`). A user's own
       build of the tag runs against that lock by its pin set
       (`docs/RUN_SH.md`).
-- [ ] Only after that image is green, and only for a hand-over decided for a
-      named person: its archive by `save-image.sh <image ID> <directory>`, with
-      the sha256 and size, and a copy loaded from it and run by `run.sh`
-      against the release lock; or, once the release is on `main`,
-      `release.sh vYYYY.MM[.N] <image ID>`, which pushes the private package
-      and stops unless it reads private before and after the push.
 - [ ] The VS Code extension is built from packaging-flow at the release tag,
       not handed out: `vscode/scripts/build-vsix.sh` in that checkout writes
       `vscode/dist/adk-packaging-<version>.vsix` and the `SHA256SUMS`
@@ -177,6 +171,12 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
       push exactly the commit you built and checked, with the `NOTICE.md`
       the license check read. The tag is distribution: no tag goes out from
       pins that fail the license check.
+- [ ] Only for a hand-over decided for a named person, after the push and with
+      the reference image green: the archive (`save-image.sh`) or the private
+      package (`release.sh vYYYY.MM[.N] <image ID>`), as `MAINTAINING.md`
+      ("The image is not public") gives them. The package counts as handed
+      over only when `release.sh` ended with exit 0: private before and after
+      the push, and the anonymous read refused.
 - [ ] Merge any post-release fixes back into `dev`.
 
 ---

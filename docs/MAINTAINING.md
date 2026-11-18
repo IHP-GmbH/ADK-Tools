@@ -348,7 +348,7 @@ Three identifiers name the same release; keep them consistent:
 |-----------------|--------------------------------|-------------------------------------------|
 | git tag         | `vYYYY.MM` on `main`           | `git tag -a` (step 4)                     |
 | manifest `meta` | baked in the image, shown by `adk-tools` | `build.sh` via `git describe --tags` |
-| image tag       | `ghcr.io/ihp-gmbh/adk-tools:vYYYY.MM`, private, when the image is pushed | `release.sh vYYYY.MM <image ID>` |
+| image tag       | `ghcr.io/ihp-gmbh/adk-tools:vYYYY.MM[.N]`, private, when the image is pushed | `release.sh vYYYY.MM[.N] <image ID>` |
 
 `build.sh` derives `meta` from `git describe --tags`, so an image built from
 the tagged commit reports `vYYYY.MM`; one built before the tag, or a few
