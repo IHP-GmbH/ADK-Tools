@@ -427,13 +427,19 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # form. No pyproject line moves, nothing under _vendor moves, and tests/test_router.py does not
 # change, so ci/ipnr-route-tests.txt is unchanged; the version stays 0.6.0.dev0.
 #
-# This ref (a0528cb) is the merge of interposer-pnr's pull request 4 on a99d7e6. Tests only: the
+# An earlier move (a0528cb) was the merge of interposer-pnr's pull request 4 on a99d7e6. Tests only: the
 # escape tests read a zombie grandchild as dead (and a short /proc stat line as not a zombie), and
 # the special-net Tcl test builds its router on the fake binary, so it no longer needs OpenROAD on
 # PATH. Only tests/test_escape_step.py and tests/test_reserved.py change; nothing under src/ or
 # _vendor moves, pyproject.toml does not change, no id in ci/ipnr-route-tests.txt moves, and the
 # version stays 0.6.0.dev0.
-STAGE_INTERPOSER_PNR_REF=a0528cb272d1b90f917b5a6d655f4625189ecad2
+#
+# This ref (65ca876) takes release v2026.11.2 back into dev on the merge of pull request 5. Tests
+# only: the frozen interposer PDK copy under tests/data/frozen/ takes the seal-ring rules of the
+# PDK pin (technology.json, interposer_template.kicad_dru, MANIFEST.json), and the conformance
+# test reads them. Nothing under src/ or _vendor moves, pyproject.toml does not change, no id in
+# ci/ipnr-route-tests.txt moves, and the version stays 0.6.0.dev0.
+STAGE_INTERPOSER_PNR_REF=65ca8766054b433896648c8b344394242193504b
 
 # Orchestrator that chains die builds into the interposer flow from one spec: distribution
 # packaging_flow, console script `packaging-flow` (packaging_flow.cli:main). In the image the
@@ -944,13 +950,19 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # PROVENANCE.md says who replays it), and four example READMEs record the assembly-lvs engine the
 # image runs.
 #
-# This ref (a3695a4) is the merge of packaging-flow's pull request 8 on that merge. The assembly-LVS
+# An earlier move (a3695a4) was the merge of packaging-flow's pull request 8 on that merge. The assembly-LVS
 # partition gives each NO_CONNECT die pin a net of its own, refuses such a pin only when a net wires
 # it to something else, and decides in one place, for both verify paths, whether a run made before
 # resolved/v4 holds its recorded derivation. Under src/ only assembly_bundle.py and manifest.py move,
 # pyproject.toml does not change, no test id in ci/required-tests.txt, ci/tracked-tree-tests.txt or
 # ci/image-xor-tests.txt names a changed module, and the version stays 0.1.0.
-STAGE_PACKAGING_FLOW_REF=a3695a43b50e8f8035ea31ddb1d1f4e82d26543f
+#
+# This ref (657979b) takes release v2026.11.2 back into dev, on dev's pull requests 9 to 11:
+# the gate screens and their replay (verification/gate_screen.py, gate_replay.py), the pad
+# openings record (pad_openings.py) and its acceptance map, the gate texts, and the seal-ring
+# rules checked against the interposer PDK pin. pyproject.toml does not change, no file under
+# ci/ moves, and the version stays 0.1.0.
+STAGE_PACKAGING_FLOW_REF=657979b8c5464b82d8fb8eeede9ff8705c0fdd67
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
@@ -1308,10 +1320,16 @@ STAGE_CHIPLET_COSIM_PATH=chiplet-cosim
 # move), and the Xschem sheet fixture is taken again from a design that declares its plane (its
 # netlists unchanged). No package file, pyproject or version moves.
 #
-# This ref (c76192e) adds two commits on 50247f2: the README takes the short form, points at the
+# An earlier move (c76192e) added two commits on 50247f2: the README takes the short form, points at the
 # chiplet-cosim documentation page and keeps the verdict contract the package docstring refers
 # to. Only README.md changes; no package file, pyproject or version moves.
-STAGE_CHIPLET_COSIM_REF=c76192e93943819e42024f934eb1e66d71bee8ed
+#
+# This ref (dbd5b5c) takes release v2026.11.2 back into dev on the merge of the waves fix: a
+# cocotb run that asks for waves keeps the design's own VCD dump, a test command the waves
+# wrapper does not know is refused under its own error kind, and PROTOCOL stays in the engine,
+# pinned equal to the driver's. Only cosim_cocotb_driver.py and cosim_engine_cocotb.py move under
+# src/; pyproject.toml and the version do not.
+STAGE_CHIPLET_COSIM_REF=dbd5b5c4b15fbe2e956328b9109a5ddb519023c9
 
 # chiplet-spec: the .chiplet reference reader and writer, installed as the distribution
 # chiplet-format-io from reference/python with the `strict` extra, and the system description,
