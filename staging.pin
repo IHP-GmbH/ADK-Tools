@@ -107,10 +107,10 @@ STAGE_ASSEMBLY_LVS_PATH=assembly-lvs
 # An earlier move (27e8508) was assembly-lvs dev after the v2026.11 release, on the pin before
 # it: one commit, the v2026.11 release bytes (its public references); no code moves.
 #
-# This ref (a672ac5) adds one commit on 27e8508: the README takes the short form and points at the
+# This ref (d407f60) adds one commit on 27e8508: the README takes the short form and points at the
 # documentation page. Only README.md changes, so the version (0.8.0), the arguments and the reports
 # are 27e8508's.
-STAGE_ASSEMBLY_LVS_REF=a672ac50d03847599e0fb5d9f737e1d6d09dbc53
+STAGE_ASSEMBLY_LVS_REF=d407f608d0c39fbe1e31b2b6e2ad66139029092e
 
 # 2.5D place/route engine, distribution interposer-pnr 0.5.0. Console script `interposer-pnr`
 # (interposer_pnr.cli:main), a headless subcommand CLI, not a GUI: place, place-check, bumps,
@@ -427,13 +427,19 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # form. No pyproject line moves, nothing under _vendor moves, and tests/test_router.py does not
 # change, so ci/ipnr-route-tests.txt is unchanged; the version stays 0.6.0.dev0.
 #
-# This ref (a0528cb) is the merge of interposer-pnr's pull request 4 on a99d7e6. Tests only: the
+# An earlier move (a0528cb) was the merge of interposer-pnr's pull request 4 on a99d7e6. Tests only: the
 # escape tests read a zombie grandchild as dead (and a short /proc stat line as not a zombie), and
 # the special-net Tcl test builds its router on the fake binary, so it no longer needs OpenROAD on
 # PATH. Only tests/test_escape_step.py and tests/test_reserved.py change; nothing under src/ or
 # _vendor moves, pyproject.toml does not change, no id in ci/ipnr-route-tests.txt moves, and the
 # version stays 0.6.0.dev0.
-STAGE_INTERPOSER_PNR_REF=a0528cb272d1b90f917b5a6d655f4625189ecad2
+#
+# This ref (0eda902) takes release v2026.11.2 back into dev on the merge of pull request 5. Tests
+# only: the frozen interposer PDK copy under tests/data/frozen/ takes the seal-ring rules of the
+# PDK pin (technology.json, interposer_template.kicad_dru, MANIFEST.json), and the conformance
+# test reads them. Nothing under src/ or _vendor moves, pyproject.toml does not change, no id in
+# ci/ipnr-route-tests.txt moves, and the version stays 0.6.0.dev0.
+STAGE_INTERPOSER_PNR_REF=0eda90228000a0c8d80789e20e3baa4ac7b70015
 
 # Orchestrator that chains die builds into the interposer flow from one spec: distribution
 # packaging_flow, console script `packaging-flow` (packaging_flow.cli:main). In the image the
@@ -724,7 +730,7 @@ STAGE_INTERPOSER_PNR_REF=a0528cb272d1b90f917b5a6d655f4625189ecad2
 # from its records, and verify-status reads acceptances behind its own flag. Each pad of a
 # repeated die pin gets its own terminal, and a die's multi-pad pins are tied at assembly LVS on
 # its own declaration (component-certificate/v3, assembly.lvs kind reader v2); this needs
-# assembly-lvs 0.8.0, which the assembly-lvs pin (a672ac5) carries. The version stays 0.1.0.
+# assembly-lvs 0.8.0, which the assembly-lvs pin (d407f60) carries. The version stays 0.1.0.
 #
 # An earlier move adds six commits. An ihp-sg13cmos5l die's DRC verdict reads that
 # technology's rows, which chiplet-spec 1.19.0 adds: a run over its official runsets and options
@@ -944,13 +950,26 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # PROVENANCE.md says who replays it), and four example READMEs record the assembly-lvs engine the
 # image runs.
 #
-# This ref (a3695a4) is the merge of packaging-flow's pull request 8 on that merge. The assembly-LVS
+# An earlier move (a3695a4) was the merge of packaging-flow's pull request 8 on that merge. The assembly-LVS
 # partition gives each NO_CONNECT die pin a net of its own, refuses such a pin only when a net wires
 # it to something else, and decides in one place, for both verify paths, whether a run made before
 # resolved/v4 holds its recorded derivation. Under src/ only assembly_bundle.py and manifest.py move,
 # pyproject.toml does not change, no test id in ci/required-tests.txt, ci/tracked-tree-tests.txt or
 # ci/image-xor-tests.txt names a changed module, and the version stays 0.1.0.
-STAGE_PACKAGING_FLOW_REF=a3695a43b50e8f8035ea31ddb1d1f4e82d26543f
+#
+# An earlier move (657979b) took release v2026.11.2 back into dev, on dev's pull requests 9 to 11:
+# the gate screens and their replay (verification/gate_screen.py, gate_replay.py), the pad
+# openings record (pad_openings.py) and its acceptance map, the gate texts, and the seal-ring
+# rules checked against the interposer PDK pin. pyproject.toml does not change, no file under
+# ci/ moves, and the version stays 0.1.0.
+#
+# This ref (41a5fb5) is the merge of packaging-flow's pull request 13 on 657979b: a fab file
+# is refused when the run's plan did not require every DRC, under its own error code and message,
+# and the plan's unrequired checks are read in one place (verification/templates.py). Under src/
+# only errors.py, exit_sentences.py, fab_file.py, messages/catalog.json, status_view.py and
+# verification/templates.py move; pyproject.toml does not change, no file under ci/ moves, and the
+# version stays 0.1.0.
+STAGE_PACKAGING_FLOW_REF=41a5fb50483b1f50fa5b458b5411e3d3bbc9e9d9
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
@@ -1173,13 +1192,13 @@ STAGE_PACKAGING_FLOW_REF=a3695a43b50e8f8035ea31ddb1d1f4e82d26543f
 # at, so STAGE_PACKAGING_FLOW_REF moves with it.
 STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 #
-# This ref (0923149) is the merge of chiplet-flow's pull request 2, ten commits on 7a746f8. It adds
+# This ref (14ebe27) is the merge of chiplet-flow's pull request 2, ten commits on 7a746f8. It adds
 # a flip-chip pad master per IHP process, drawn from the PDK's own PCell and held to its octagon,
 # which pad-frame can place; the template names ihp-sg13cmos5l among its processes, and the README
 # takes the short form. No package dependency moves, no die_errors class moves and
 # tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does not. No test module that
 # packaging-flow copies changes.
-STAGE_CHIPLET_FLOW_REF=0923149978e757b766e99acd8a24b4f704b6b7da
+STAGE_CHIPLET_FLOW_REF=14ebe27bc261a01a65bc74fef6c66c072c7deba3
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
@@ -1308,10 +1327,16 @@ STAGE_CHIPLET_COSIM_PATH=chiplet-cosim
 # move), and the Xschem sheet fixture is taken again from a design that declares its plane (its
 # netlists unchanged). No package file, pyproject or version moves.
 #
-# This ref (c76192e) adds two commits on 50247f2: the README takes the short form, points at the
+# An earlier move (c76192e) added two commits on 50247f2: the README takes the short form, points at the
 # chiplet-cosim documentation page and keeps the verdict contract the package docstring refers
 # to. Only README.md changes; no package file, pyproject or version moves.
-STAGE_CHIPLET_COSIM_REF=c76192e93943819e42024f934eb1e66d71bee8ed
+#
+# This ref (d7bedc6) takes release v2026.11.2 back into dev on the merge of the waves fix: a
+# cocotb run that asks for waves keeps the design's own VCD dump, a test command the waves
+# wrapper does not know is refused under its own error kind, and PROTOCOL stays in the engine,
+# pinned equal to the driver's. Only cosim_cocotb_driver.py and cosim_engine_cocotb.py move under
+# src/; pyproject.toml and the version do not.
+STAGE_CHIPLET_COSIM_REF=d7bedc6ae1960b34601050e5b2ef2a376cfa6e82
 
 # chiplet-spec: the .chiplet reference reader and writer, installed as the distribution
 # chiplet-format-io from reference/python with the `strict` extra, and the system description,
@@ -1622,7 +1647,7 @@ STAGE_CHIPLET_COSIM_REF=c76192e93943819e42024f934eb1e66d71bee8ed
 # staged clone, so no extra commit is fetched. chiplet-spec's own test of its 1.2 reader runs from
 # the vendored fixture above, so it needs no commit outside this tree.
 #
-# This ref (c87c5b3) is chiplet-spec dev after its pull requests 15 to 17: the black-box pad map 1.1
+# This ref (f27803a) is chiplet-spec dev after its pull requests 15 to 17: the black-box pad map 1.1
 # for a partner die package (docs/partner_die_package.md and a conformance test with its fixture),
 # SG13CMOS5L dies admitted on the IHP attachment methods by the system description, and a short
 # README. reference/python/chiplet_format_io, conformance/fixtures/mount_plane and
@@ -1631,7 +1656,7 @@ STAGE_CHIPLET_COSIM_REF=c76192e93943819e42024f934eb1e66d71bee8ed
 # ADK's vendor/README.md and MOUNT_PLANE_PIN name this ref, so the tools/chiplet_kicad_plugin and
 # tools/adk gitlinks move with it.
 STAGE_CHIPLET_SPEC_PATH=chiplet-spec
-STAGE_CHIPLET_SPEC_REF=c87c5b378e7130e784a2fe2029c8014527daea9a
+STAGE_CHIPLET_SPEC_REF=f27803acfe8ea65e7924a8468abe612dca778763
 
 # ----------------------------------------------------------------------
 # LibreLane

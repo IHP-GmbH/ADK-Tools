@@ -316,17 +316,29 @@ mechanics behind its steps:
    ```
 7. Merge any post-release fixes back into `dev`.
 
-**No image is published, to a registry or as a download.** People who run a
-release build its image themselves, and `run.sh` holds their build to the
-examples' release lock by its pin set (`docs/RUN_SH.md`). Building the image
-needs the sibling checkouts `staging.pin` lists and the die records (the
-`die-views/` folder of adk-examples), so a clone of this repository alone does
-not build. `save-image.sh` stays for moving an image between machines you run;
-no archive goes out with a release. `release.sh` implements the registry path
-(immutable tag, provenance gate) and is kept working, but publishing is not
-part of the release flow today; the `ghcr.io/ihp-gmbh/adk-tools` package stays
-private. Do not add a "pull the image" instruction to the docs while that
-holds.
+**The image is not public.** People who run a release can build its image
+themselves, and `run.sh` holds their build to the examples' release lock by its
+pin set (`docs/RUN_SH.md`). Building the image needs the sibling checkouts
+`staging.pin` lists and the die records (the `die-views/` folder of
+adk-examples), so a clone of this repository alone does not build. A release's
+image can also be handed to a named person in two private forms, each only after
+the image the release was proven on is built and its checks are green:
+
+- an archive, written by `save-image.sh <image ID> <directory>`, with its sha256
+  and size, and a copy loaded from it and run by `run.sh` against the release
+  lock before it is handed over;
+- the private package `ghcr.io/ihp-gmbh/adk-tools`, pushed by
+  `release.sh vYYYY.MM[.N] <image ID>` once the release is on `main`. It pushes
+  the version tag only, never `latest`, and stops (exit 3) unless the package
+  reads private before and after the push and an anonymous read of the tag is
+  refused. The package takes its access from the ADK-Tools repository's roles
+  through the image's `org.opencontainers.image.source` label; anyone else gets
+  access on the package, by hand. `release.sh` never changes a visibility and
+  never deletes a version.
+
+Each hand-over and each access grant is decided for that person and that
+release. Do not add a "pull the image" or "download the image" instruction to
+the docs while the image is not public.
 
 ### Version identifiers must agree
 
@@ -336,7 +348,7 @@ Three identifiers name the same release; keep them consistent:
 |-----------------|--------------------------------|-------------------------------------------|
 | git tag         | `vYYYY.MM` on `main`           | `git tag -a` (step 4)                     |
 | manifest `meta` | baked in the image, shown by `adk-tools` | `build.sh` via `git describe --tags` |
-| image tag       | `adk-tools:vYYYY.MM`, only if the registry path is ever used | `release.sh vYYYY.MM` |
+| image tag       | `ghcr.io/ihp-gmbh/adk-tools:vYYYY.MM[.N]`, private, when the image is pushed | `release.sh vYYYY.MM[.N] <image ID>` |
 
 `build.sh` derives `meta` from `git describe --tags`, so an image built from
 the tagged commit reports `vYYYY.MM`; one built before the tag, or a few

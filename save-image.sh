@@ -1,6 +1,6 @@
 #!/bin/bash
-# Save one runtime image as the archive a release ships: docker save of the
-# image ID, zstd-compressed, checked back, and listed in the directory's
+# Save one runtime image as an archive for a private hand-over: docker save of
+# the image ID, zstd-compressed, checked back, and listed in the directory's
 # SHA256SUMS.
 #
 # Usage: ./save-image.sh <image ID> <directory>
