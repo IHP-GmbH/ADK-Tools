@@ -1,9 +1,10 @@
 # Release checklist
 
 The routine for cutting a `vYYYY.MM` or `vYYYY.MM.N` tag. A release is this repository at the
-tag; no image is published, to a registry or as a download, and people who run
-a release build the image locally (`README.md`, Build). This repository and
-every repository it pins as a submodule must be anonymously clonable at the tag.
+tag; its image is not public, and people who run a release build the image
+locally (`README.md`, Build) or are handed it privately (`MAINTAINING.md`).
+This repository and every repository it pins as a submodule must be anonymously
+clonable at the tag.
 The repositories the build stages from local checkouts (`ci/pin-set.json`,
 `"reachable": "local-only"`) are not covered by that, a clone of this
 repository alone does not build, and the release notes must not call those
@@ -155,9 +156,9 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
       release lock names its ID
       (`docker image inspect --format '{{.Id}}' adk-tools:dev`), the sha256
       of this commit's `ci/pin-set.json` and this commit, the adk-tools the
-      examples go with (adk-examples `docs/RELEASE_LOCK.md`). No image goes out
-      with the release; a user's own build of the tag runs against that lock
-      by its pin set (`docs/RUN_SH.md`).
+      examples go with (adk-examples `docs/RELEASE_LOCK.md`). A user's own
+      build of the tag runs against that lock by its pin set
+      (`docs/RUN_SH.md`).
 - [ ] The VS Code extension is built from packaging-flow at the release tag,
       not handed out: `vscode/scripts/build-vsix.sh` in that checkout writes
       `vscode/dist/adk-packaging-<version>.vsix` and the `SHA256SUMS`
@@ -170,6 +171,12 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
       push exactly the commit you built and checked, with the `NOTICE.md`
       the license check read. The tag is distribution: no tag goes out from
       pins that fail the license check.
+- [ ] Only for a hand-over decided for a named person, after the push and with
+      the reference image green: the archive (`save-image.sh`) or the private
+      package (`release.sh vYYYY.MM[.N] <image ID>`), as `MAINTAINING.md`
+      ("The image is not public") gives them. The package counts as handed
+      over only when `release.sh` ended with exit 0: private before and after
+      the push, and the anonymous read refused.
 - [ ] Merge any post-release fixes back into `dev`.
 
 ---
