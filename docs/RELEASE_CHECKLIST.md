@@ -1,9 +1,10 @@
 # Release checklist
 
 The routine for cutting a `vYYYY.MM` or `vYYYY.MM.N` tag. A release is this repository at the
-tag; no image is published, to a registry or as a download, and people who run
-a release build the image locally (`README.md`, Build). This repository and
-every repository it pins as a submodule must be anonymously clonable at the tag.
+tag; its image is not public, and people who run a release build the image
+locally (`README.md`, Build) or are handed it privately (`MAINTAINING.md`).
+This repository and every repository it pins as a submodule must be anonymously
+clonable at the tag.
 The repositories the build stages from local checkouts (`ci/pin-set.json`,
 `"reachable": "local-only"`) are not covered by that, a clone of this
 repository alone does not build, and the release notes must not call those
@@ -155,9 +156,15 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
       release lock names its ID
       (`docker image inspect --format '{{.Id}}' adk-tools:dev`), the sha256
       of this commit's `ci/pin-set.json` and this commit, the adk-tools the
-      examples go with (adk-examples `docs/RELEASE_LOCK.md`). No image goes out
-      with the release; a user's own build of the tag runs against that lock
-      by its pin set (`docs/RUN_SH.md`).
+      examples go with (adk-examples `docs/RELEASE_LOCK.md`). A user's own
+      build of the tag runs against that lock by its pin set
+      (`docs/RUN_SH.md`).
+- [ ] Only after that image is green, and only for a hand-over decided for a
+      named person: its archive by `save-image.sh <image ID> <directory>`, with
+      the sha256 and size, and a copy loaded from it and run by `run.sh`
+      against the release lock; or, once the release is on `main`,
+      `release.sh vYYYY.MM[.N] <image ID>`, which pushes the private package
+      and stops unless it reads private before and after the push.
 - [ ] The VS Code extension is built from packaging-flow at the release tag,
       not handed out: `vscode/scripts/build-vsix.sh` in that checkout writes
       `vscode/dist/adk-packaging-<version>.vsix` and the `SHA256SUMS`
