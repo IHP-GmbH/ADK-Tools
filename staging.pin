@@ -957,12 +957,19 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # pyproject.toml does not change, no test id in ci/required-tests.txt, ci/tracked-tree-tests.txt or
 # ci/image-xor-tests.txt names a changed module, and the version stays 0.1.0.
 #
-# This ref (657979b) takes release v2026.11.2 back into dev, on dev's pull requests 9 to 11:
+# An earlier move (657979b) took release v2026.11.2 back into dev, on dev's pull requests 9 to 11:
 # the gate screens and their replay (verification/gate_screen.py, gate_replay.py), the pad
 # openings record (pad_openings.py) and its acceptance map, the gate texts, and the seal-ring
 # rules checked against the interposer PDK pin. pyproject.toml does not change, no file under
 # ci/ moves, and the version stays 0.1.0.
-STAGE_PACKAGING_FLOW_REF=657979b8c5464b82d8fb8eeede9ff8705c0fdd67
+#
+# This ref (5932721) is the merge of packaging-flow's pull request 13 on 657979b: a fab file
+# is refused when the run's plan did not require every DRC, under its own error code and message,
+# and the plan's unrequired checks are read in one place (verification/templates.py). Under src/
+# only errors.py, exit_sentences.py, fab_file.py, messages/catalog.json, status_view.py and
+# verification/templates.py move; pyproject.toml does not change, no file under ci/ moves, and the
+# version stays 0.1.0.
+STAGE_PACKAGING_FLOW_REF=5932721af202adbea1be344e4b6be455fec578fd
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
