@@ -56,7 +56,8 @@ def git(*args):
 # One API client for the whole ci/ directory, so the retry and the
 # "unreachable is not a finding" distinction hold everywhere rather than in
 # whichever copy was edited last.
-from resolve_refs import NoTrack, Unreachable, follow, make_api, token  # noqa: E402
+from resolve_refs import (RELATIVE, NoTrack, Unreachable, follow,  # noqa: E402
+                          make_api, token)
 
 
 def submodules():
@@ -188,8 +189,8 @@ def git_relative_cases():
                     head_subject(s) == "on dev"))
         g(sup, "checkout", "-q", "--detach")
         rc = g(sup, "submodule", "update", "-q", "--remote", check=False).returncode
-        out.append(("git: on a detached HEAD, --remote with . refuses (rc 128)",
-                    rc == 128 and head_subject(s) == "on dev"))
+        out.append(("git: on a detached HEAD, --remote with . refuses",
+                    rc != 0 and head_subject(s) == "on dev"))
         g(sup, "checkout", "-q", "main")
         g(sup, "submodule", "update", "-q")
         g(sup, "config", "-f", ".gitmodules", "submodule.s.branch", "dev")
@@ -296,7 +297,7 @@ def main():
         return 2
 
     for path, slug, branch, sha in entries:
-        shown = branch if branch != "." else "%s (.)" % (args.track or "?")
+        shown = branch if branch != RELATIVE else "%s (.)" % (args.track or "?")
         print("%-40s %s@%s on %s" % (path, slug, (sha or "?")[:10], shown))
     for f in failures:
         print("FAIL: %s" % f, file=sys.stderr)

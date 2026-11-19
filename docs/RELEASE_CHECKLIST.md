@@ -49,6 +49,10 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
 ## The tag
 
 - [ ] Promote `dev -> main`.
+- [ ] Every gitlink and `ci/integration-refs.json` pin on its tool's `main`
+      (the release writer does it; by hand, `git submodule update --remote`
+      on `main`), then `ci/pin-set.json` regenerated (`python3 ci/pin_set.py`).
+      `.gitmodules` itself does not change: it declares `branch = .`.
 - [ ] Annotated tag on `main`, local only for now: `git tag -a vYYYY.MM -m
       "..."` (add `-s` to sign if a GPG key is configured). It comes before
       the build because `build.sh` takes the image's `meta` from

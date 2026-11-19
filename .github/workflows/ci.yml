@@ -35,7 +35,9 @@ jobs:
           # Two API calls per submodule. Anonymous requests are rate-limited
           # per IP, and hosted runners share theirs.
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3 ci/check_pins.py --track "${{ github.base_ref || github.ref_name }}"
+          # Through the environment, so a ref name never reaches the shell as code.
+          TRACK: ${{ github.base_ref || github.ref_name }}
+        run: python3 ci/check_pins.py --track "$TRACK"
 
   pin-set:
     runs-on: ubuntu-24.04

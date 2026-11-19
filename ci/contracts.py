@@ -420,20 +420,18 @@ def track_failure(what, branch, track, explicit):
                     "%r" % (what, branch, explicit[what]))
         return None
     if branch == resolve_refs.RELATIVE:
-        if not track:
-            return "%s %s" % (what, resolve_refs.NoTrack(
-                "declares the relative branch '.' and no track was given to "
-                "resolve it"))
+        try:
+            resolve_refs.follow(branch, track)
+        except resolve_refs.NoTrack as e:
+            return "%s %s" % (what, e)
         return None
-    if branch != track:
-        return ("%s declares branch %r while this superproject is on %r. "
-                "`git submodule update --remote` would follow the declaration "
-                "and move the pin off the track. Declare '.'."
-                % (what, branch, track))
-    return ("%s names branch %r. The file is the same on dev and main, so a named "
-            "branch is right on one track and wrong on the other; declare '.', or "
-            "list the repository in EXPLICIT_BRANCH if its lines are named "
-            "otherwise." % (what, branch))
+    # A named branch is wrong whichever track it matches: the file is the same
+    # on dev and main, so it is right on one and wrong on the other.
+    return ("%s names branch %r on the %r track. The file is the same on dev "
+            "and main, so `git submodule update --remote` would follow it off "
+            "the other track; declare '.', or list the repository in "
+            "EXPLICIT_BRANCH if its lines are named otherwise."
+            % (what, branch, track))
 
 
 def contract_gitmodules_track(trees, track, explicit=None):
@@ -1090,10 +1088,10 @@ def self_test(load_yaml):
     named_dev = GITMODULES.replace("branch = .", "branch = dev", 1)
     expect("a submodule naming dev fails on main", "gitmodules-track",
            mutate(**{"tools|.gitmodules": named_dev}), True,
-           "would follow the declaration", track="main")
+           "names branch 'dev' on the 'main' track", track="main")
     expect("a submodule naming dev fails on dev too: the file is shared",
            "gitmodules-track", mutate(**{"tools|.gitmodules": named_dev}), True,
-           "right on one track and wrong on the other")
+           "names branch 'dev' on the 'dev' track")
     kicad = {"tools/kicad": "dev"}
     got = contract_gitmodules_track(DictTrees(mutate(**{"tools|.gitmodules": named_dev})),
                                     "main", explicit=kicad)
@@ -1116,7 +1114,7 @@ def self_test(load_yaml):
            mutate(**{"tools|ci/integration-refs.json": json.dumps({
                "spec": {"branch": "main", "pin": "c" * 40},
                "docs": {"branch": ".", "pin": "d" * 40}})}),
-           True, "while this superproject is on")
+           True, "names branch 'main' on the 'dev' track")
     expect("a non-submodule pin that is not a sha fails", "gitmodules-track",
            mutate(**{"tools|ci/integration-refs.json": json.dumps({
                "spec": {"branch": ".", "pin": "dev"},

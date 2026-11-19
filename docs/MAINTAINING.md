@@ -84,10 +84,12 @@ Notes:
   Point this clone at `dev` for the time of the bump, without touching the
   tracked file, and drop the override afterwards:
   ```bash
-  git config submodule.<name>.branch dev     # this clone only, overrides .gitmodules
+  git config submodule.tools/<name>.branch dev   # this clone only, overrides .gitmodules
   git submodule update --remote tools/<name>
-  git config --unset submodule.<name>.branch
+  git config --unset submodule.tools/<name>.branch
   ```
+  The key is the submodule's name in `.gitmodules`, which is not always its
+  path: `git config -f .gitmodules --get-regexp '\.path$'` lists both.
 - On a tag checkout (`git checkout v2026.11.3`) HEAD is on no branch, so
   `--remote` refuses ("the superproject is not on any branch") instead of
   drifting. `git submodule update --init` gives the release's pins there.
@@ -294,7 +296,11 @@ mechanics behind its steps:
 3. Nothing to change on the track. `.gitmodules` and `ci/integration-refs.json`
    declare every branch as `.`, so on `main` a `--remote` follows each tool's
    `main` and on `dev` its `dev`, from the same bytes; the release changes the
-   pins only. One tool moves on its own: KiCad-ADK-MOD releases separately, so
+   pins only. Those pins still have to be on each tool's `main`: the release
+   writer moves every gitlink to that tool's release commit on its `main` and
+   regenerates `ci/pin-set.json`. By hand it is `git submodule update --remote`
+   on `main`, then `python3 ci/pin_set.py`; `check_pins.py --track main` fails
+   any pin that is not contained in the tool's `main`. One tool moves on its own: KiCad-ADK-MOD releases separately, so
    its `main` can be ahead of the pin, and on `main` a `--remote` takes
    `tools/kicad` to that newer release.
 4. Tag locally first, so the image built next names the release: an
