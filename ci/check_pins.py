@@ -18,7 +18,9 @@ Two properties are checked, per submodule:
 
   reachable   the pinned sha resolves on the remote at all. This is the one
               that breaks recursive clone.
-  on-branch   the pinned sha is contained in the branch `.gitmodules` declares.
+  on-branch   the pinned sha is contained in the branch `.gitmodules` declares,
+              read on the track given (`--track`, the branch this superproject
+              is on) when the declaration is the relative `.`.
               `git submodule update --remote` follows that declaration, so a
               pin that is not on it gets silently dragged elsewhere the first
               time anyone runs it. A release commit sits on `main` only until
@@ -30,7 +32,7 @@ would mean pulling the history of seven repositories, one of which is KiCad,
 to answer a question two HTTP requests answer.
 
 Usage:
-    check_pins.py
+    check_pins.py --track dev
     check_pins.py --self-test
 """
 
@@ -54,7 +56,7 @@ def git(*args):
 # One API client for the whole ci/ directory, so the retry and the
 # "unreachable is not a finding" distinction hold everywhere rather than in
 # whichever copy was edited last.
-from resolve_refs import Unreachable, make_api, token          # noqa: E402
+from resolve_refs import NoTrack, Unreachable, follow, make_api, token  # noqa: E402
 
 
 def submodules():
@@ -81,7 +83,7 @@ def submodules():
     return out
 
 
-def check(entries, api):
+def check(entries, api, track=None):
     failures = []
     for path, slug, branch, sha in entries:
         if slug is None:
@@ -105,6 +107,11 @@ def check(entries, api):
             )
             continue
 
+        try:
+            branch = follow(branch, track)
+        except NoTrack as e:
+            failures.append("%s: .gitmodules %s" % (path, e))
+            continue
         if not branch:
             failures.append(
                 "%s: .gitmodules declares no branch. `git submodule update "
@@ -132,18 +139,81 @@ def check(entries, api):
     return failures
 
 
+def git_relative_cases():
+    """What `git submodule update --remote` does with `branch = .`, in scratch
+    repositories: the claim the relative form rests on, checked against the git
+    this runs on rather than its manual. [(name, passed)]."""
+    import os
+    import tempfile
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1",
+               GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+               GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+
+    def g(cwd, *args, check=True):
+        return subprocess.run(["git", "-c", "protocol.file.allow=always", *args],
+                              cwd=cwd, env=env, capture_output=True, text=True,
+                              check=check)
+
+    def head_subject(cwd):
+        return g(cwd, "log", "-1", "--format=%s").stdout.strip()
+
+    out = []
+    with tempfile.TemporaryDirectory() as tmp:
+        sub = os.path.join(tmp, "sub")
+        sup = os.path.join(tmp, "sup")
+        g(tmp, "init", "-q", "-b", "main", sub)
+        g(sub, "commit", "-q", "--allow-empty", "-m", "pinned")
+        g(sub, "branch", "dev")
+        g(sub, "commit", "-q", "--allow-empty", "-m", "on main")
+        g(sub, "checkout", "-q", "dev")
+        g(sub, "commit", "-q", "--allow-empty", "-m", "on dev")
+        g(sub, "checkout", "-q", "main")
+        g(tmp, "init", "-q", "-b", "main", sup)
+        g(sup, "submodule", "add", "-q", "../sub", "s")
+        s = os.path.join(sup, "s")
+        g(s, "checkout", "-q", "HEAD~1")
+        # `git submodule add -b .` refuses, so the line is written afterwards,
+        # which is also how docs/MAINTAINING.md says to write it.
+        g(sup, "config", "-f", ".gitmodules", "submodule.s.branch", ".")
+        g(sup, "add", ".gitmodules", "s")
+        g(sup, "commit", "-q", "-m", "pin")
+        g(sup, "branch", "dev")
+
+        g(sup, "submodule", "update", "-q", "--remote")
+        out.append(("git: on main, --remote with . reaches the submodule's main",
+                    head_subject(s) == "on main"))
+        g(sup, "checkout", "-q", "dev")
+        g(sup, "submodule", "update", "-q", "--remote")
+        out.append(("git: on dev, --remote with . reaches the submodule's dev",
+                    head_subject(s) == "on dev"))
+        g(sup, "checkout", "-q", "--detach")
+        rc = g(sup, "submodule", "update", "-q", "--remote", check=False).returncode
+        out.append(("git: on a detached HEAD, --remote with . refuses (rc 128)",
+                    rc == 128 and head_subject(s) == "on dev"))
+        g(sup, "checkout", "-q", "main")
+        g(sup, "submodule", "update", "-q")
+        g(sup, "config", "-f", ".gitmodules", "submodule.s.branch", "dev")
+        g(sup, "submodule", "update", "-q", "--remote")
+        out.append(("git: red control, branch = dev on main does not reach main",
+                    head_subject(s) == "on dev"))
+    return out
+
+
 def self_test():
     """Each failure mode, against a stub API. No network."""
     cases = []
     good_sha = "a" * 40
     other_sha = "b" * 40
 
-    def stub(reachable=(good_sha, other_sha), compare="behind", branch_ok=True):
+    def stub(reachable=(good_sha, other_sha), compare="behind", branch_ok=True,
+             compared=None):
         def api(path):
             m = re.match(r"/repos/[^/]+/[^/]+/commits/([0-9a-f]+)$", path)
             if m:
                 return (200, {}) if m.group(1) in reachable else (422, None)
             if "/compare/" in path:
+                if compared is not None:
+                    compared.append(path.split("/compare/")[1].split("...")[0])
                 if not branch_ok:
                     return 404, None
                 return 200, {"status": compare}
@@ -179,6 +249,16 @@ def self_test():
     expect("a truncated sha fails",
            [("tools/adk", "o/r", "dev", "abc123")], stub(), True, "not a 40-hex")
 
+    relative = [("tools/adk", "o/r", ".", good_sha)]
+    compared = []
+    got = check(relative, stub(compared=compared), track="main")
+    cases.append(("a relative branch is compared on the track given",
+                  not got and compared == ["main"], got))
+    expect("a relative branch with no track fails and names it", relative,
+           stub(), True, "no track was given")
+    for name, passed in git_relative_cases():
+        cases.append((name, passed, None))
+
     ok = True
     for name, passed, got in cases:
         print("%-52s %s" % (name, "ok" if passed else "FAILED"))
@@ -190,6 +270,9 @@ def self_test():
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--track", default=None,
+                    help="the branch this superproject is on; a relative branch "
+                         "declaration (.) is checked against it")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args()
 
@@ -204,7 +287,7 @@ def main():
 
     api = make_api(token())
     try:
-        failures = check(entries, api)
+        failures = check(entries, api, args.track)
     except Unreachable as e:
         # Exit 2: no verdict. A runner that loses TLS for a few seconds must not
         # read as a repository with an unfetchable pin.
@@ -213,7 +296,8 @@ def main():
         return 2
 
     for path, slug, branch, sha in entries:
-        print("%-40s %s@%s on %s" % (path, slug, (sha or "?")[:10], branch))
+        shown = branch if branch != "." else "%s (.)" % (args.track or "?")
+        print("%-40s %s@%s on %s" % (path, slug, (sha or "?")[:10], shown))
     for f in failures:
         print("FAIL: %s" % f, file=sys.stderr)
     if failures:

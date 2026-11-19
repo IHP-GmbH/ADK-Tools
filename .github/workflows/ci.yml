@@ -28,11 +28,14 @@ jobs:
         run: python3 ci/check_pins.py --self-test
 
       - name: Every pin is publicly reachable and on its declared branch
+        # --track is the branch the superproject is on, which every relative
+        # declaration (branch = .) follows. On a pull request that is the base,
+        # not the head: the siblings have no branch named after a feature branch.
         env:
           # Two API calls per submodule. Anonymous requests are rate-limited
           # per IP, and hosted runners share theirs.
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3 ci/check_pins.py
+        run: python3 ci/check_pins.py --track "${{ github.base_ref || github.ref_name }}"
 
   pin-set:
     runs-on: ubuntu-24.04
