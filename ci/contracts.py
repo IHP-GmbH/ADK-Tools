@@ -40,11 +40,15 @@ The contracts, and what each one is for:
                         are derived from the registry, so a mirror in a new
                         directory brings that directory into the scan with it.
   gitmodules-track      every pin, in `.gitmodules` and in
-                        `ci/integration-refs.json`, names the branch this
-                        superproject is on. `git submodule update --remote`
-                        follows that declaration, and the plugin's `main` and
-                        `dev` have no common ancestor, so a stale declaration
-                        moves a pin onto a disjoint history. Also asserts that
+                        `ci/integration-refs.json`, follows the branch this
+                        superproject is on (`--track`). The declaration is git's
+                        relative `.`, so the one file is right on dev and on
+                        main alike and a release tree stays equal to dev's; a
+                        named branch is right on one track and wrong on the
+                        other, so it fails unless EXPLICIT_BRANCH lists it. A
+                        missing declaration fails. `git submodule update
+                        --remote` follows the declaration, so a wrong one moves
+                        a pin off the line it was tested on. Also asserts that
                         the registry's repository table and the set of pins are
                         the same set, in both directions.
   ci-gate               every repository publishes the one required context, its
@@ -73,7 +77,7 @@ The contracts, and what each one is for:
                         that has none.
 
 Usage:
-    contracts.py --root DIR [--track dev]
+    contracts.py --root DIR --track dev
     contracts.py --root DIR --dir kicad=/elsewhere/kicad
     contracts.py --self-test
 
@@ -395,7 +399,43 @@ def repos_vs_declared(entries, repos_ids):
     return out
 
 
-def contract_gitmodules_track(trees, track):
+#: A submodule (by its `.gitmodules` name) or an integration-refs entry (by its
+#: id) whose repository names its lines otherwise, mapped to the one branch it
+#: declares on every track. Empty: every repository pinned here has a main and a
+#: dev. An entry is a promise about another repository's branch names, so it is
+#: checked, not trusted: the declaration must equal it, and check_pins proves
+#: the pin is contained in that branch on the remote.
+EXPLICIT_BRANCH = {}
+
+
+def track_failure(what, branch, track, explicit):
+    """Why `branch` is the wrong declaration for `what`, or None."""
+    if not branch:
+        return ("%s declares no branch, so `git submodule update --remote` "
+                "follows that repository's default branch instead of the track "
+                "this one is on" % what)
+    if what in explicit:
+        if branch != explicit[what]:
+            return ("%s declares branch %r, and EXPLICIT_BRANCH says it declares "
+                    "%r" % (what, branch, explicit[what]))
+        return None
+    if branch == resolve_refs.RELATIVE:
+        try:
+            resolve_refs.follow(branch, track)
+        except resolve_refs.NoTrack as e:
+            return "%s %s" % (what, e)
+        return None
+    # A named branch is wrong whichever track it matches: the file is the same
+    # on dev and main, so it is right on one and wrong on the other.
+    return ("%s names branch %r on the %r track. The file is the same on dev "
+            "and main, so `git submodule update --remote` would follow it off "
+            "the other track; declare '.', or list the repository in "
+            "EXPLICIT_BRANCH if its lines are named otherwise."
+            % (what, branch, track))
+
+
+def contract_gitmodules_track(trees, track, explicit=None):
+    explicit = EXPLICIT_BRANCH if explicit is None else explicit
     blob = trees.read("tools", ".gitmodules")
     if blob is None:
         return ["adk-tools has no .gitmodules, which for a lockfile means it "
@@ -410,21 +450,14 @@ def contract_gitmodules_track(trees, track):
         body = re.split(r'(?m)^\[submodule "%s"\]' % re.escape(name), text)[1]
         body = re.split(r"(?m)^\[", body)[0]
         m = re.search(r"(?m)^\s*branch\s*=\s*(\S+)", body)
-        if not m:
-            out.append("%s declares no branch, so `git submodule update "
-                       "--remote` follows that repository's default branch "
-                       "instead of the track this one is on" % name)
-        elif m.group(1) != track:
-            out.append("%s declares branch %r while this superproject is on %r. "
-                       "`git submodule update --remote` would follow the "
-                       "declaration and move the pin off the track."
-                       % (name, m.group(1), track))
+        why = track_failure(name, m.group(1) if m else None, track, explicit)
+        if why:
+            out.append(why)
 
     # The two repositories the integration job checks out that are not
-    # submodules are pinned in their own file, and a release fold has to move
-    # them onto the main track exactly like the gitlinks. Checking only
-    # .gitmodules would leave half the pins following the other track with
-    # nothing red anywhere.
+    # submodules are pinned in their own file and declare their branch the same
+    # way. Checking only .gitmodules would leave half the pins following the
+    # other track with nothing red anywhere.
     blob = trees.read("tools", "ci/integration-refs.json")
     if blob is None:
         return out + ["adk-tools has no ci/integration-refs.json, so the "
@@ -438,9 +471,12 @@ def contract_gitmodules_track(trees, track):
     for rid, entry in sorted(extra.items()):
         if rid.startswith("_"):
             continue
-        if entry.get("branch") != track:
-            out.append("ci/integration-refs.json pins %s from branch %r while "
-                       "this superproject is on %r" % (rid, entry.get("branch"), track))
+        why = track_failure("ci/integration-refs.json %s" % rid,
+                            entry.get("branch"), track,
+                            {"ci/integration-refs.json %s" % k: v
+                             for k, v in explicit.items()})
+        if why:
+            out.append(why)
         if "pin_from" in entry:
             # Its pin is the staged one (ci/pin_set.py joins the two). A pin
             # here as well would be a second copy of one repository's pin.
@@ -856,41 +892,41 @@ ARG PYTEST_PIP=9.1.0
 # Every submodule, not two of them: the repository table and the set of pins are
 # now asserted to be the same set, so a fixture that pins a subset would be a
 # fixture that fails for a reason the case is not about.
-GITMODULES_DEV = """
+GITMODULES = """
 [submodule "tools/kicad"]
 \tpath = tools/kicad
 \turl = https://github.com/IHP-GmbH/KiCad-ADK-MOD.git
-\tbranch = dev
+\tbranch = .
 [submodule "tools/chiplet-studio"]
 \tpath = tools/chiplet-studio
 \turl = https://github.com/IHP-GmbH/chiplet-studio.git
-\tbranch = dev
+\tbranch = .
 [submodule "tools/chiplet_kicad_plugin"]
 \tpath = tools/chiplet_kicad_plugin
 \turl = https://github.com/IHP-GmbH/Chiplets-KiCad-Plugin.git
-\tbranch = dev
+\tbranch = .
 [submodule "tools/gds_to_kicad"]
 \tpath = tools/gds_to_kicad
 \turl = https://github.com/IHP-GmbH/gds2kicad.git
-\tbranch = dev
+\tbranch = .
 [submodule "tools/adk"]
 \tpath = tools/adk
 \turl = https://github.com/IHP-GmbH/IHP-Open-ADK.git
-\tbranch = dev
+\tbranch = .
 [submodule "tools/interposer"]
 \tpath = tools/OpenIntM4TM2
 \turl = https://github.com/IHP-GmbH/OpenIntM4TM2.git
-\tbranch = dev
+\tbranch = .
 [submodule "tools/interconnect_pdk"]
 \tpath = tools/IHP-Interconnect-IntM4TM2
 \turl = https://github.com/IHP-GmbH/IHP-Interconnect-IntM4TM2.git
-\tbranch = dev
+\tbranch = .
 """
 
 INTEGRATION_REFS = json.dumps({
     "_comment": ["ignored"],
-    "spec": {"slug": "IHP-GmbH/chiplet-spec", "branch": "dev", "pin": "c" * 40},
-    "docs": {"slug": "IHP-GmbH/IHP-Open-ADK-docs", "branch": "dev",
+    "spec": {"slug": "IHP-GmbH/chiplet-spec", "branch": ".", "pin": "c" * 40},
+    "docs": {"slug": "IHP-GmbH/IHP-Open-ADK-docs", "branch": ".",
              "pin": "d" * 40},
 })
 
@@ -911,7 +947,7 @@ ELSEWHERE_PIN_TEXT = ("reader 1.5.0, from chiplet-spec `dev` at `abc1234`\n"
 def _base_files():
     files = {
         ("tools", "Dockerfile"): DOCKERFILE,
-        ("tools", ".gitmodules"): GITMODULES_DEV,
+        ("tools", ".gitmodules"): GITMODULES,
         ("tools", "ci/integration-refs.json"): INTEGRATION_REFS,
         ("adk", ".github/workflows/tests.yml"):
             'env:\n  KLAYOUT_VERSION: "0.30.5"\n' + GATE_OK,
@@ -964,7 +1000,7 @@ def _base_files():
 def self_test(load_yaml):
     cases = []
 
-    def expect(name, contract, files, want_fail, substring=None):
+    def expect(name, contract, files, want_fail, substring=None, track="dev"):
         trees = DictTrees(files)
 
         def fetch(rid, rel):
@@ -973,7 +1009,7 @@ def self_test(load_yaml):
             blob = trees.read(rid, rel)
             return None if blob is None else blob.decode()
 
-        ctx = {"track": "dev", "load_yaml": load_yaml, "fetch": fetch}
+        ctx = {"track": track, "load_yaml": load_yaml, "fetch": fetch}
         got = dict(run(trees, ctx, only={contract}))[contract]
         ok = bool(got) == want_fail
         if ok and substring:
@@ -1044,52 +1080,70 @@ def self_test(load_yaml):
            mutate(**{"spec|schemas/stackup.schema.json": "a\n"}), False)
 
     # gitmodules-track
-    expect("every submodule on the track passes", "gitmodules-track", base, False)
-    expect("a submodule declaring the other track fails", "gitmodules-track",
-           mutate(**{"tools|.gitmodules":
-                     GITMODULES_DEV.replace("branch = dev", "branch = main", 1)}),
-           True, "would follow the declaration")
+    expect("every relative submodule passes on dev", "gitmodules-track", base, False)
+    expect("every relative submodule passes on main, from the same file", "gitmodules-track", base, False,
+           track="main")
+    expect("a relative declaration with no track fails and names it",
+           "gitmodules-track", base, True, "no track was given", track=None)
+    named_dev = GITMODULES.replace("branch = .", "branch = dev", 1)
+    expect("a submodule naming dev fails on main", "gitmodules-track",
+           mutate(**{"tools|.gitmodules": named_dev}), True,
+           "names branch 'dev' on the 'main' track", track="main")
+    expect("a submodule naming dev fails on dev too: the file is shared",
+           "gitmodules-track", mutate(**{"tools|.gitmodules": named_dev}), True,
+           "names branch 'dev' on the 'dev' track")
+    kicad = {"tools/kicad": "dev"}
+    got = contract_gitmodules_track(DictTrees(mutate(**{"tools|.gitmodules": named_dev})),
+                                    "main", explicit=kicad)
+    cases.append(("a branch EXPLICIT_BRANCH lists passes on every track", not got, got))
+    got = contract_gitmodules_track(DictTrees(mutate(**{"tools|.gitmodules": named_dev})),
+                                    "dev", explicit={"tools/kicad": "master"})
+    cases.append(("a branch that differs from its EXPLICIT_BRANCH entry fails",
+                  any("EXPLICIT_BRANCH says" in g for g in got), got))
+    got = contract_gitmodules_track(DictTrees(base), "dev", explicit=kicad)
+    cases.append(("an EXPLICIT_BRANCH entry is checked, not trusted: '.' fails it",
+                  any("EXPLICIT_BRANCH says it declares 'dev'" in g for g in got), got))
     expect("a submodule declaring no branch fails", "gitmodules-track",
            mutate(**{"tools|.gitmodules":
-                     GITMODULES_DEV.replace("\tbranch = dev\n", "", 1)}),
+                     GITMODULES.replace("\tbranch = .\n", "", 1)}),
            True, "declares no branch")
     expect("a missing .gitmodules fails", "gitmodules-track",
            mutate(**{"tools|.gitmodules": None}), True, "pins nothing")
-    expect("a non-submodule pin left on the other track fails",
+    expect("a non-submodule pin naming a branch fails",
            "gitmodules-track",
            mutate(**{"tools|ci/integration-refs.json": json.dumps({
                "spec": {"branch": "main", "pin": "c" * 40},
-               "docs": {"branch": "dev", "pin": "d" * 40}})}),
-           True, "while this superproject is on")
+               "docs": {"branch": ".", "pin": "d" * 40}})}),
+           True, "names branch 'main' on the 'dev' track")
     expect("a non-submodule pin that is not a sha fails", "gitmodules-track",
            mutate(**{"tools|ci/integration-refs.json": json.dumps({
-               "spec": {"branch": "dev", "pin": "dev"},
-               "docs": {"branch": "dev", "pin": "d" * 40}})}),
+               "spec": {"branch": ".", "pin": "dev"},
+               "docs": {"branch": ".", "pin": "d" * 40}})}),
            True, "not a 40-hex sha")
     expect("a pin taken from staging.pin passes", "gitmodules-track",
            mutate(**{"tools|ci/integration-refs.json": json.dumps({
-               "spec": {"branch": "dev", "pin_from": "staging.pin", "on_remote": False},
-               "docs": {"branch": "dev", "pin": "d" * 40}})}),
+               "spec": {"branch": ".", "pin_from": "staging.pin", "on_remote": False},
+               "docs": {"branch": ".", "pin": "d" * 40}})}),
            False)
     expect("a pin taken from staging.pin and written here too fails",
            "gitmodules-track",
            mutate(**{"tools|ci/integration-refs.json": json.dumps({
-               "spec": {"branch": "dev", "pin_from": "staging.pin", "pin": "c" * 40},
-               "docs": {"branch": "dev", "pin": "d" * 40}})}),
+               "spec": {"branch": ".", "pin_from": "staging.pin", "pin": "c" * 40},
+               "docs": {"branch": ".", "pin": "d" * 40}})}),
            True, "both a pin and pin_from")
     expect("a missing integration-refs.json fails", "gitmodules-track",
            mutate(**{"tools|ci/integration-refs.json": None}),
            True, "are unpinned")
     expect("a repository in the registry that nothing pins fails",
            "gitmodules-track",
-           mutate(**{"tools|.gitmodules": GITMODULES_DEV.split(
+           mutate(**{"tools|.gitmodules": GITMODULES.split(
                '[submodule "tools/adk"]')[0]}),
            True, "nothing here pins it")
     expect("a pin with no row in the registry fails", "gitmodules-track",
            mutate(**{"tools|ci/integration-refs.json": json.dumps({
-               "spec": {"branch": "dev", "pin": "c" * 40},
-               "docs": {"branch": "dev", "pin": "d" * 40},
-               "newthing": {"branch": "dev", "pin": "e" * 40}})}),
+               "spec": {"branch": ".", "pin": "c" * 40},
+               "docs": {"branch": ".", "pin": "d" * 40},
+               "newthing": {"branch": ".", "pin": "e" * 40}})}),
            True, "has no row in the contract registry")
 
     # ci-gate
@@ -1183,6 +1237,30 @@ def self_test(load_yaml):
           any("one reader" in f for f in _tripwire_on(
               "PATH = 'ci/%s'\n" % contract_registry.REGISTRY_FILENAME)))
 
+    # The gate lookup of another repository: a relative declaration is read on
+    # the track, and with no track it is an unanswered lookup, never "no gate".
+    asked = []
+
+    def api(path):
+        asked.append(path)
+        return 200, {"content": base64.b64encode(b"jobs: {}\n").decode()}
+
+    fetch = make_fetch(DictTrees({}), {"adk": ("o/adk", ".")}, api, "main")
+    got = fetch("adk", ".github/workflows/tests.yml")
+    cases.append(("the gate of a relative declaration is read on the track",
+                  got == "jobs: {}\n"
+                  and asked == ["/repos/o/adk/contents/.github/workflows/tests.yml?ref=main"],
+                  asked))
+    asked.clear()
+    try:
+        make_fetch(DictTrees({}), {"adk": ("o/adk", ".")}, api, None)(
+            "adk", ".github/workflows/tests.yml")
+        cases.append(("a relative gate lookup with no track fails and names it",
+                      False, asked))
+    except RuntimeError as e:
+        cases.append(("a relative gate lookup with no track fails and names it",
+                      "no track was given" in str(e) and not asked, str(e)))
+
     ok = True
     for name, passed, got in cases:
         print("%-62s %s" % (name, "ok" if passed else "FAILED"))
@@ -1220,14 +1298,14 @@ def _tripwire_on(source):
         return tripwire(ci_dir=ci, workflow_dir=wf)
 
 
-def make_fetch(trees, targets, api):
+def make_fetch(trees, targets, api, track):
     """Read a workflow file: from disk for this repository, from the branch for
     the others.
 
     This repository is read from the checkout because on a pull request the
     change under review is the head, not the branch; the other nine are read
     from the branch head because what is being asserted is that their live gate
-    is a real gate.
+    is a real gate. A relative declaration is read on `track`.
     """
     def fetch(rid, rel):
         if rid == "tools":
@@ -1238,6 +1316,10 @@ def make_fetch(trees, targets, api):
             raise RuntimeError("no slug and branch are declared for it, so its "
                                "gate cannot be looked up")
         slug, branch = target
+        try:
+            branch = resolve_refs.follow(branch, track)
+        except resolve_refs.NoTrack as e:
+            raise RuntimeError("%s %s" % (slug, e))
         if not branch:
             raise RuntimeError("%s declares no branch to look the gate up on" % slug)
         status, body = api("/repos/%s/contents/%s?ref=%s" % (slug, rel, branch))
@@ -1265,9 +1347,9 @@ def load_yaml_or_die():
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", help="directory holding one checkout per repository")
-    ap.add_argument("--track", default="dev",
-                    help="the branch this superproject is on; .gitmodules must "
-                         "declare it (default: dev)")
+    ap.add_argument("--track",
+                    help="the branch this superproject is on, which a relative "
+                         "branch declaration (.) follows; required with --root")
     ap.add_argument("--dir", action="append", default=[], metavar="ID=PATH",
                     help="override the directory for one repository id")
     ap.add_argument("--only", action="append", default=[], metavar="NAME",
@@ -1294,6 +1376,10 @@ def main():
 
     if not args.root:
         ap.error("--root is required unless --self-test is given")
+    if not args.track:
+        ap.error("--track is required with --root: it is the branch every "
+                 "relative declaration follows, and guessing one would check "
+                 "the other line")
 
     overrides = {}
     for item in args.dir:
@@ -1330,7 +1416,8 @@ def main():
         "track": args.track,
         "load_yaml": load_yaml_or_die(),
         "fetch": make_fetch(trees, targets,
-                            resolve_refs.make_api(resolve_refs.token())),
+                            resolve_refs.make_api(resolve_refs.token()),
+                            args.track),
     }
     try:
         results = run(trees, ctx, only)

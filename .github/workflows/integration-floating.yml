@@ -32,8 +32,12 @@ jobs:
   drift:
     runs-on: ubuntu-24.04
     steps:
+      # A scheduled run starts on the default branch, main, whose pins are the
+      # last release. The drift worth seeing is dev's, so the run reads dev's
+      # files and resolves every relative declaration (branch = .) on dev.
       - uses: actions/checkout@v4
         with:
+          ref: dev
           path: adk-tools
 
       - name: Resolve every branch head and prove it exists
@@ -41,7 +45,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         working-directory: adk-tools
-        run: python3 ci/resolve_refs.py --floating --github-output
+        run: python3 ci/resolve_refs.py --floating --track dev --github-output
 
       - uses: actions/checkout@v4
         with:

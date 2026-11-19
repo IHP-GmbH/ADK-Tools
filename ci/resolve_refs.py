@@ -32,10 +32,12 @@ Two modes:
               combination nobody pinned.
   --floating  every repository at the head of its declared branch. This is the
               weekly run, which is allowed to be red and never blocks anything.
+              A relative declaration (`.`) is the branch `--track` names; with
+              no track it fails rather than guess.
 
 Usage:
     resolve_refs.py --pinned
-    resolve_refs.py --floating
+    resolve_refs.py --floating --track dev
     resolve_refs.py --pinned --github-output   # writes refs= and slugs= to $GITHUB_OUTPUT
     resolve_refs.py --self-test
 """
@@ -121,6 +123,34 @@ def make_api(auth, attempts=3, sleep=time.sleep):
     return call
 
 
+# The branch value `.` is git's relative form: a submodule declaring it follows
+# the branch of the same name as the one the superproject is on. It lets one
+# `.gitmodules` serve dev and main unchanged, so a release tree and dev's tree
+# stay byte-equal. Nothing outside git knows what it means, so every reader here
+# turns it into an explicit branch from the track it is given, and refuses when
+# it is given none; a literal "." is never sent to the API or a checkout.
+RELATIVE = "."
+
+
+class NoTrack(ValueError):
+    """A relative branch was met with no track to resolve it against."""
+
+
+def follow(branch, track):
+    """The branch a declaration follows when the superproject is on `track`.
+
+    An explicit name is returned as it is; `.` becomes `track`; a missing
+    declaration stays None for the caller to report in its own words.
+    """
+    if branch != RELATIVE:
+        return branch
+    if not track:
+        raise NoTrack("declares the relative branch %r, which follows the "
+                      "superproject's own branch, and no track was given to "
+                      "resolve it" % RELATIVE)
+    return track
+
+
 def declared(gitmodules_text, extra):
     """[(id, slug, branch, pinned sha or None)] for every repository checked out.
 
@@ -177,8 +207,12 @@ def pinned(pin_set, layout):
     return pins, local
 
 
-def resolve(entries, pins, floating, api, local=None):
-    """({id: sha}, {id: slug}, [failure, ...])."""
+def resolve(entries, pins, floating, api, local=None, track=None):
+    """({id: sha}, {id: slug}, [failure, ...]).
+
+    `track` is the branch the superproject is on; a floating run needs it to
+    resolve a relative declaration.
+    """
     refs, slugs, failures = {}, {}, []
     local = local or {}
     for rid, slug, branch, declared_pin in entries:
@@ -194,6 +228,11 @@ def resolve(entries, pins, floating, api, local=None):
         slugs[rid] = slug
 
         if floating:
+            try:
+                branch = follow(branch, track)
+            except NoTrack as e:
+                failures.append("%s: %s" % (rid, e))
+                continue
             if not branch:
                 failures.append("%s: declares no branch, so a floating run has "
                                 "nothing to follow" % rid)
@@ -241,20 +280,26 @@ def self_test():
     extra = {"spec": {"slug": "IHP-GmbH/chiplet-spec", "branch": "dev",
                       "pin": other}}
 
-    def stub(reachable=(good, other), head=good, branch_ok=True):
+    def stub(reachable=(good, other), head=good, branch_ok=True, branches=None,
+             seen=None):
+        """`branches`, when given, is the only set of branch names it serves."""
         def api(path):
             m = re.match(r"/repos/[^/]+/[^/]+/commits/(.+)$", path)
             ref = m.group(1)
+            if seen is not None:
+                seen.append(ref)
             if re.fullmatch(r"[0-9a-f]{40}", ref):
                 return (200, {"sha": ref}) if ref in reachable else (422, None)
+            if branches is not None and ref not in branches:
+                return 404, None
             return (200, {"sha": head}) if branch_ok else (404, None)
         return api
 
     def expect(name, ok):
         cases.append((name, ok, None))
 
-    def run(pins, api, floating=False, gitmodules=gm, ex=extra):
-        return resolve(declared(gitmodules, ex), pins, floating, api)
+    def run(pins, api, floating=False, gitmodules=gm, ex=extra, track=None):
+        return resolve(declared(gitmodules, ex), pins, floating, api, track=track)
 
     refs, slugs, fails = run({"adk": good, "spec": other}, stub())
     expect("a pinned run resolves every pin the pin set gives",
@@ -305,6 +350,32 @@ def self_test():
     _, _, fails = run({}, stub(), floating=True, gitmodules=no_branch)
     expect("a submodule with no declared branch fails a floating run",
            any("nothing to follow" in f for f in fails))
+
+    # The relative form `.`, in .gitmodules and in integration-refs alike. The
+    # stub serves the dev head only, so a run that looked up anything but the
+    # track it was given would fail here.
+    rel_gm = gm.replace("branch = dev", "branch = .")
+    rel_ex = {"spec": dict(extra["spec"], branch=".")}
+    seen = []
+    refs, _, fails = run({}, stub(branches={"dev"}, seen=seen), floating=True,
+                         gitmodules=rel_gm, ex=rel_ex, track="dev")
+    expect("a relative branch follows the track a floating run is given",
+           not fails and refs == {"adk": good, "spec": good}
+           and "." not in seen and "dev" in seen)
+    _, _, fails = run({}, stub(branches={"dev"}), floating=True,
+                      gitmodules=rel_gm, ex=rel_ex, track="main")
+    expect("a relative branch on another track is not looked up as dev",
+           len(fails) == 2 and all("'main' does not resolve" in f for f in fails))
+    seen = []
+    _, _, fails = run({}, stub(seen=seen), floating=True, gitmodules=rel_gm,
+                      ex=rel_ex)
+    expect("a relative branch with no track fails and names the missing track",
+           len(fails) == 2 and all("no track was given" in f for f in fails)
+           and not seen)
+    refs, _, fails = run({"adk": good, "spec": other}, stub(seen=[]),
+                         gitmodules=rel_gm, ex=rel_ex)
+    expect("a pinned run does not need a track for a relative branch",
+           not fails and refs == {"adk": good, "spec": other})
 
     unknown = "\n".join([
         '[submodule "tools/newtool"]',
@@ -375,6 +446,9 @@ def main():
     mode.add_argument("--pinned", action="store_true")
     mode.add_argument("--floating", action="store_true")
     mode.add_argument("--self-test", action="store_true")
+    ap.add_argument("--track", default=None,
+                    help="the branch this superproject is on; a floating run "
+                         "resolves a relative branch declaration (.) from it")
     ap.add_argument("--github-output", action="store_true",
                     help="append refs= and slugs= to $GITHUB_OUTPUT as JSON")
     args = ap.parse_args()
@@ -394,7 +468,8 @@ def main():
     entries = declared(gitmodules.read_text(), extra)
     api = make_api(token())
     try:
-        refs, slugs, failures = resolve(entries, pins, args.floating, api, local)
+        refs, slugs, failures = resolve(entries, pins, args.floating, api, local,
+                                        track=args.track)
     except Unreachable as e:
         # Exit 2, not 1: no verdict was reached. Same distinction the local gate
         # makes, and the reason a traceback is not good enough here is that the
