@@ -175,7 +175,9 @@ STAGE_ASSEMBLY_LVS_REF=d407f608d0c39fbe1e31b2b6e2ad66139029092e
 # descriptors, written as DEF blockages per routed I/O pad on multi-layer routes); and a
 # routing-only access view for circular pads (pin_access.py) that changes no exported geometry.
 # Each die footprint carries a CHIPLET_PAD_DOMAINS record (format chiplet_kicad.pad_domains,
-# version 1), the one the image's KiCad export plugin validates.
+# version 2: the pad parameters under their neutral names, the carrier's KiCad layer only when the
+# technology gives one). The image's KiCad export plugin and packaging-flow read versions 1 and 2,
+# so a board written before keeps its record and is read as before.
 #
 # packaging-flow runs it as `python -m interposer_pnr` from its own interpreter (the image's
 # venv, unless CHIPLET_FLOW_ENGINE_PYTHON names another) and never imports it. It passes
@@ -449,12 +451,20 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # ci/ipnr-route-tests.txt is unchanged, and the version stays 0.6.0.dev0. It moves with
 # STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
 #
-# This ref (0a9bbb6) is interposer-pnr dev after its pull requests 8 to 11: the PDN texts say
+# An earlier move (0a9bbb6) was interposer-pnr dev after its pull requests 8 to 11: the PDN texts say
 # metal, not copper; a technology package with no KiCad view is refused by name where a board
 # would be written; a route that fails on a spacing gap says so; and _vendor/chiplet_format_io
 # moves to reader 1.24.0 from chiplet-spec 9d84e3f, the commit its SOURCE now declares. It moves
 # with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
-STAGE_INTERPOSER_PNR_REF=0a9bbb64d74992e4d2dbf0d8e77b8ce9c5a7f47c
+#
+# This ref (a8177b9) is interposer-pnr dev after its pull requests 12 to 15: the pad-domain
+# archive is written as version 2 and read in versions 1 and 2, and a method's pad parameters are
+# read under either spelling, never both; pin lists of version 1.1 are read; the interconnect
+# method registry is read at contract 1.2, the version the interconnect PDK's manifest declares;
+# and _vendor/chiplet_format_io moves to reader 1.26.0 from chiplet-spec 84df702, the commit its
+# SOURCE now declares. pyproject.toml does not change and the version stays 0.6.0.dev0. It moves
+# with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
+STAGE_INTERPOSER_PNR_REF=a8177b9a89a5dbd60deb2c62e542068b8035cc97
 
 # Orchestrator that chains die builds into the interposer flow from one spec: distribution
 # packaging_flow, console script `packaging-flow` (packaging_flow.cli:main). In the image the
@@ -978,13 +988,20 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # rules checked against the interposer PDK pin. pyproject.toml does not change, no file under
 # ci/ moves, and the version stays 0.1.0.
 #
-# This ref (41a5fb5) is the merge of packaging-flow's pull request 13 on 657979b: a fab file
+# An earlier move (41a5fb5) was the merge of packaging-flow's pull request 13 on 657979b: a fab file
 # is refused when the run's plan did not require every DRC, under its own error code and message,
 # and the plan's unrequired checks are read in one place (verification/templates.py). Under src/
 # only errors.py, exit_sentences.py, fab_file.py, messages/catalog.json, status_view.py and
 # verification/templates.py move; pyproject.toml does not change, no file under ci/ moves, and the
 # version stays 0.1.0.
-STAGE_PACKAGING_FLOW_REF=41a5fb50483b1f50fa5b458b5411e3d3bbc9e9d9
+#
+# This ref (5a1d319) is packaging-flow dev after release v2026.11.3 came back into dev and its
+# pull requests 14 to 21: a GDS XOR command; a die's position set on the board; the assembly
+# composed from the routed geometry; the texts say metal routing, not copper; a gate waits on the
+# writer of its input; a fill that does not converge says so; the pad-domain archive read in
+# versions 1 and 2; and a review that cannot be signed says why. pyproject.toml only declares six
+# skips for the routed-geometry cases, and the version stays 0.1.0.
+STAGE_PACKAGING_FLOW_REF=5a1d319fc7b9e72fec38f123d530bb876ad95626
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
@@ -1359,11 +1376,17 @@ STAGE_CHIPLET_COSIM_PATH=chiplet-cosim
 # cosim_test_params.py). pyproject.toml and the version (0.1.0) do not change, and no adk-tools
 # check names a cosim module, so nothing else here moves with it.
 #
-# This ref (51b4020) is chiplet-cosim dev after its pull requests 3 and 4: the xschem form
+# An earlier move (51b4020) was chiplet-cosim dev after its pull requests 3 and 4: the xschem form
 # version is read and checked, and a sweep command (cosim_sweep.py) runs one design over a set of
 # parameter points and records each run. pyproject.toml and the version do not change, and no
 # adk-tools check names a cosim module, so nothing else here moves with it.
-STAGE_CHIPLET_COSIM_REF=51b4020d2080656d12c346fb23d3159942b694ef
+#
+# This ref (e8f651a) is chiplet-cosim dev after its pull requests 5 and 6: the texts a user reads
+# are plain, and the pins readers take their major from the installed reader's
+# SUPPORTED_PINS_VERSION, so its dependency floor moves to chiplet-format-io 1.24.0, which the
+# chiplet-spec entry below satisfies. The version (0.1.0) does not change, and no adk-tools check
+# names a cosim module, so nothing else here moves with it.
+STAGE_CHIPLET_COSIM_REF=e8f651a3c2ca394c292e5a31b5d0c86c421e438e
 
 # chiplet-spec: the .chiplet reference reader and writer, installed as the distribution
 # chiplet-format-io from reference/python with the `strict` extra, and the system description,
@@ -1617,24 +1640,24 @@ STAGE_CHIPLET_COSIM_REF=51b4020d2080656d12c346fb23d3159942b694ef
 # through their own copies and select no revision. Measured at the refs this file and the
 # adk-tools gitlinks name; re-measure when any of them moves:
 #
-#   - installed from this entry: 1.24.0, strict, revision 4; what the strict consumers import.
+#   - installed from this entry: 1.26.0, strict, revision 4; what the strict consumers import.
 #   - the system description, description/src/chiplet_system_description/_vendor (a private
-#     name, never on sys.path): 1.24.0, from this ref, since it sits in this tree: __init__.py,
+#     name, never on sys.path): 1.26.0, from this ref, since it sits in this tree: __init__.py,
 #     die_contract.py, pad_numbers.py, sheet_names.py, supply_domains.py and technology.py,
 #     byte-identical to this tree's reference/python ones (step 0b checks it).
 #     Its emit, which packaging-flow calls, writes .chiplet documents through it.
 #   - packaging-flow, chiplet-flow and chiplet-cosim carry no copy; they import the installed one.
-#   - interposer-pnr, src/interposer_pnr/_vendor/chiplet_format_io (a private name): 1.24.0,
+#   - interposer-pnr, src/interposer_pnr/_vendor/chiplet_format_io (a private name): 1.26.0,
 #     __init__.py and footprint_ids.py, byte-identical to this ref's, the commit its
 #     _vendor/chiplet_format_io.SOURCE declares. Its form export names footprints through it.
 #     interposer-pnr's own test_sheet_form holds the copy to its SOURCE, and step 0b holds it to
 #     this tree.
-#   - tools/adk, vendor/: 1.24.0, __init__.py only, byte-identical to this ref's (its
+#   - tools/adk, vendor/: 1.26.0, __init__.py only, byte-identical to this ref's (its
 #     vendor/README.md declares this ref, and the ADK's tests/test_chiplet2dbx.py compares the
 #     copy with this ref's blob in the staged tree, and its tests/fixtures/mount_plane with this
 #     ref's cases). The contract registry compares it with this
 #     entry's reader byte for byte (a mirror of cfio_python_reader).
-#   - tools/chiplet_kicad_plugin, plugins/chiplet_export/vendor: 1.24.0, __init__.py only,
+#   - tools/chiplet_kicad_plugin, plugins/chiplet_export/vendor: 1.26.0, __init__.py only,
 #     byte-identical to this ref's (its vendor/chiplet_format_io.SOURCE names this ref, and its
 #     tests hold the copy and their oracle fixture to it; its Apache-2.0 text is
 #     LICENSES/Apache-2.0.txt at the plugin root). Step 0b does not pass this copy to
@@ -1642,7 +1665,7 @@ STAGE_CHIPLET_COSIM_REF=51b4020d2080656d12c346fb23d3159942b694ef
 #     format_version through it.
 #     The contract registry compares it with this entry's reader byte for byte (a mirror of
 #     cfio_python_reader).
-#   - tools/gds_to_kicad, _vendor/chiplet_format_io (a private name): 1.24.0, __init__.py,
+#   - tools/gds_to_kicad, _vendor/chiplet_format_io (a private name): 1.26.0, __init__.py,
 #     die_contract.py, footprint_ids.py, pad_numbers.py, pins.py, sheet_names.py, supply_domains.py
 #     and technology.py, byte-identical to this tree's reference/python ones (step 0b checks it),
 #     copied from this ref, the commit its _vendor/chiplet_format_io.SOURCE declares. Its
@@ -1665,9 +1688,9 @@ STAGE_CHIPLET_COSIM_REF=51b4020d2080656d12c346fb23d3159942b694ef
 # resolves the commit its vendor/README.md names in the staged tree, so the
 # tools/chiplet_kicad_plugin and tools/adk gitlinks move with this ref.
 #
-# Strict admission, the export path and the ADK's own copy all read with 1.24.0. The ADK's
+# Strict admission, the export path and the ADK's own copy all read with 1.26.0. The ADK's
 # admission tests build their documents from the pin list in examples/two_die_interposer, not from
-# that example's .chiplet, so nothing in them checks that document against the 1.24.0 reader, and
+# that example's .chiplet, so nothing in them checks that document against the 1.26.0 reader, and
 # this file does not assert it.
 #
 # Every commit the ADK and the plugin declare for their copies is this ref, the HEAD of the
@@ -1692,7 +1715,7 @@ STAGE_CHIPLET_COSIM_REF=51b4020d2080656d12c346fb23d3159942b694ef
 # reader needs. So STAGE_INTERPOSER_PNR_REF and the tools/chiplet_kicad_plugin, tools/adk and
 # tools/gds_to_kicad gitlinks move with it, each to a dev commit that vendors 1.23.0 from this ref.
 #
-# This ref (9d84e3f) is chiplet-spec dev after its pull requests 21 to 23: kicad_template is
+# An earlier move (9d84e3f) was chiplet-spec dev after its pull requests 21 to 23: kicad_template is
 # optional in capability set B, so a technology package without a KiCad view passes the package
 # checks with one note; the documentation says metal routing, not copper; and pins.py derives a
 # pin's KiCad type from its role and direction. The reader release moves to 1.24.0: in
@@ -1701,8 +1724,21 @@ STAGE_CHIPLET_COSIM_REF=51b4020d2080656d12c346fb23d3159942b694ef
 # stays byte-equal; gds_to_kicad's copy adds pins.py, the others carry no pins.py. So
 # STAGE_INTERPOSER_PNR_REF and the tools/chiplet_kicad_plugin, tools/adk and tools/gds_to_kicad
 # gitlinks move with it, each to a dev commit that vendors 1.24.0 from this ref.
+#
+# This ref (84df702) is chiplet-spec dev after its pull requests 24 and 25: interconnect methods
+# 1.2 names the two pad parameters without one technology's metal (passivation_opening_um and
+# pad_metal_enclosure_um beside the deprecated spellings, never both in one method), and
+# die_content.py gives the content form of a die's build record and contract. The reader release
+# moves to 1.26.0 through 1.25.0: in __init__.py only the version line changes; die_content.py is
+# a new file no copy carries, and technology_package.py carries the rest.
+# conformance/fixtures/mount_plane is unchanged. Every copy above moves to 1.26.0 with this ref and
+# stays byte-equal, with the files it held before. The interconnect PDK's
+# manifest/schema/interconnect_methods.schema.json is the same bytes as this ref's
+# schemas/interconnect_methods.schema.json, so the tools/IHP-Interconnect-IntM4TM2 gitlink moves
+# with it. So STAGE_INTERPOSER_PNR_REF and the tools/chiplet_kicad_plugin, tools/adk and
+# tools/gds_to_kicad gitlinks move with it, each to a dev commit that vendors 1.26.0 from this ref.
 STAGE_CHIPLET_SPEC_PATH=chiplet-spec
-STAGE_CHIPLET_SPEC_REF=9d84e3fe5ff70b509a92870e7e29e270ad36a71b
+STAGE_CHIPLET_SPEC_REF=84df702ec584a72fcdef08376132afc8c3363429
 
 # ----------------------------------------------------------------------
 # LibreLane
