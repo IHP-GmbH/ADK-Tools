@@ -228,7 +228,7 @@ STAGE_ASSEMBLY_LVS_REF=d407f608d0c39fbe1e31b2b6e2ad66139029092e
 #
 # An earlier move adds 25 commits. export --form draws the board against the designer's KiCad
 # sheet: die footprints take their symbol's identity and units, carrier pads their sheet EXT_PAD
-# identity in a hidden IO_PAD_ID property, every pad a die joins is netted, and the metal routing takes
+# identity in a hidden IO_PAD_ID property, every pad a die joins is netted, and routed metal takes
 # the sheet's net names. With --form the export report's round_trip is version 3 and states the way
 # back (net_names, planner to sheet, and sheet_nets, the pads no routed net binds); a form board is
 # checked against its sheet as KiCad's Update PCB from Schematic would, and the gate refuses
@@ -367,8 +367,8 @@ STAGE_ASSEMBLY_LVS_REF=d407f608d0c39fbe1e31b2b6e2ad66139029092e
 # measures how many pillar rows a die edge escapes; a draft board is paired with and checked
 # against the draft sheet of the same design; the router refuses an openroad without the decoder
 # methods its dump calls; pdn ends each mesh stripe at its last connection, and a pad joins a
-# stripe only where one cut fits. The frozen KiCad rule pair moves to intm4tm2 0.4.1 (TM2.bR holds
-# TopMetal2 only), byte-equal to the interposer PDK's interposer_template files at the
+# stripe only where one cut fits. The frozen KiCad rule pair moves to intm4tm2 0.4.1 (TM2.bR applies
+# to TopMetal2 only), byte-equal to the interposer PDK's interposer_template files at the
 # tools/OpenIntM4TM2 gitlink set in the same commit, so this entry, packaging-flow's and that gitlink move
 # together and step 0c's check_kicad_templates.py holds them. tests/test_router.py does not change,
 # so the route case in ci/ipnr-route-tests.txt is unchanged. No pyproject dependency moves. The
