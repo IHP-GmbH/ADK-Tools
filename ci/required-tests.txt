@@ -282,6 +282,9 @@ plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_document_r
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_document_refuses_an_outline_off_the_origin[y]
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_finalized_dies_and_pads_are_the_board_paths
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_finalized_pads_keep_their_own_layer
+# plugins/chiplet_export/tests/test_routed_one_body.py
+plugin plugins/chiplet_export/tests/test_routed_one_body.py::test_both_sources_print_the_same_lines
+plugin plugins/chiplet_export/tests/test_routed_one_body.py::test_both_sources_stage_the_same_files
 # plugins/chiplet_export/tests/test_routed_via_table.py
 plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_a_cut_or_enclosure_off_the_table_is_refused[cut-0.8]
 plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_a_cut_or_enclosure_off_the_table_is_refused[enclosure-0.6]
@@ -294,3 +297,4 @@ plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_document_vias
 plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_the_worker_refuses_before_writing[tech json]
 plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_the_worker_refuses_before_writing[version]
 plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_the_worker_refuses_before_writing[via table]
+plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_a_valid_tech_json_the_document_disagrees_with_is_refused
