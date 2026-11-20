@@ -125,7 +125,7 @@
       "roots": [
         "d22efd3d4e1ba349e7f254bdf2ce280d6a5fc6f1"
       ],
-      "sha": "14ebe27bc261a01a65bc74fef6c66c072c7deba3",
+      "sha": "cf25851ffddd844ac523c2eec44a4e69f65bd048",
       "source": "staged",
       "stage_name": "chiplet-flow"
     },
