@@ -1340,12 +1340,19 @@ STAGE_CHIPLET_COSIM_PATH=chiplet-cosim
 # chiplet-cosim documentation page and keeps the verdict contract the package docstring refers
 # to. Only README.md changes; no package file, pyproject or version moves.
 #
-# This ref (d7bedc6) takes release v2026.11.2 back into dev on the merge of the waves fix: a
+# An earlier move (d7bedc6) took release v2026.11.2 back into dev on the merge of the waves fix: a
 # cocotb run that asks for waves keeps the design's own VCD dump, a test command the waves
 # wrapper does not know is refused under its own error kind, and PROTOCOL stays in the engine,
 # pinned equal to the driver's. Only cosim_cocotb_driver.py and cosim_engine_cocotb.py move under
 # src/; pyproject.toml and the version do not.
-STAGE_CHIPLET_COSIM_REF=d7bedc6ae1960b34601050e5b2ef2a376cfa6e82
+#
+# This ref (d97feb7) is chiplet-cosim dev after release v2026.11.3 came back into dev and its pull
+# requests 1 and 2. Two new commands: validate gives the lock's verdict on a cosim.yaml without
+# writing a lock, and run-status says whether a run record's inputs still bind to the same bytes.
+# A cocotb run lists its tests and takes per-test parameter overrides (cosim_test_listing.py,
+# cosim_test_params.py). pyproject.toml and the version (0.1.0) do not change, and no adk-tools
+# check names a cosim module, so nothing else here moves with it.
+STAGE_CHIPLET_COSIM_REF=d97feb7ff828fe922fd5dd9cd0a2e62b7a3aa081
 
 # chiplet-spec: the .chiplet reference reader and writer, installed as the distribution
 # chiplet-format-io from reference/python with the `strict` extra, and the system description,
