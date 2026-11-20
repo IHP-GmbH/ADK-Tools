@@ -995,13 +995,21 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # verification/templates.py move; pyproject.toml does not change, no file under ci/ moves, and the
 # version stays 0.1.0.
 #
-# This ref (5a1d319) is packaging-flow dev after release v2026.11.3 came back into dev and its
+# An earlier move (5a1d319) was packaging-flow dev after release v2026.11.3 came back into dev and its
 # pull requests 14 to 21: a GDS XOR command; a die's position set on the board; the assembly
 # composed from the routed geometry; the texts say metal routing, not copper; a gate waits on the
 # writer of its input; a fill that does not converge says so; the pad-domain archive read in
 # versions 1 and 2; and a review that cannot be signed says why. pyproject.toml only declares six
 # skips for the routed-geometry cases, and the version stays 0.1.0.
-STAGE_PACKAGING_FLOW_REF=5a1d319fc7b9e72fec38f123d530bb876ad95626
+#
+# This ref (3210bbf) is packaging-flow dev after its pull requests 22 and 23: the fill report reads
+# its edge cases on purpose and gives both advice lines; a run decides the version it signs at once,
+# at its dies, signature records of version 2 key each gate by version, a run signed at version 1
+# is held to the standing gate gate by gate, and the version 4 signoff acknowledgement records the
+# review of a layout; the routed interposer and the connection sheet are results; and a die halt's
+# record is read only from where it is filed. pyproject.toml does not change, no file under ci/
+# moves, tests/die_flow/PROVENANCE.md still names 7a746f8, and the version stays 0.1.0.
+STAGE_PACKAGING_FLOW_REF=3210bbf5201bcb9e626b918321ad16b729c73e78
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
@@ -1224,13 +1232,25 @@ STAGE_PACKAGING_FLOW_REF=5a1d319fc7b9e72fec38f123d530bb876ad95626
 # at, so STAGE_PACKAGING_FLOW_REF moves with it.
 STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 #
-# This ref (14ebe27) is the merge of chiplet-flow's pull request 2, ten commits on 7a746f8. It adds
+# An earlier move (14ebe27) was the merge of chiplet-flow's pull request 2, ten commits on 7a746f8. It adds
 # a flip-chip pad master per IHP process, drawn from the PDK's own PCell and held to its octagon,
 # which pad-frame can place; the template names ihp-sg13cmos5l among its processes, and the README
 # takes the short form. No package dependency moves, no die_errors class moves and
 # tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does not. No test module that
 # packaging-flow copies changes.
-STAGE_CHIPLET_FLOW_REF=cf25851ffddd844ac523c2eec44a4e69f65bd048
+#
+# This ref (5cb0848) is the merge of chiplet-flow's pull request 3, four commits on cf25851 (dev
+# after release v2026.11.3 came back into dev). A build record that binds run files gives each row
+# the shared die content table projects a content_sha256, the digest of the file's projection with
+# the run's own location rewritten to the run, design and PDK roots (ready_die_dir.py, used by
+# emit_ready_die.py and padring_die.py); sha256 stays the binding of the bytes. The mixed_gf180
+# example writes its record under its own schema id, so the table keeps its rows raw. The package
+# dependency floor moves to chiplet-format-io 1.26.0, which carries the content table and is the
+# reader STAGE_CHIPLET_SPEC_REF holds. No die_errors class moves and tests/test_view_xor.py does
+# not change, so ci/image-xor-tests.txt does not. Two test modules packaging-flow copies from
+# change (tests/test_emit_ready_die.py, tests/test_mixed_gf180_derive_die.py), by added cases;
+# packaging-flow's copies stay at 7a746f8.
+STAGE_CHIPLET_FLOW_REF=5cb0848028bafb2b6a8e542d5ddfff30a51c265e
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
