@@ -1198,7 +1198,7 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # takes the short form. No package dependency moves, no die_errors class moves and
 # tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does not. No test module that
 # packaging-flow copies changes.
-STAGE_CHIPLET_FLOW_REF=14ebe27bc261a01a65bc74fef6c66c072c7deba3
+STAGE_CHIPLET_FLOW_REF=cf25851ffddd844ac523c2eec44a4e69f65bd048
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
