@@ -439,7 +439,7 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # PDK pin (technology.json, interposer_template.kicad_dru, MANIFEST.json), and the conformance
 # test reads them. Nothing under src/ or _vendor moves, pyproject.toml does not change, no id in
 # ci/ipnr-route-tests.txt moves, and the version stays 0.6.0.dev0.
-STAGE_INTERPOSER_PNR_REF=0eda90228000a0c8d80789e20e3baa4ac7b70015
+STAGE_INTERPOSER_PNR_REF=15ba04869c146d416df0a35be2c2ad7877e44a24
 
 # Orchestrator that chains die builds into the interposer flow from one spec: distribution
 # packaging_flow, console script `packaging-flow` (packaging_flow.cli:main). In the image the
@@ -1656,7 +1656,7 @@ STAGE_CHIPLET_COSIM_REF=d7bedc6ae1960b34601050e5b2ef2a376cfa6e82
 # ADK's vendor/README.md and MOUNT_PLANE_PIN name this ref, so the tools/chiplet_kicad_plugin and
 # tools/adk gitlinks move with it.
 STAGE_CHIPLET_SPEC_PATH=chiplet-spec
-STAGE_CHIPLET_SPEC_REF=f27803acfe8ea65e7924a8468abe612dca778763
+STAGE_CHIPLET_SPEC_REF=6978c7b75469e77755d8259b581763413cd1466a
 
 # ----------------------------------------------------------------------
 # LibreLane

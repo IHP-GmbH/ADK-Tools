@@ -139,7 +139,7 @@
       "roots": [
         "8a782eb10dfea9c351320308c69010239838eb95"
       ],
-      "sha": "f27803acfe8ea65e7924a8468abe612dca778763",
+      "sha": "6978c7b75469e77755d8259b581763413cd1466a",
       "source": "staged",
       "stage_name": "chiplet-spec"
     },
@@ -168,7 +168,7 @@
         "8f87581a1d7390f4ce56c14fe583012a97d73614",
         "da739ab03014debaab92c59d6ab59218a4b908de"
       ],
-      "sha": "712d47e72574517a14ddc3535a039305f8451d5d",
+      "sha": "29fc673aff9d81c8170bbe20ea96223ed0715a65",
       "source": "gitlink",
       "stage_name": null
     },
@@ -224,7 +224,7 @@
       "roots": [
         "07a36d25574d640be9ff51ffaf6655748aedaadb"
       ],
-      "sha": "0eda90228000a0c8d80789e20e3baa4ac7b70015",
+      "sha": "15ba04869c146d416df0a35be2c2ad7877e44a24",
       "source": "staged",
       "stage_name": "interposer-pnr"
     },
