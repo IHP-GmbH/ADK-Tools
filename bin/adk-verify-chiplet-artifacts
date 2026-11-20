@@ -20,7 +20,7 @@ gds2kicad change that silently alters the demo artifacts fails the build:
                            curated Metal_Test_stripped.gds (only the 58 I/O pads
                            on 134/0, names on 134/25) and require the pad set --
                            name + shape + position + size + layers + custom-pad
-                           copper outline -- to equal the committed footprint
+                           metal outline -- to equal the committed footprint
                            exactly.                                      [STRICT]
   5. converter liveness   : run the converter on the full die GDS (474 raw shapes)
                            and require a valid, non-empty footprint.     [SMOKE]
@@ -158,7 +158,7 @@ def pads(node):
     """List of pad dicts: number, shape, at(x,y), size(w,h), layers, poly.
 
     `poly` is the normalized (sorted, rounded) set of every (xy ...) vertex under
-    the pad's `(primitives ...)` -- the real copper outline of an `smd custom`
+    the pad's `(primitives ...)` -- the real metal outline of an `smd custom`
     pad, which its bounding-box `(size ...)` does not capture.
     """
     out = []
@@ -313,11 +313,11 @@ def main():
 
     # 4. reproduce the committed footprint straight from the shipped stripped GDS
     #    (pad shapes on 134/0, names on 134/25). Strict: the regenerated pad set
-    #    -- name + shape + position + size + layers + custom-pad copper outline --
+    #    -- name + shape + position + size + layers + custom-pad metal outline --
     #    must equal the committed footprint, so the one human-in-the-loop artifact
     #    is reproducible one-shot from a shipped input. The `poly` term matters:
     #    3 pads (DIV_OUTn/DIV_OUTp/sout) are `smd custom` octagons whose real
-    #    copper is a gr_poly the bounding-box `size` does not capture, so a
+    #    metal is a gr_poly the bounding-box `size` does not capture, so a
     #    regression that flattened them to a same-bbox rect would slip a
     #    name+size-only check. UUIDs/float formatting are ignored.
     strip_mod = os.path.join(tmp, 'from_stripped.kicad_mod')
