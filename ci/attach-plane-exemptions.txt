@@ -4,3 +4,4 @@
 # then the reason. A line whose file is
 # gone, is not on IntM4TM2, or now passes fails the check as stale.
 tools/chiplet-studio/tests/fixtures/interconnect_merge/merge_z.chiplet the viewer's no-plane test. Studio seats its dies on dimensions.thickness and warns, naming the file (TechResolve.TheFilesPlaneWinsOverTheStackups asserts the warning)
+tools/chiplet_kicad_plugin/plugins/chiplet_export/tests/fixtures/routed_t03/oracle/cf_typical_03_from_schematic.draft.chiplet a frozen copy of a recorded run's export output, kept as it was written; the plugin's tests compare against its bytes, so it is not edited to declare the plane.
