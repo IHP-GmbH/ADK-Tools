@@ -82,7 +82,7 @@ interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestRobustness:
 # is a failure. The PCell-vs-generator parity is enforced in the interposer repo's
 # own decks job, which installs the deb. Restore here only if suites gains a binary.
 
-# ---- plugin (199) ----
+# ---- plugin (201) ----
 # plugins/chiplet_export/tests/test_boundary_annotations.py
 plugin plugins/chiplet_export/tests/test_boundary_annotations.py::test_annotation_does_not_alter_manifest
 plugin plugins/chiplet_export/tests/test_boundary_annotations.py::test_annotation_never_uses_exchange0
@@ -274,9 +274,11 @@ plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_a_board_frame_
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_a_direct_finalize_off_the_origin_is_refused_untouched
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_a_fill_shape_past_the_left_edge_is_refused_and_the_gds_deleted
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_a_pad_one_grid_step_inside_passes_the_guard_and_changes_the_canon
+plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_a_pad_off_the_grid_is_snapped_and_the_snap_is_named
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_a_pad_past_the_left_edge_is_refused_and_nothing_is_left
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_an_outline_one_dbu_off_the_origin_is_refused[x-(-1, 0)]
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_an_outline_one_dbu_off_the_origin_is_refused[y-(0, -1)]
+plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_board_path_does_not_name_its_snaps
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_board_path_still_shifts_by_the_bbox
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_document_refuses_an_outline_off_the_origin[x]
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_document_refuses_an_outline_off_the_origin[y]
