@@ -457,13 +457,14 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # moves to reader 1.24.0 from chiplet-spec 9d84e3f, the commit its SOURCE now declares. It moves
 # with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
 #
-# This ref (58ce769) is interposer-pnr dev after its pull requests 12 to 14: the pad-domain
+# This ref (a8177b9) is interposer-pnr dev after its pull requests 12 to 15: the pad-domain
 # archive is written as version 2 and read in versions 1 and 2, and a method's pad parameters are
-# read under either spelling, never both; pin lists of version 1.1 are read; and
-# _vendor/chiplet_format_io moves to reader 1.26.0 from chiplet-spec 84df702, the commit its
+# read under either spelling, never both; pin lists of version 1.1 are read; the interconnect
+# method registry is read at contract 1.2, the version the interconnect PDK's manifest declares;
+# and _vendor/chiplet_format_io moves to reader 1.26.0 from chiplet-spec 84df702, the commit its
 # SOURCE now declares. pyproject.toml does not change and the version stays 0.6.0.dev0. It moves
 # with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
-STAGE_INTERPOSER_PNR_REF=58ce7697ff83052d8fd35168d4b36922ad03104f
+STAGE_INTERPOSER_PNR_REF=a8177b9a89a5dbd60deb2c62e542068b8035cc97
 
 # Orchestrator that chains die builds into the interposer flow from one spec: distribution
 # packaging_flow, console script `packaging-flow` (packaging_flow.cli:main). In the image the

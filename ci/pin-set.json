@@ -224,7 +224,7 @@
       "roots": [
         "07a36d25574d640be9ff51ffaf6655748aedaadb"
       ],
-      "sha": "58ce7697ff83052d8fd35168d4b36922ad03104f",
+      "sha": "a8177b9a89a5dbd60deb2c62e542068b8035cc97",
       "source": "staged",
       "stage_name": "interposer-pnr"
     },
