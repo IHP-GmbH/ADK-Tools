@@ -82,7 +82,7 @@ interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestRobustness:
 # is a failure. The PCell-vs-generator parity is enforced in the interposer repo's
 # own decks job, which installs the deb. Restore here only if suites gains a binary.
 
-# ---- plugin (158) ----
+# ---- plugin (199) ----
 # plugins/chiplet_export/tests/test_boundary_annotations.py
 plugin plugins/chiplet_export/tests/test_boundary_annotations.py::test_annotation_does_not_alter_manifest
 plugin plugins/chiplet_export/tests/test_boundary_annotations.py::test_annotation_never_uses_exchange0
