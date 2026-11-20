@@ -82,7 +82,7 @@ interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestRobustness:
 # is a failure. The PCell-vs-generator parity is enforced in the interposer repo's
 # own decks job, which installs the deb. Restore here only if suites gains a binary.
 
-# ---- plugin (204) ----
+# ---- plugin (217) ----
 # plugins/chiplet_export/tests/test_boundary_annotations.py
 plugin plugins/chiplet_export/tests/test_boundary_annotations.py::test_annotation_does_not_alter_manifest
 plugin plugins/chiplet_export/tests/test_boundary_annotations.py::test_annotation_never_uses_exchange0
@@ -291,11 +291,25 @@ plugin plugins/chiplet_export/tests/test_routed_intermediates.py::test_the_route
 # plugins/chiplet_export/tests/test_routed_one_body.py
 plugin plugins/chiplet_export/tests/test_routed_one_body.py::test_both_sources_print_the_same_lines
 plugin plugins/chiplet_export/tests/test_routed_one_body.py::test_both_sources_stage_the_same_files
+# plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_plugin_refuses_every_variant_the_helper_refuses
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_two_readers_agree[board frame]
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_two_readers_agree[digest with newline]
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_two_readers_agree[net without drawn]
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_two_readers_agree[newer minor]
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_two_readers_agree[newer minor, added key]
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_two_readers_agree[no devices]
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_two_readers_agree[one cut with a pitch]
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_two_readers_agree[other major]
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_two_readers_agree[typical_03]
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_two_readers_agree[via without size]
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_two_readers_agree[wrong schema]
+plugin plugins/chiplet_export/tests/test_routed_reader_agrees_with_helper.py::test_the_two_readers_support_one_version
 # plugins/chiplet_export/tests/test_routed_via_table.py
 plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_a_cut_or_enclosure_off_the_table_is_refused[cut-0.8]
 plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_a_cut_or_enclosure_off_the_table_is_refused[enclosure-0.6]
 plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_a_cut_the_table_does_not_hold_is_refused
-plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_a_planted_pitch_mismatch_is_refused
+plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_a_pitch_on_one_cut_is_refused_before_the_table
 plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_a_two_cut_array_from_the_table_passes
 plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_a_two_cut_array_off_the_table_is_refused[count]
 plugin plugins/chiplet_export/tests/test_routed_via_table.py::test_a_two_cut_array_off_the_table_is_refused[pitch]
