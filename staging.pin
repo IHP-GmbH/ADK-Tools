@@ -164,7 +164,7 @@ STAGE_ASSEMBLY_LVS_REF=d407f608d0c39fbe1e31b2b6e2ad66139029092e
 #
 # It also carries what the flow around it uses: the KiCad round trip (export with --chiplet and
 # --bumps records what was sent in its --report, and signoff --sign --report checks that a board
-# edited in KiCad still carries that copper; for a host that signs on someone's behalf,
+# edited in KiCad still carries that metal; for a host that signs on someone's behalf,
 # --expect-sha256 refuses a board other than the one whose fingerprint was confirmed and
 # --refuse-existing refuses when anything is already at --ack, both with exit 3 before anything is
 # written, and without them the record bytes are unchanged); die footprints from --pins, whose
@@ -185,7 +185,7 @@ STAGE_ASSEMBLY_LVS_REF=d407f608d0c39fbe1e31b2b6e2ad66139029092e
 # inside the run folder with --board-relative-layout, which an older rev rejects as an unknown
 # option) and board-revision, reads exits 5 and 6 as a source it could not use or a source
 # version it must not read, and accepts the export report's round_trip record at versions 1 to 5
-# (3 and 5 follow a sheet, 4 and 5 carry reserved copper); a change to any of these moves with the
+# (3 and 5 follow a sheet, 4 and 5 carry reserved metal); a change to any of these moves with the
 # packaging-flow entry. The signoff acknowledgment it writes is version 2 of
 # interposer_pnr.signoff (a version 1 ack still reads, as unstated); the packaging-flow ref reads
 # both versions through one loader. `signoff --check` writes its own record and signs nothing.
@@ -228,7 +228,7 @@ STAGE_ASSEMBLY_LVS_REF=d407f608d0c39fbe1e31b2b6e2ad66139029092e
 #
 # An earlier move adds 25 commits. export --form draws the board against the designer's KiCad
 # sheet: die footprints take their symbol's identity and units, carrier pads their sheet EXT_PAD
-# identity in a hidden IO_PAD_ID property, every pad a die joins is netted, and routed copper takes
+# identity in a hidden IO_PAD_ID property, every pad a die joins is netted, and the metal routing takes
 # the sheet's net names. With --form the export report's round_trip is version 3 and states the way
 # back (net_names, planner to sheet, and sheet_nets, the pads no routed net binds); a form board is
 # checked against its sheet as KiCad's Update PCB from Schematic would, and the gate refuses
@@ -285,7 +285,7 @@ STAGE_ASSEMBLY_LVS_REF=d407f608d0c39fbe1e31b2b6e2ad66139029092e
 # SOURCE files stay current. The three route cases in ci/ipnr-route-tests.txt are
 # unchanged. No pyproject dependency moves. The version stays 0.5.0.
 #
-# An earlier move adds 18 commits. A route takes reserved copper (--reserved stripes
+# An earlier move adds 18 commits. A route takes reserved metal (--reserved stripes
 # and tiled via arrays, planned against the design and reported per owner), and round_trip versions
 # 4 and 5 record it. read_round_trip_names reads the reserved block at every version, so
 # round_trip_names.py moves and its vendored copies move with this entry: the
@@ -305,7 +305,7 @@ STAGE_ASSEMBLY_LVS_REF=d407f608d0c39fbe1e31b2b6e2ad66139029092e
 # The version stays 0.5.0.
 #
 # An earlier move adds six commits. A pdn stage plans a rail mesh from its spec and
-# the prepared route, draws it with pdngen, reads every drawn shape back, refuses copper the spec
+# the prepared route, draws it with pdngen, reads every drawn shape back, refuses metal the spec
 # did not ask for or a rail that falls apart, and writes a reserved file owned by pdn, which route
 # takes like any reserved geometry. Its tests run a stand-in openroad; no image step runs pdngen
 # yet, so pdn is not proven live here. route's code is reworked to share with pdn (rdl_route runs
@@ -318,7 +318,7 @@ STAGE_ASSEMBLY_LVS_REF=d407f608d0c39fbe1e31b2b6e2ad66139029092e
 # the gitlinks stay. No pyproject dependency moves. The version stays 0.5.0.
 #
 # An earlier move adds 19 commits. A net_requirements row on a reserved net is held to
-# the reserved copper's cross-section, the copper a cut meets summed per direction at the narrowest
+# the reserved metal's cross-section, the metal a cut meets summed per direction at the narrowest
 # cut, and route reports it as met_by_reserved instead of drawing a rule for it. A new check-mesh
 # subcommand refuses a pdn mesh spec (interposer_pnr.mesh_spec v1, or v2 with a span per stripe)
 # before any build, against the tech's rules, declared rails (interposer_pnr.rails v1), the voltage
@@ -330,7 +330,7 @@ STAGE_ASSEMBLY_LVS_REF=d407f608d0c39fbe1e31b2b6e2ad66139029092e
 # cross-section of a met_by_reserved net. The draft's .kicad_dru is no longer the PDK template
 # copied unread: its bytes are the PDK's interposer_template.kicad_dru as an unchanged prefix
 # followed by one NetName track_width rule per widened net and layer (the pin layer and
-# cross-section nets left out), an early warning in KiCad only. signoff refuses a board whose copper
+# cross-section nets left out), an early warning in KiCad only. signoff refuses a board whose metal
 # on a required net is narrower than the record states, outside route's own taper boxes, as one more
 # reason line; the signoff_check record stays at version 1. round_trip_names.py moves (blob
 # be50250), so its vendored copies move with this entry: the tools/chiplet_kicad_plugin and
@@ -368,7 +368,7 @@ STAGE_ASSEMBLY_LVS_REF=d407f608d0c39fbe1e31b2b6e2ad66139029092e
 # against the draft sheet of the same design; the router refuses an openroad without the decoder
 # methods its dump calls; pdn ends each mesh stripe at its last connection, and a pad joins a
 # stripe only where one cut fits. The frozen KiCad rule pair moves to intm4tm2 0.4.1 (TM2.bR holds
-# TopMetal2 copper only), byte-equal to the interposer PDK's interposer_template files at the
+# TopMetal2 only), byte-equal to the interposer PDK's interposer_template files at the
 # tools/OpenIntM4TM2 gitlink set in the same commit, so this entry, packaging-flow's and that gitlink move
 # together and step 0c's check_kicad_templates.py holds them. tests/test_router.py does not change,
 # so the route case in ci/ipnr-route-tests.txt is unchanged. No pyproject dependency moves. The
@@ -788,7 +788,7 @@ STAGE_INTERPOSER_PNR_REF=a8177b9a89a5dbd60deb2c62e542068b8035cc97
 # entry moves with it. The version stays 0.1.0.
 #
 # An earlier move adds five commits. The gds gate accepts the round_trip versions 4
-# and 5 that interposer-pnr's entry writes for a board with reserved copper, and the KiCad review
+# and 5 that interposer-pnr's entry writes for a board with reserved metal, and the KiCad review
 # halt names verify-open. SHIPPED_PICKS lists chiplet-flow's picorv32a_cmos5l bondpad die and its
 # core, and tests/die_flow/PROVENANCE.md moves with it (no copied helper source moves), so this
 # entry moves with STAGE_CHIPLET_FLOW_REF. A rail of the system source that states width_um, or
@@ -813,7 +813,7 @@ STAGE_INTERPOSER_PNR_REF=a8177b9a89a5dbd60deb2c62e542068b8035cc97
 # file no image stages (it now comes from adk-examples; this entry's last note), and its two
 # cases skip, declared for T1 and T2. A source with interposer-pnr's mesh
 # spec (pdn_mesh.json) beside it gets two rows: pdn-check runs check-mesh before any build, and pdn
-# draws the mesh as reserved copper that route takes with --reserved, the requirements row then
+# draws the mesh as reserved metal that route takes with --reserved, the requirements row then
 # passing --judged-by; a source without the file keeps every row and argv it had. The package-drc
 # row also takes the seal-ring deck's ring-measuring categories (Seal.a per metal, Seal.c1 to c3,
 # Seal.e, Seal.f per metal) as evidence, and level 4 claims the ring's widths and its Passiv ring;
@@ -840,10 +840,10 @@ STAGE_INTERPOSER_PNR_REF=a8177b9a89a5dbd60deb2c62e542068b8035cc97
 #
 # An earlier move adds four commits. One restates tests/die_flow/PROVENANCE.md
 # at chiplet-flow 54f256d's test pad rename. Three let the terminal map's
-# M4 count a pad fed by cuts from below as having exit copper: cuts of its net inside the pad,
-# from the pad layer down, standing on routed copper of its net that leaves the pad, read from
-# traces.json (interposer-pnr's PDN mesh feeds its source wire-bond pad that way). Copper of
-# another net, copper that stays inside the pad, and a zero-width traces.json segment do not
+# M4 count a pad fed by cuts from below as having exit metal: cuts of its net inside the pad,
+# from the pad layer down, standing on routed metal of its net that leaves the pad, read from
+# traces.json (interposer-pnr's PDN mesh feeds its source wire-bond pad that way). Metal of
+# another net, metal that stays inside the pad, and a zero-width traces.json segment do not
 # count; every pad with metal touching it is judged as before. The terminal-map reader's version
 # goes to 2, so earlier readings are stale without the key moving. No dependency moves and
 # view.py does not change. It moves with STAGE_CHIPLET_FLOW_REF.
