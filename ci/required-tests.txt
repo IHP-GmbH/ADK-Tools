@@ -82,7 +82,7 @@ interposer libs.tech/klayout/intm4tm2_tests/test_bump_mirror.py::TestRobustness:
 # is a failure. The PCell-vs-generator parity is enforced in the interposer repo's
 # own decks job, which installs the deb. Restore here only if suites gains a binary.
 
-# ---- plugin (201) ----
+# ---- plugin (204) ----
 # plugins/chiplet_export/tests/test_boundary_annotations.py
 plugin plugins/chiplet_export/tests/test_boundary_annotations.py::test_annotation_does_not_alter_manifest
 plugin plugins/chiplet_export/tests/test_boundary_annotations.py::test_annotation_never_uses_exchange0
@@ -264,6 +264,7 @@ plugin plugins/chiplet_export/tests/test_routed_export.py::test_a_routed_refusal
 plugin plugins/chiplet_export/tests/test_routed_export.py::test_a_routed_refusal_comes_before_any_output[no interconnect adapter]
 plugin plugins/chiplet_export/tests/test_routed_export.py::test_a_routed_refusal_comes_before_any_output[no interposer adapter]
 plugin plugins/chiplet_export/tests/test_routed_export.py::test_a_routed_refusal_comes_before_any_output[pin list digest]
+plugin plugins/chiplet_export/tests/test_routed_export.py::test_a_routed_refusal_comes_before_any_output[unknown interconnect adapter]
 plugin plugins/chiplet_export/tests/test_routed_export.py::test_an_io_pads_manifest_in_another_frame_is_refused
 plugin plugins/chiplet_export/tests/test_routed_export.py::test_the_routed_cli_hands_the_worker_the_document_and_no_hyp
 plugin plugins/chiplet_export/tests/test_routed_export.py::test_the_routed_cli_process_never_imports_pcbnew_or_runs_kicad_cli
@@ -284,6 +285,9 @@ plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_document_r
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_document_refuses_an_outline_off_the_origin[y]
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_finalized_dies_and_pads_are_the_board_paths
 plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_finalized_pads_keep_their_own_layer
+plugin plugins/chiplet_export/tests/test_routed_finalize.py::test_the_finalized_top_level_keys_are_the_board_paths_in_order
+# plugins/chiplet_export/tests/test_routed_intermediates.py
+plugin plugins/chiplet_export/tests/test_routed_intermediates.py::test_the_routed_source_writes_the_board_paths_chiplet_under_the_flows_flags
 # plugins/chiplet_export/tests/test_routed_one_body.py
 plugin plugins/chiplet_export/tests/test_routed_one_body.py::test_both_sources_print_the_same_lines
 plugin plugins/chiplet_export/tests/test_routed_one_body.py::test_both_sources_stage_the_same_files
