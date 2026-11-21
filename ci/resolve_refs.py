@@ -284,6 +284,12 @@ def confirm(slug, sha, api):
     return None
 
 
+def extra_var(entry):
+    """The staging.pin variable a staged entry's extra commits are written in
+    (ci/pin_set.py reads STAGE_<NAME>_EXTRA_REFS); only staged entries have any."""
+    return "STAGE_%s_EXTRA_REFS" % entry["stage_name"].upper().replace("-", "_")
+
+
 def extras(pin_set, layout, slugs, api):
     """({id: [sha, ...]}, [failure, ...]): the extra commits the pin set names
     next to each resolved pin (a sibling's vendored copies still declaring an
@@ -297,8 +303,10 @@ def extras(pin_set, layout, slugs, api):
         for sha in entry["extra"]:
             why = confirm(slugs[rid], sha, api)
             if why == NOT_HEX:
-                failures.append("%s extra: %r is not a 40-hex sha, so the "
-                                "integration job cannot fetch it" % (rid, sha))
+                failures.append(
+                    "%s extra: %r is not a 40-hex sha, so the integration job "
+                    "cannot fetch it. Write the full commit id in staging.pin's "
+                    "%s, and regenerate the pin set." % (rid, sha, extra_var(entry)))
             elif why:
                 failures.append("%s extra: %s" % (rid, why))
             else:
@@ -394,11 +402,14 @@ def self_test():
     expect("an extra commit nobody can fetch fails, named as an extra",
            any(f.startswith("spec extra: ") and "does not resolve on the remote" in f
                for f in fails))
-    got, fails = extras({"repos": {"chiplet-spec": {"sha": other, "extra": ["abc"]}}},
+    got, fails = extras({"repos": {"chiplet-spec": {"sha": other, "extra": ["abc"],
+                                                    "stage_name": "chiplet-spec"}}},
                         reg, slugs_x, stub())
-    expect("a truncated extra commit fails as a fetch, not as a checkout",
-           got["spec"] == [] and any("cannot fetch it" in f for f in fails)
-           and not any("actions/checkout" in f for f in fails))
+    expect("a truncated extra commit fails as a fetch and names the variable to fix",
+           got["spec"] == [] and fails == [
+               "spec extra: 'abc' is not a 40-hex sha, so the integration job "
+               "cannot fetch it. Write the full commit id in staging.pin's "
+               "STAGE_CHIPLET_SPEC_EXTRA_REFS, and regenerate the pin set."])
 
     _, _, fails = run({"adk": "abc123"}, stub())
     expect("a truncated sha fails",
