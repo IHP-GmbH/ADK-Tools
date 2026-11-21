@@ -1292,7 +1292,15 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # change (tests/test_emit_ready_die.py, tests/test_mixed_gf180_derive_die.py), by added cases,
 # so packaging-flow takes its helpers again at this ref and STAGE_PACKAGING_FLOW_REF moves with it.
 #
-# This ref (9573337) is chiplet-flow dev after release v2026.11.4 came back into dev (3558cef, the
+# This ref (2341b7d) is chiplet-flow dev after one merge on 9573337: the vehicle's two pin lists
+# (vehicle/plans/driver.pins.json, echo.pins.json) are regenerated through gds_to_kicad's annotate
+# at the commit tools/gds_to_kicad holds, so the 21 supply pins of the driver and 11 of the echo
+# carry their role (POWER or GROUND) and direction INOUT; every type stays. Nothing else moves: no
+# package dependency, no die_errors class, tests/test_view_xor.py unchanged, so
+# ci/image-xor-tests.txt does not. packaging-flow holds copies of these two lists to chiplet-flow
+# at the pin (tests/test_die_flow_copies.py), so STAGE_PACKAGING_FLOW_REF moves with it.
+#
+# An earlier move (9573337) was chiplet-flow dev after release v2026.11.4 came back into dev (3558cef, the
 # same tree as 120feb7) and two merges: the host holds the pinned build record and the partner
 # die's reader to the installed ones (tests/partner_die_pins.py, shared by the two partner die
 # tests), and a content digest takes the run root from the run's own record (ready_die_dir.py),
@@ -1306,7 +1314,7 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # pins the partner die's four files as they are taken under reader release 1.26.0 (the reader
 # string and two digests). Only that test module moves; packaging-flow does not copy it, so its
 # die-flow helpers stay as taken at 5cb0848.
-STAGE_CHIPLET_FLOW_REF=957333721401b65988cb8273f566f859373cec64
+STAGE_CHIPLET_FLOW_REF=2341b7d048f949c0d46bad8f6c0b1decd77b9fb6
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
