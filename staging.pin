@@ -1029,7 +1029,13 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # verification/verify_open.py move. pyproject.toml only keeps the six routed-geometry skips to T2,
 # no file under ci/ moves, and the version stays 0.1.0.
 #
-# This ref (5a41828) is packaging-flow dev after its pull request 36: a version 2 signature chain
+# This ref (5d24f6c) is packaging-flow dev after one merge on 5a41828: the vehicle's two pin
+# lists are copied again from chiplet-flow at STAGE_CHIPLET_FLOW_REF, where they carry the supply
+# pins' role and direction, and the bondpad fixture writes its pin types out in a table by role
+# and direction instead of deriving them through the reader. Nothing under src/ or ci/ moves,
+# pyproject.toml does not, and the version stays 0.1.0.
+#
+# An earlier move (5a41828) was packaging-flow dev after its pull request 36: a version 2 signature chain
 # is keyed and reviewed. A version 2 interposer is signed by its layout and the routing the run
 # recorded, and its gate shows the connection sheet and what the layout is drawn from; a checklist
 # item is held to the version its gate is keyed at; a run at a version the flow reads but does not
@@ -1050,7 +1056,7 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # STAGE_CHIPLET_SPEC_REF holds (its build-record.json, the digest its die-contract.json names and
 # IDENTITY.sha256). Nothing under src/ or ci/ moves, pyproject.toml does not, and the version stays
 # 0.1.0.
-STAGE_PACKAGING_FLOW_REF=5a41828bb0dca299ae4a6ffb1859637d45ce0c04
+STAGE_PACKAGING_FLOW_REF=5d24f6c7b1f12b3868f920f71361d475ba47993a
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
