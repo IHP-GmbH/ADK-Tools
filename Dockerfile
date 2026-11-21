@@ -1022,20 +1022,25 @@ COPY --chmod=0444 nix/host-closure.txt nix/host-closure.lock /opt/adk-tools/nix/
 # closure list names, and each copy is compared with its source.
 ARG NIX_SG13G2_PDK_OUTPATH
 RUN --network=none set -e; \
-    src="${NIX_SG13G2_PDK_OUTPATH:?}"; ref="$(cat "$PDK_ROOT/.shipped-ref")"; \
-    test "${src##*-}" = "$(printf %.7s "$ref")"; \
-    grep -qxF "$src" /opt/adk-tools/nix/host-closure.txt; \
-    for f in ihp-sg13g2/libs.ref/sg13g2_io/verilog/sg13g2_io.v \
-             ihp-sg13g2/libs.tech/xschem/sg13g2_pr/sg13_lv_nmos.sym \
-             ihp-sg13g2/libs.tech/xschem/sg13g2_pr/sg13_lv_pmos.sym \
-             ihp-sg13g2/libs.tech/xschem/sg13g2_pr/dantenna.sym \
-             ihp-sg13g2/libs.tech/xschem/sg13g2_pr/dpantenna.sym; do \
-        test ! -e "$PDK_ROOT/$f"; \
-        mkdir -p "$(dirname "$PDK_ROOT/$f")"; \
-        cp "$src/$f" "$PDK_ROOT/$f"; \
-        chmod 0444 "$PDK_ROOT/$f"; \
-        cmp "$src/$f" "$PDK_ROOT/$f"; \
-    done
+    s="$NIX_SG13G2_PDK_OUTPATH/ihp-sg13g2"; d="$PDK_ROOT/ihp-sg13g2"; \
+    io=libs.ref/sg13g2_io/verilog; pr=libs.tech/xschem/sg13g2_pr; \
+    test -n "$NIX_SG13G2_PDK_OUTPATH"; \
+    test "$(printf '%s\n' "$NIX_SG13G2_PDK_OUTPATH" | sed 's/.*-//')" = "$(cut -c1-7 "$PDK_ROOT/.shipped-ref")"; \
+    grep -qxF "$NIX_SG13G2_PDK_OUTPATH" /opt/adk-tools/nix/host-closure.txt; \
+    test ! -e "$d/$io"; test ! -e "$d/$pr"; \
+    mkdir -p "$d/$io" "$d/$pr"; \
+    cp "$s/$io/sg13g2_io.v" "$d/$io/sg13g2_io.v"; \
+    cp "$s/$pr/sg13_lv_nmos.sym" "$d/$pr/sg13_lv_nmos.sym"; \
+    cp "$s/$pr/sg13_lv_pmos.sym" "$d/$pr/sg13_lv_pmos.sym"; \
+    cp "$s/$pr/dantenna.sym" "$d/$pr/dantenna.sym"; \
+    cp "$s/$pr/dpantenna.sym" "$d/$pr/dpantenna.sym"; \
+    chmod 0444 "$d/$io/sg13g2_io.v" "$d/$pr/sg13_lv_nmos.sym" "$d/$pr/sg13_lv_pmos.sym" \
+        "$d/$pr/dantenna.sym" "$d/$pr/dpantenna.sym"; \
+    cmp "$s/$io/sg13g2_io.v" "$d/$io/sg13g2_io.v"; \
+    cmp "$s/$pr/sg13_lv_nmos.sym" "$d/$pr/sg13_lv_nmos.sym"; \
+    cmp "$s/$pr/sg13_lv_pmos.sym" "$d/$pr/sg13_lv_pmos.sym"; \
+    cmp "$s/$pr/dantenna.sym" "$d/$pr/dantenna.sym"; \
+    cmp "$s/$pr/dpantenna.sym" "$d/$pr/dpantenna.sym"
 
 # The tool identity table (formats/adk-tools-tool-identity.v1.schema.json),
 # /opt/adk-tools/tool-identity.json: each tool of this image named by its
