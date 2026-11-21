@@ -1793,7 +1793,15 @@ STAGE_CHIPLET_COSIM_REF=45c1a5532be3a0916506cf80de1cac4d5a8c43a2
 # STAGE_INTERPOSER_PNR_REF and the tools/chiplet_kicad_plugin, tools/adk and tools/gds_to_kicad
 # gitlinks move with it, each to a dev commit that vendors 1.24.0 from this ref.
 #
-# This ref (74ac8c2) is chiplet-spec dev after release v2026.11.4 came back into dev. Its tree is
+# This ref (c1a5597) is chiplet-spec dev after its pull request 27: a CSV pin table is imported
+# into a placed system file (description/src/chiplet_system_description/schematic_import.py and
+# source/edit.py, with tests/test_source_table.py). Nothing under reference/ moves and
+# description/pyproject.toml does not, so no copy above changes bytes and the reader release stays
+# 1.26.0. adk's two declared pins and the plugin's copy still name 74ac8c2, which a one-commit
+# export of this ref does not hold; STAGE_CHIPLET_SPEC_EXTRA_REFS fetches it beside the pin, so
+# those gitlinks do not move.
+#
+# An earlier move (74ac8c2) was chiplet-spec dev after release v2026.11.4 came back into dev. Its tree is
 # 4c58de7's, so no copy above changes bytes. The plugin's copy and adk's two declared pins (the
 # vendored reader and the mount-plane cases) name this ref, so the tools/chiplet_kicad_plugin and
 # tools/adk gitlinks move with it: adk resolves its pins by git in the staged tree, a one-commit
@@ -1813,7 +1821,8 @@ STAGE_CHIPLET_COSIM_REF=45c1a5532be3a0916506cf80de1cac4d5a8c43a2
 # with it. So STAGE_INTERPOSER_PNR_REF and the tools/chiplet_kicad_plugin, tools/adk and
 # tools/gds_to_kicad gitlinks move with it, each to a dev commit that vendors 1.26.0 from this ref.
 STAGE_CHIPLET_SPEC_PATH=chiplet-spec
-STAGE_CHIPLET_SPEC_REF=74ac8c2e1e735c79ed1456f512c02d0fbd2b50fa
+STAGE_CHIPLET_SPEC_REF=c1a55976cb939e01130a8dfbae0e2ad7b2bb5054
+STAGE_CHIPLET_SPEC_EXTRA_REFS="74ac8c2e1e735c79ed1456f512c02d0fbd2b50fa"
 
 # ----------------------------------------------------------------------
 # LibreLane
