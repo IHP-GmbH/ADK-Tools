@@ -139,7 +139,14 @@ mkdir "$work/anon"
 if anon="$(DOCKER_CONFIG="$work/anon" docker manifest inspect "$PUSH_REF" 2>&1)"; then
     stop "$PUSH_REF reads without a login; look at the package now"
 fi
-grep -qE 'unauthorized: authentication required|denied: requested access to the resource is denied' <<<"$anon" \
+# The registry's refusal reaches docker in one of three wordings; anything else
+# (network, proxy, TLS) is a failure to look into, not a refusal.
+refusals=(
+    'unauthorized: authentication required'
+    'denied: requested access to the resource is denied'
+    '^Get "https://ghcr\.io/v2/[^"]*": unauthorized$'
+)
+grep -qE "$(IFS='|'; echo "${refusals[*]}")" <<<"$anon" \
     || stop "the anonymous read failed, but not as the registry's refusal: $anon"
 
 echo "Done: $IMAGE@$digest ($PUSH_REF), image $IMAGE_ID"
