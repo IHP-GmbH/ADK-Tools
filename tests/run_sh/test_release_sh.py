@@ -62,7 +62,8 @@ case "$1" in
             refused) echo "unauthorized: authentication required" >&2; exit 1 ;;
             denied) echo "denied: requested access to the resource is denied" >&2; exit 1 ;;
             bare) echo "Get \"https://ghcr.io/v2/ihp-gmbh/adk-tools/manifests/$S_TAG\": unauthorized" >&2; exit 1 ;;
-            near) echo "proxyconnect tcp: unauthorized proxy credentials" >&2; exit 1 ;;
+            proxy) echo "Get \"https://ghcr.io/v2/x\": proxyconnect tcp: unauthorized" >&2; exit 1 ;;
+            other_host) echo "Get \"https://proxy.example/\": unauthorized" >&2; exit 1 ;;
             open) echo '{"schemaVersion": 2}' ;;
             *) echo "dial tcp: lookup ghcr.io: no such host" >&2; exit 1 ;;
         esac ;;
@@ -219,8 +220,10 @@ class ReleaseGateTest(unittest.TestCase):
             "anonymous read works": ({"S_ANON": "open"}, "reads without a login"),
             "anonymous read fails otherwise": ({"S_ANON": "network"},
                                                "not as the registry's refusal"),
-            "anonymous read fails on another unauthorized": (
-                {"S_ANON": "near"}, "not as the registry's refusal"),
+            "anonymous read fails at a proxy": (
+                {"S_ANON": "proxy"}, "not as the registry's refusal"),
+            "anonymous read refused by another host": (
+                {"S_ANON": "other_host"}, "not as the registry's refusal"),
             "digest not the image's": ({"S_REPODIGEST": "sha256:" + "1" * 64},
                                        "is not one of"),
             "no digest printed": ({"S_DIGEST": "none"}, "printed no digest"),
@@ -233,14 +236,12 @@ class ReleaseGateTest(unittest.TestCase):
                 self.assertNotIn("Done:", got.stdout)
                 self.assertIn("docker logout ghcr.io", calls)
 
-    def test_the_other_registry_refusal_is_accepted(self):
-        got, _ = self.run_gate(S_ANON="denied")
-        self.assertEqual(got.returncode, 0, got.stderr)
-
-    def test_the_bare_unauthorized_docker_prints_after_the_url_is_accepted(self):
-        got, _ = self.run_gate(S_ANON="bare")
-        self.assertEqual(got.returncode, 0, got.stderr)
-        self.assertIn("anonymous read refused", got.stdout)
+    def test_each_wording_of_the_registry_refusal_is_accepted(self):
+        for anon in ("refused", "denied", "bare"):
+            with self.subTest(anon):
+                got, _ = self.run_gate(S_ANON=anon)
+                self.assertEqual(got.returncode, 0, got.stderr)
+                self.assertIn("anonymous read refused", got.stdout)
 
 
 if __name__ == "__main__":
