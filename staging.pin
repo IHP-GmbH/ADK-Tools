@@ -1031,8 +1031,8 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 #
 # This ref (ecc94a9) is packaging-flow dev after its pull request 38: the partner die fixture
 # under tests/fixtures/dies/partner_die is frozen again with the declaration and the die abstract
-# chiplet-flow at STAGE_CHIPLET_FLOW_REF now writes beside its four files (declaration.json,
-# abstract.json, abstract.gds, and IDENTITY.sha256 naming them), and tests/test_undeclared_dies.py
+# chiplet-flow at STAGE_CHIPLET_FLOW_REF now writes beside its four files: declaration.json,
+# abstract.json and abstract.gds are new, and IDENTITY.sha256 names all seven. tests/test_undeclared_dies.py
 # regenerates it through chiplet-flow, so the two refs move together. The die-flow emit helpers
 # are taken again at chiplet-flow 678e1f6, whose tests/test_emit_ready_die.py is the one at
 # STAGE_CHIPLET_FLOW_REF. Under src/ only errors.py moves, by DieAbstractRefused, the class of the
