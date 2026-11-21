@@ -189,16 +189,22 @@ def declared(gitmodules_text, extra):
     return out
 
 
+def by_id(pin_set, layout):
+    """(id, folder, entry) for every pin-set entry, under this script's ids.
+    `layout` is the contract registry's {id: folder}; the pin set is keyed by
+    folder. The one place the two namings are joined."""
+    by_folder = {folder: rid for rid, folder in layout.items()}
+    for folder, entry in sorted(pin_set["repos"].items()):
+        yield by_folder.get(folder, folder), folder, entry
+
+
 def pinned(pin_set, layout):
     """({id: sha}, {id: why}) from the pin set, by this script's ids: every
-    entry with a remote, and the reason each local-only one cannot be fetched.
-    `layout` is the contract registry's {id: folder}, the pin set's ids."""
-    by_folder = {folder: rid for rid, folder in layout.items()}
+    entry with a remote, and the reason each local-only one cannot be fetched."""
     pins, local = {}, {}
-    for folder, entry in sorted(pin_set["repos"].items()):
+    for rid, folder, entry in by_id(pin_set, layout):
         if entry["remote"] is None:
             continue
-        rid = by_folder.get(folder, folder)
         pins[rid] = entry["sha"]
         if entry["reachable"] != "remote":
             local[rid] = ("%s %s not reachable on the remote: the pin set records it "
@@ -249,20 +255,63 @@ def resolve(entries, pins, floating, api, local=None, track=None):
         else:
             sha = pins.get(rid) or ""
 
-        if not re.fullmatch(r"[0-9a-f]{40}", sha or ""):
+        why = confirm(slug, sha, api)
+        if why == NOT_HEX:
             failures.append(
                 "%s: resolved to %r, which is not a 40-hex sha. Passed to "
                 "`actions/checkout` this takes the default branch and the run "
                 "goes green against a tree nobody chose." % (rid, sha))
             continue
-
-        status, _ = api("/repos/%s/commits/%s" % (slug, sha))
-        if status != 200:
-            failures.append("%s: %s@%s does not resolve on the remote (HTTP %d)"
-                            % (rid, slug, sha[:10], status))
+        if why:
+            failures.append("%s: %s" % (rid, why))
             continue
         refs[rid] = sha
     return refs, slugs, failures
+
+
+NOT_HEX = "not a 40-hex sha"
+
+
+def confirm(slug, sha, api):
+    """None when `sha` is 40 hex and resolves on `slug`'s remote; else NOT_HEX,
+    or why the remote refused it. The caller says what the failure costs."""
+    if not re.fullmatch(r"[0-9a-f]{40}", sha or ""):
+        return NOT_HEX
+    status, _ = api("/repos/%s/commits/%s" % (slug, sha))
+    if status != 200:
+        return ("%s@%s does not resolve on the remote (HTTP %d)"
+                % (slug, sha[:10], status))
+    return None
+
+
+def extra_var(entry):
+    """The staging.pin variable a staged entry's extra commits are written in
+    (ci/pin_set.py reads STAGE_<NAME>_EXTRA_REFS); only staged entries have any."""
+    return "STAGE_%s_EXTRA_REFS" % entry["stage_name"].upper().replace("-", "_")
+
+
+def extras(pin_set, layout, slugs, api):
+    """({id: [sha, ...]}, [failure, ...]): the extra commits the pin set names
+    next to each resolved pin (a sibling's vendored copies still declaring an
+    earlier commit), each checked like a pin. A depth-1 checkout lacks them, so
+    the integration job fetches exactly these; every id in `slugs` is a key,
+    with [] when it names none, so the workflow can index any of them."""
+    out, failures = {rid: [] for rid in slugs}, []
+    for rid, _, entry in by_id(pin_set, layout):
+        if rid not in slugs:  # not checked out by the integration job
+            continue
+        for sha in entry["extra"]:
+            why = confirm(slugs[rid], sha, api)
+            if why == NOT_HEX:
+                failures.append(
+                    "%s extra: %r is not a 40-hex sha, so the integration job "
+                    "cannot fetch it. Write the full commit id in staging.pin's "
+                    "%s, and regenerate the pin set." % (rid, sha, extra_var(entry)))
+            elif why:
+                failures.append("%s extra: %s" % (rid, why))
+            else:
+                out[rid].append(sha)
+    return out, failures
 
 
 def self_test():
@@ -333,6 +382,34 @@ def self_test():
     expect("a local-only pin is refused by name, without asking the remote",
            any("spec: chiplet-spec bbbbbbb not reachable on the remote" in f for f in fails)
            and "spec" not in refs and not any(other in c for c in calls))
+
+    ps_x = {"repos": {
+        "adk": {"sha": good, "extra": []},
+        "chiplet-spec": {"sha": other, "extra": [good]},
+        "interposer-pnr": {"sha": good, "extra": [other]}}}
+    slugs_x = {"adk": "IHP-GmbH/IHP-Open-ADK", "spec": "IHP-GmbH/chiplet-spec"}
+    got, fails = extras(ps_x, reg, slugs_x, stub())
+    expect("extra commits come out by id, every resolved id a key; a repository "
+           "the job does not check out (interposer-pnr) is left out",
+           not fails and got == {"adk": [], "spec": [good]})
+    got, fails = extras({"repos": {"chiplet-spec": {"sha": other,
+                                                    "extra": [other, "c" * 40, good]}}},
+                        reg, slugs_x, stub())
+    expect("a bad extra commit fails without dropping the good ones, in order",
+           got["spec"] == [other, good] and len(fails) == 1)
+    _, fails = extras({"repos": {"chiplet-spec": {"sha": other, "extra": ["c" * 40]}}},
+                      reg, slugs_x, stub())
+    expect("an extra commit nobody can fetch fails, named as an extra",
+           any(f.startswith("spec extra: ") and "does not resolve on the remote" in f
+               for f in fails))
+    got, fails = extras({"repos": {"chiplet-spec": {"sha": other, "extra": ["abc"],
+                                                    "stage_name": "chiplet-spec"}}},
+                        reg, slugs_x, stub())
+    expect("a truncated extra commit fails as a fetch and names the variable to fix",
+           got["spec"] == [] and fails == [
+               "spec extra: 'abc' is not a 40-hex sha, so the integration job "
+               "cannot fetch it. Write the full commit id in staging.pin's "
+               "STAGE_CHIPLET_SPEC_EXTRA_REFS, and regenerate the pin set."])
 
     _, _, fails = run({"adk": "abc123"}, stub())
     expect("a truncated sha fails",
@@ -462,14 +539,19 @@ def main():
               file=sys.stderr)
         return 1
     extra = json.loads((HERE / "integration-refs.json").read_text())
-    pins, local = pinned(json.loads((HERE / "pin-set.json").read_text()),
-                         contract_registry.derived(contract_registry.load_default()).layout)
+    pin_set = json.loads((HERE / "pin-set.json").read_text())
+    layout = contract_registry.derived(contract_registry.load_default()).layout
+    pins, local = pinned(pin_set, layout)
 
     entries = declared(gitmodules.read_text(), extra)
     api = make_api(token())
     try:
         refs, slugs, failures = resolve(entries, pins, args.floating, api, local,
                                         track=args.track)
+        extra_commits = {}
+        if not failures:
+            extra_commits, extra_failures = extras(pin_set, layout, slugs, api)
+            failures += extra_failures
     except Unreachable as e:
         # Exit 2, not 1: no verdict was reached. Same distinction the local gate
         # makes, and the reason a traceback is not good enough here is that the
@@ -481,6 +563,9 @@ def main():
 
     for rid in sorted(slugs):
         print("%-14s %-40s %s" % (rid, slugs[rid], refs.get(rid, "UNRESOLVED")))
+    for rid in sorted(extra_commits):
+        for sha in extra_commits[rid]:
+            print("%-14s %-40s %s" % (rid + " extra", slugs[rid], sha))
     for f in failures:
         print("FAIL: %s" % f, file=sys.stderr)
     if failures:
@@ -502,6 +587,7 @@ def main():
         with open(out, "a") as fh:
             fh.write("refs=%s\n" % json.dumps(refs))
             fh.write("slugs=%s\n" % json.dumps(slugs))
+            fh.write("extra=%s\n" % json.dumps(extra_commits))
     return 0
 
 

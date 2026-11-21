@@ -34,6 +34,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       refs: ${{ steps.refs.outputs.refs }}
+      extra: ${{ steps.refs.outputs.extra }}
     steps:
       - uses: actions/checkout@v4
 
@@ -71,14 +72,16 @@ jobs:
       # The pin set may name extra chiplet-spec commits next to the pin (a
       # sibling's vendored copies still declaring an earlier commit). The image
       # run fetches them; a depth-1 checkout does not, and a test that resolves
-      # its declared commit through git would skip here.
+      # its declared commit through git would skip here. The resolver read and
+      # confirmed them; this only fetches what it handed on.
       - name: Fetch the extra chiplet-spec commits the pin set names
+        env:
+          EXTRA: ${{ join(fromJSON(needs.resolve.outputs.extra).spec, ' ') }}
         run: |
           set -euo pipefail
-          extra=$(python3 -c 'import json,sys; print(" ".join(json.load(open(sys.argv[1]))["repos"]["chiplet-spec"]["extra"]))' adk-tools/ci/pin-set.json)
-          if [ -n "$extra" ]; then
-            git -C chiplet-spec fetch --no-tags --depth 1 origin $extra
-            for c in $extra; do git -C chiplet-spec cat-file -e "$c^{commit}"; done
+          if [ -n "$EXTRA" ]; then
+            git -C chiplet-spec fetch --no-tags --depth 1 origin $EXTRA
+            for c in $EXTRA; do git -C chiplet-spec cat-file -e "$c^{commit}"; done
           fi
       - uses: actions/checkout@v4
         with:
@@ -163,14 +166,16 @@ jobs:
       # The pin set may name extra chiplet-spec commits next to the pin (a
       # sibling's vendored copies still declaring an earlier commit). The image
       # run fetches them; a depth-1 checkout does not, and a test that resolves
-      # its declared commit through git would skip here.
+      # its declared commit through git would skip here. The resolver read and
+      # confirmed them; this only fetches what it handed on.
       - name: Fetch the extra chiplet-spec commits the pin set names
+        env:
+          EXTRA: ${{ join(fromJSON(needs.resolve.outputs.extra).spec, ' ') }}
         run: |
           set -euo pipefail
-          extra=$(python3 -c 'import json,sys; print(" ".join(json.load(open(sys.argv[1]))["repos"]["chiplet-spec"]["extra"]))' adk-tools/ci/pin-set.json)
-          if [ -n "$extra" ]; then
-            git -C chiplet-spec fetch --no-tags --depth 1 origin $extra
-            for c in $extra; do git -C chiplet-spec cat-file -e "$c^{commit}"; done
+          if [ -n "$EXTRA" ]; then
+            git -C chiplet-spec fetch --no-tags --depth 1 origin $EXTRA
+            for c in $EXTRA; do git -C chiplet-spec cat-file -e "$c^{commit}"; done
           fi
       - uses: actions/checkout@v4
         with:
