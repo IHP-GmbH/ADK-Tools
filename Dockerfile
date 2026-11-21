@@ -1012,6 +1012,31 @@ RUN --network=none --mount=type=bind,source=host-closure.tar,target=/run/host-cl
         --numeric-owner --same-owner --same-permissions
 COPY --chmod=0444 nix/host-closure.txt nix/host-closure.lock /opt/adk-tools/nix/
 
+# The sg13g2 IO cells' Verilog model, which chiplet-cosim compiles into every RTL
+# co-simulation of a modelled die (its die_sources refuses without it), and the four
+# sg13g2_pr Xschem symbols it reads to check an Xschem die against its CDL. They are
+# not in the slice above the thin-layer line; the whole PDK at the slice's ref is in
+# this image's store (the closure unpacked above), so they are copied from there into
+# $PDK_ROOT. A copy, not a link: die_sources refuses a path that resolves outside the
+# PDK root. The store path must be the slice's ref (its .shipped-ref) and a path the
+# closure list names, and each copy is compared with its source.
+ARG NIX_SG13G2_PDK_OUTPATH
+RUN --network=none set -e; \
+    src="${NIX_SG13G2_PDK_OUTPATH:?}"; ref="$(cat "$PDK_ROOT/.shipped-ref")"; \
+    test "${src##*-}" = "$(printf %.7s "$ref")"; \
+    grep -qxF "$src" /opt/adk-tools/nix/host-closure.txt; \
+    for f in ihp-sg13g2/libs.ref/sg13g2_io/verilog/sg13g2_io.v \
+             ihp-sg13g2/libs.tech/xschem/sg13g2_pr/sg13_lv_nmos.sym \
+             ihp-sg13g2/libs.tech/xschem/sg13g2_pr/sg13_lv_pmos.sym \
+             ihp-sg13g2/libs.tech/xschem/sg13g2_pr/dantenna.sym \
+             ihp-sg13g2/libs.tech/xschem/sg13g2_pr/dpantenna.sym; do \
+        test ! -e "$PDK_ROOT/$f"; \
+        mkdir -p "$(dirname "$PDK_ROOT/$f")"; \
+        cp "$src/$f" "$PDK_ROOT/$f"; \
+        chmod 0444 "$PDK_ROOT/$f"; \
+        cmp "$src/$f" "$PDK_ROOT/$f"; \
+    done
+
 # The tool identity table (formats/adk-tools-tool-identity.v1.schema.json),
 # /opt/adk-tools/tool-identity.json: each tool of this image named by its
 # content. build.sh wrote tool-identity.facts.json from the build host's store:
