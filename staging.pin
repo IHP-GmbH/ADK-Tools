@@ -1274,7 +1274,7 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # pins the partner die's four files as they are taken under reader release 1.26.0 (the reader
 # string and two digests). Only that test module moves; packaging-flow does not copy it, so its
 # die-flow helpers stay as taken at 5cb0848.
-STAGE_CHIPLET_FLOW_REF=120feb71e80da6bc33ca550bf69179f868de123a
+STAGE_CHIPLET_FLOW_REF=3558cef286010c630ee40bf20a68e36fddaf6c0b
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
