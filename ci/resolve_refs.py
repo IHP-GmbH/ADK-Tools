@@ -249,20 +249,46 @@ def resolve(entries, pins, floating, api, local=None, track=None):
         else:
             sha = pins.get(rid) or ""
 
-        if not re.fullmatch(r"[0-9a-f]{40}", sha or ""):
-            failures.append(
-                "%s: resolved to %r, which is not a 40-hex sha. Passed to "
-                "`actions/checkout` this takes the default branch and the run "
-                "goes green against a tree nobody chose." % (rid, sha))
-            continue
-
-        status, _ = api("/repos/%s/commits/%s" % (slug, sha))
-        if status != 200:
-            failures.append("%s: %s@%s does not resolve on the remote (HTTP %d)"
-                            % (rid, slug, sha[:10], status))
+        failure = confirm(rid, slug, sha, api)
+        if failure:
+            failures.append(failure)
             continue
         refs[rid] = sha
     return refs, slugs, failures
+
+
+def confirm(rid, slug, sha, api):
+    """None when `sha` is 40 hex and resolves on `slug`'s remote, else why not."""
+    if not re.fullmatch(r"[0-9a-f]{40}", sha or ""):
+        return ("%s: resolved to %r, which is not a 40-hex sha. Passed to "
+                "`actions/checkout` this takes the default branch and the run "
+                "goes green against a tree nobody chose." % (rid, sha))
+    status, _ = api("/repos/%s/commits/%s" % (slug, sha))
+    if status != 200:
+        return ("%s: %s@%s does not resolve on the remote (HTTP %d)"
+                % (rid, slug, sha[:10], status))
+    return None
+
+
+def extras(pin_set, layout, slugs, api):
+    """({id: [sha, ...]}, [failure, ...]): the extra commits the pin set names
+    next to each resolved pin (a sibling's vendored copies still declaring an
+    earlier commit), each checked like a pin. A depth-1 checkout lacks them, so
+    the integration job fetches exactly these; every id in `slugs` is a key,
+    with [] when it names none, so the workflow can index any of them."""
+    by_folder = {folder: rid for rid, folder in layout.items()}
+    out, failures = {rid: [] for rid in slugs}, []
+    for folder, entry in sorted(pin_set["repos"].items()):
+        rid = by_folder.get(folder, folder)
+        if rid not in slugs:
+            continue
+        for sha in entry.get("extra") or []:
+            failure = confirm("%s extra" % rid, slugs[rid], sha, api)
+            if failure:
+                failures.append(failure)
+            else:
+                out[rid].append(sha)
+    return out, failures
 
 
 def self_test():
@@ -333,6 +359,24 @@ def self_test():
     expect("a local-only pin is refused by name, without asking the remote",
            any("spec: chiplet-spec bbbbbbb not reachable on the remote" in f for f in fails)
            and "spec" not in refs and not any(other in c for c in calls))
+
+    ps_x = {"repos": {
+        "adk": {"sha": good, "extra": []},
+        "chiplet-spec": {"sha": other, "extra": [good]},
+        "interposer-pnr": {"sha": good, "extra": [other]}}}
+    slugs_x = {"adk": "IHP-GmbH/IHP-Open-ADK", "spec": "IHP-GmbH/chiplet-spec"}
+    got, fails = extras(ps_x, reg, slugs_x, stub())
+    expect("extra commits come out by id, every resolved id a key",
+           not fails and got == {"adk": [], "spec": [good]})
+    _, fails = extras({"repos": {"chiplet-spec": {"sha": other, "extra": ["c" * 40]}}},
+                      reg, slugs_x, stub())
+    expect("an extra commit nobody can fetch fails, named as an extra",
+           any(f.startswith("spec extra: ") and "does not resolve on the remote" in f
+               for f in fails))
+    got, fails = extras({"repos": {"chiplet-spec": {"sha": other, "extra": ["abc"]}}},
+                        reg, slugs_x, stub())
+    expect("a truncated extra commit fails and is not handed on",
+           got["spec"] == [] and any("not a 40-hex sha" in f for f in fails))
 
     _, _, fails = run({"adk": "abc123"}, stub())
     expect("a truncated sha fails",
@@ -462,14 +506,17 @@ def main():
               file=sys.stderr)
         return 1
     extra = json.loads((HERE / "integration-refs.json").read_text())
-    pins, local = pinned(json.loads((HERE / "pin-set.json").read_text()),
-                         contract_registry.derived(contract_registry.load_default()).layout)
+    pin_set = json.loads((HERE / "pin-set.json").read_text())
+    layout = contract_registry.derived(contract_registry.load_default()).layout
+    pins, local = pinned(pin_set, layout)
 
     entries = declared(gitmodules.read_text(), extra)
     api = make_api(token())
     try:
         refs, slugs, failures = resolve(entries, pins, args.floating, api, local,
                                         track=args.track)
+        fetch, more = extras(pin_set, layout, slugs, api)
+        failures += more
     except Unreachable as e:
         # Exit 2, not 1: no verdict was reached. Same distinction the local gate
         # makes, and the reason a traceback is not good enough here is that the
@@ -481,6 +528,9 @@ def main():
 
     for rid in sorted(slugs):
         print("%-14s %-40s %s" % (rid, slugs[rid], refs.get(rid, "UNRESOLVED")))
+    for rid in sorted(fetch):
+        for sha in fetch[rid]:
+            print("%-14s %-40s %s" % (rid + " extra", slugs[rid], sha))
     for f in failures:
         print("FAIL: %s" % f, file=sys.stderr)
     if failures:
@@ -502,6 +552,7 @@ def main():
         with open(out, "a") as fh:
             fh.write("refs=%s\n" % json.dumps(refs))
             fh.write("slugs=%s\n" % json.dumps(slugs))
+            fh.write("extra=%s\n" % json.dumps(fetch))
     return 0
 
 
