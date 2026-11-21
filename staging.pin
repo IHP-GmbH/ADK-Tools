@@ -1010,11 +1010,19 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # record is read only from where it is filed. pyproject.toml does not change, no file under ci/
 # moves, and the version stays 0.1.0.
 #
-# This ref (e911664) is the merge of one commit on 3210bbf: tests/die_flow/PROVENANCE.md takes the
-# die-flow test helpers again at 5cb0848, the chiplet-flow ref below. Its source rows for emit.py
-# and mixed_gf180.py are restated, because those two source modules gained cases there; the copies
-# themselves do not change.
-STAGE_PACKAGING_FLOW_REF=e91166431437deba6303d94ccae22046aa37f06e
+# An earlier move (e911664) was the merge of one commit on 3210bbf: tests/die_flow/PROVENANCE.md
+# takes the die-flow test helpers again at 5cb0848, the chiplet-flow ref below. Its source rows for
+# emit.py and mixed_gf180.py are restated, because those two source modules gained cases there; the
+# copies themselves do not change.
+#
+# This ref (c859da4) is packaging-flow dev after its pull requests 25 to 30: a run draws its
+# connection sheet, which verify-open opens and the extension shows in its own pane; place draws a
+# picture of the placement right after it runs, and the extension shows it in a pane; the map says
+# not reviewed where a gate's coverage is not reviewed. Under src/ only place.py, placement_view.py,
+# runner.py, stages.py, system_source.py, messages/steps.json, verification/results.py and
+# verification/verify_open.py move. pyproject.toml only keeps the six routed-geometry skips to T2,
+# no file under ci/ moves, and the version stays 0.1.0.
+STAGE_PACKAGING_FLOW_REF=c859da401552407435ff8ccab4f117036294bdbe
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
