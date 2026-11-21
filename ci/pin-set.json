@@ -165,7 +165,8 @@
       "reachable": "remote",
       "remote": "https://github.com/IHP-GmbH/Chiplets-KiCad-Plugin.git",
       "roots": [
-        "8f87581a1d7390f4ce56c14fe583012a97d73614"
+        "8f87581a1d7390f4ce56c14fe583012a97d73614",
+        "da739ab03014debaab92c59d6ab59218a4b908de"
       ],
       "sha": "ec6f5d24d5ab0924cc0f0e78a633596d0c9f20c8",
       "source": "gitlink",
