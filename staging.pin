@@ -1282,9 +1282,8 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # tests), and a content digest takes the run root from the run's own record (ready_die_dir.py),
 # so a run's digests do not move with the run. No package dependency moves, no die_errors class
 # moves and tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does not. Of the
-# test modules packaging-flow copies from, tests/test_emit_ready_die.py and
-# tests/test_padring_die.py change by added cases; packaging-flow's copies stay as taken at
-# 5cb0848, which they name.
+# test modules packaging-flow copies from, only tests/test_emit_ready_die.py changes, by added
+# cases; packaging-flow's copies stay as taken at 5cb0848, which they name.
 #
 # An earlier move (120feb7) was the merge of one commit on 5cb0848: tests/test_emit_partner_die_klayout.py
 # pins the partner die's four files as they are taken under reader release 1.26.0 (the reader
