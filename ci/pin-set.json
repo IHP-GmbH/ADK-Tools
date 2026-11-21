@@ -133,13 +133,15 @@
       "export_from": {
         "kind": "sibling"
       },
-      "extra": [],
+      "extra": [
+        "74ac8c2e1e735c79ed1456f512c02d0fbd2b50fa"
+      ],
       "reachable": "remote",
       "remote": "https://github.com/IHP-GmbH/chiplet-system-spec.git",
       "roots": [
         "8a782eb10dfea9c351320308c69010239838eb95"
       ],
-      "sha": "74ac8c2e1e735c79ed1456f512c02d0fbd2b50fa",
+      "sha": "c1a55976cb939e01130a8dfbae0e2ad7b2bb5054",
       "source": "staged",
       "stage_name": "chiplet-spec"
     },
@@ -168,7 +170,7 @@
         "8f87581a1d7390f4ce56c14fe583012a97d73614",
         "da739ab03014debaab92c59d6ab59218a4b908de"
       ],
-      "sha": "ec6f5d24d5ab0924cc0f0e78a633596d0c9f20c8",
+      "sha": "10a637945c85bb3b5b25139e678d8f687cc09c2a",
       "source": "gitlink",
       "stage_name": null
     },

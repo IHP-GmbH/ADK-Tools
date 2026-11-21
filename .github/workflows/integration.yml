@@ -67,6 +67,19 @@ jobs:
           repository: IHP-GmbH/chiplet-system-spec
           ref: ${{ fromJSON(needs.resolve.outputs.refs).spec }}
           path: chiplet-spec
+
+      # The pin set may name extra chiplet-spec commits next to the pin (a
+      # sibling's vendored copies still declaring an earlier commit). The image
+      # run fetches them; a depth-1 checkout does not, and a test that resolves
+      # its declared commit through git would skip here.
+      - name: Fetch the extra chiplet-spec commits the pin set names
+        run: |
+          set -euo pipefail
+          extra=$(python3 -c 'import json,sys; print(" ".join(json.load(open(sys.argv[1]))["repos"]["chiplet-spec"]["extra"]))' adk-tools/ci/pin-set.json)
+          if [ -n "$extra" ]; then
+            git -C chiplet-spec fetch --no-tags --depth 1 origin $extra
+            for c in $extra; do git -C chiplet-spec cat-file -e "$c^{commit}"; done
+          fi
       - uses: actions/checkout@v4
         with:
           repository: IHP-GmbH/OpenIntM4TM2
@@ -146,6 +159,19 @@ jobs:
           repository: IHP-GmbH/chiplet-system-spec
           ref: ${{ fromJSON(needs.resolve.outputs.refs).spec }}
           path: chiplet-spec
+
+      # The pin set may name extra chiplet-spec commits next to the pin (a
+      # sibling's vendored copies still declaring an earlier commit). The image
+      # run fetches them; a depth-1 checkout does not, and a test that resolves
+      # its declared commit through git would skip here.
+      - name: Fetch the extra chiplet-spec commits the pin set names
+        run: |
+          set -euo pipefail
+          extra=$(python3 -c 'import json,sys; print(" ".join(json.load(open(sys.argv[1]))["repos"]["chiplet-spec"]["extra"]))' adk-tools/ci/pin-set.json)
+          if [ -n "$extra" ]; then
+            git -C chiplet-spec fetch --no-tags --depth 1 origin $extra
+            for c in $extra; do git -C chiplet-spec cat-file -e "$c^{commit}"; done
+          fi
       - uses: actions/checkout@v4
         with:
           repository: IHP-GmbH/OpenIntM4TM2
