@@ -108,16 +108,18 @@ jobs:
         run: python3 adk-tools/ci/contracts.py --self-test
 
       - name: Assert the contracts across every checked-out tree
-        # --track is the branch the superproject is on, which .gitmodules has to
-        # declare. On a pull request that is the base, not the head: the head is
-        # a feature branch and no submodule ever declares one.
+        # --track is the branch the superproject is on, which every relative
+        # declaration (branch = .) follows. On a pull request that is the base,
+        # not the head: the siblings have no branch named after a feature branch.
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          # Through the environment, so a ref name never reaches the shell as code.
+          TRACK: ${{ github.base_ref || github.ref_name }}
         run: |
           python3 adk-tools/ci/contracts.py \
             --root . \
             --dir tools=adk-tools \
-            --track "${{ github.base_ref || github.ref_name }}"
+            --track "$TRACK"
 
   # The suites that only run here. Every per-repo gate is honest when it skips,
   # because on a lone checkout the capability really is absent; this is the one

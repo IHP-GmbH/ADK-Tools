@@ -49,13 +49,10 @@ See `MAINTAINING.md` for the branching model and the mechanics behind each step.
 ## The tag
 
 - [ ] Promote `dev -> main`.
-- [ ] Put `main` back on the main track: reset every `.gitmodules` `branch`
-      field to `main` and move each gitlink to that tool's `main` tip. The
-      promotion does not do this; `dev` pins the tools' `dev` branches. The
-      same applies to `ci/integration-refs.json`, which names the two
-      repositories that are not submodules. The `gitmodules-track` contract
-      checks both halves, so forgetting either turns the `integration` check
-      red on `main`. Then regenerate `ci/pin-set.json` (`python3 ci/pin_set.py`).
+- [ ] Every gitlink and `ci/integration-refs.json` pin on its tool's `main`
+      (the release writer does it; by hand, `git submodule update --remote`
+      on `main`), then `ci/pin-set.json` regenerated (`python3 ci/pin_set.py`).
+      `.gitmodules` itself does not change: it declares `branch = .`.
 - [ ] Annotated tag on `main`, local only for now: `git tag -a vYYYY.MM -m
       "..."` (add `-s` to sign if a GPG key is configured). It comes before
       the build because `build.sh` takes the image's `meta` from

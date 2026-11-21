@@ -20,17 +20,22 @@
     "ci/pin-set.json, which is what every consumer reads.",
     "",
     "The floating weekly run ignores the pins and takes the branch heads, so a",
-    "pin going stale is visible without being blocking."
+    "pin going stale is visible without being blocking.",
+    "",
+    "branch \".\" is the form .gitmodules uses: the branch of the same name as the",
+    "one this repository is on, so the file is the same on dev and main. Nothing",
+    "outside git knows the form, so ci/resolve_refs.py resolves it from the track",
+    "it is given and refuses without one."
   ],
   "spec": {
     "slug": "IHP-GmbH/chiplet-system-spec",
-    "branch": "dev",
+    "branch": ".",
     "pin_from": "staging.pin",
     "on_remote": true
   },
   "docs": {
     "slug": "IHP-GmbH/IHP-Open-ADK-docs",
-    "branch": "dev",
-    "pin": "07c452477a9d0ec047a9325b58f4647f121e2e0a"
+    "branch": ".",
+    "pin": "766c5f4449514d8772e1b4b41ec88567700fb17d"
   }
 }
