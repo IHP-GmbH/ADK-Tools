@@ -189,16 +189,22 @@ def declared(gitmodules_text, extra):
     return out
 
 
+def by_id(pin_set, layout):
+    """(id, folder, entry) for every pin-set entry, under this script's ids.
+    `layout` is the contract registry's {id: folder}; the pin set is keyed by
+    folder. The one place the two namings are joined."""
+    by_folder = {folder: rid for rid, folder in layout.items()}
+    for folder, entry in sorted(pin_set["repos"].items()):
+        yield by_folder.get(folder, folder), folder, entry
+
+
 def pinned(pin_set, layout):
     """({id: sha}, {id: why}) from the pin set, by this script's ids: every
-    entry with a remote, and the reason each local-only one cannot be fetched.
-    `layout` is the contract registry's {id: folder}, the pin set's ids."""
-    by_folder = {folder: rid for rid, folder in layout.items()}
+    entry with a remote, and the reason each local-only one cannot be fetched."""
     pins, local = {}, {}
-    for folder, entry in sorted(pin_set["repos"].items()):
+    for rid, folder, entry in by_id(pin_set, layout):
         if entry["remote"] is None:
             continue
-        rid = by_folder.get(folder, folder)
         pins[rid] = entry["sha"]
         if entry["reachable"] != "remote":
             local[rid] = ("%s %s not reachable on the remote: the pin set records it "
@@ -249,24 +255,32 @@ def resolve(entries, pins, floating, api, local=None, track=None):
         else:
             sha = pins.get(rid) or ""
 
-        failure = confirm(rid, slug, sha, api)
-        if failure:
-            failures.append(failure)
+        why = confirm(slug, sha, api)
+        if why == NOT_HEX:
+            failures.append(
+                "%s: resolved to %r, which is not a 40-hex sha. Passed to "
+                "`actions/checkout` this takes the default branch and the run "
+                "goes green against a tree nobody chose." % (rid, sha))
+            continue
+        if why:
+            failures.append("%s: %s" % (rid, why))
             continue
         refs[rid] = sha
     return refs, slugs, failures
 
 
-def confirm(rid, slug, sha, api):
-    """None when `sha` is 40 hex and resolves on `slug`'s remote, else why not."""
+NOT_HEX = "not a 40-hex sha"
+
+
+def confirm(slug, sha, api):
+    """None when `sha` is 40 hex and resolves on `slug`'s remote; else NOT_HEX,
+    or why the remote refused it. The caller says what the failure costs."""
     if not re.fullmatch(r"[0-9a-f]{40}", sha or ""):
-        return ("%s: resolved to %r, which is not a 40-hex sha. Passed to "
-                "`actions/checkout` this takes the default branch and the run "
-                "goes green against a tree nobody chose." % (rid, sha))
+        return NOT_HEX
     status, _ = api("/repos/%s/commits/%s" % (slug, sha))
     if status != 200:
-        return ("%s: %s@%s does not resolve on the remote (HTTP %d)"
-                % (rid, slug, sha[:10], status))
+        return ("%s@%s does not resolve on the remote (HTTP %d)"
+                % (slug, sha[:10], status))
     return None
 
 
@@ -276,16 +290,17 @@ def extras(pin_set, layout, slugs, api):
     earlier commit), each checked like a pin. A depth-1 checkout lacks them, so
     the integration job fetches exactly these; every id in `slugs` is a key,
     with [] when it names none, so the workflow can index any of them."""
-    by_folder = {folder: rid for rid, folder in layout.items()}
     out, failures = {rid: [] for rid in slugs}, []
-    for folder, entry in sorted(pin_set["repos"].items()):
-        rid = by_folder.get(folder, folder)
-        if rid not in slugs:
+    for rid, _, entry in by_id(pin_set, layout):
+        if rid not in slugs:  # not checked out by the integration job
             continue
-        for sha in entry.get("extra") or []:
-            failure = confirm("%s extra" % rid, slugs[rid], sha, api)
-            if failure:
-                failures.append(failure)
+        for sha in entry["extra"]:
+            why = confirm(slugs[rid], sha, api)
+            if why == NOT_HEX:
+                failures.append("%s extra: %r is not a 40-hex sha, so the "
+                                "integration job cannot fetch it" % (rid, sha))
+            elif why:
+                failures.append("%s extra: %s" % (rid, why))
             else:
                 out[rid].append(sha)
     return out, failures
@@ -366,8 +381,14 @@ def self_test():
         "interposer-pnr": {"sha": good, "extra": [other]}}}
     slugs_x = {"adk": "IHP-GmbH/IHP-Open-ADK", "spec": "IHP-GmbH/chiplet-spec"}
     got, fails = extras(ps_x, reg, slugs_x, stub())
-    expect("extra commits come out by id, every resolved id a key",
+    expect("extra commits come out by id, every resolved id a key; a repository "
+           "the job does not check out (interposer-pnr) is left out",
            not fails and got == {"adk": [], "spec": [good]})
+    got, fails = extras({"repos": {"chiplet-spec": {"sha": other,
+                                                    "extra": [other, "c" * 40, good]}}},
+                        reg, slugs_x, stub())
+    expect("a bad extra commit fails without dropping the good ones, in order",
+           got["spec"] == [other, good] and len(fails) == 1)
     _, fails = extras({"repos": {"chiplet-spec": {"sha": other, "extra": ["c" * 40]}}},
                       reg, slugs_x, stub())
     expect("an extra commit nobody can fetch fails, named as an extra",
@@ -375,8 +396,9 @@ def self_test():
                for f in fails))
     got, fails = extras({"repos": {"chiplet-spec": {"sha": other, "extra": ["abc"]}}},
                         reg, slugs_x, stub())
-    expect("a truncated extra commit fails and is not handed on",
-           got["spec"] == [] and any("not a 40-hex sha" in f for f in fails))
+    expect("a truncated extra commit fails as a fetch, not as a checkout",
+           got["spec"] == [] and any("cannot fetch it" in f for f in fails)
+           and not any("actions/checkout" in f for f in fails))
 
     _, _, fails = run({"adk": "abc123"}, stub())
     expect("a truncated sha fails",
@@ -515,8 +537,10 @@ def main():
     try:
         refs, slugs, failures = resolve(entries, pins, args.floating, api, local,
                                         track=args.track)
-        fetch, more = extras(pin_set, layout, slugs, api)
-        failures += more
+        extra_commits = {}
+        if not failures:
+            extra_commits, extra_failures = extras(pin_set, layout, slugs, api)
+            failures += extra_failures
     except Unreachable as e:
         # Exit 2, not 1: no verdict was reached. Same distinction the local gate
         # makes, and the reason a traceback is not good enough here is that the
@@ -528,8 +552,8 @@ def main():
 
     for rid in sorted(slugs):
         print("%-14s %-40s %s" % (rid, slugs[rid], refs.get(rid, "UNRESOLVED")))
-    for rid in sorted(fetch):
-        for sha in fetch[rid]:
+    for rid in sorted(extra_commits):
+        for sha in extra_commits[rid]:
             print("%-14s %-40s %s" % (rid + " extra", slugs[rid], sha))
     for f in failures:
         print("FAIL: %s" % f, file=sys.stderr)
@@ -552,7 +576,7 @@ def main():
         with open(out, "a") as fh:
             fh.write("refs=%s\n" % json.dumps(refs))
             fh.write("slugs=%s\n" % json.dumps(slugs))
-            fh.write("extra=%s\n" % json.dumps(fetch))
+            fh.write("extra=%s\n" % json.dumps(extra_commits))
     return 0
 
 
