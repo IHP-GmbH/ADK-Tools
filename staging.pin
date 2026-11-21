@@ -1011,18 +1011,24 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # moves, and the version stays 0.1.0.
 #
 # An earlier move (e911664) was the merge of one commit on 3210bbf: tests/die_flow/PROVENANCE.md
-# takes the die-flow test helpers again at 5cb0848, the chiplet-flow ref below. Its source rows for
-# emit.py and mixed_gf180.py are restated, because those two source modules gained cases there; the
+# takes the die-flow test helpers again at 5cb0848 (see the chiplet-flow ref below). Its source
+# rows for emit.py and mixed_gf180.py are restated, because those two source modules gained cases there; the
 # copies themselves do not change.
 #
-# This ref (c859da4) is packaging-flow dev after its pull requests 25 to 30: a run draws its
+# An earlier move (c859da4) was packaging-flow dev after its pull requests 25 to 30: a run draws its
 # connection sheet, which verify-open opens and the extension shows in its own pane; place draws a
 # picture of the placement right after it runs, and the extension shows it in a pane; the map says
 # not reviewed where a gate's coverage is not reviewed. Under src/ only place.py, placement_view.py,
 # runner.py, stages.py, system_source.py, messages/steps.json, verification/results.py and
 # verification/verify_open.py move. pyproject.toml only keeps the six routed-geometry skips to T2,
 # no file under ci/ moves, and the version stays 0.1.0.
-STAGE_PACKAGING_FLOW_REF=c859da401552407435ff8ccab4f117036294bdbe
+#
+# This ref (7755239) is the merge of one commit on c859da4: the partner die fixture under
+# tests/fixtures/dies/partner_die is frozen again under reader release 1.26.0, the reader
+# STAGE_CHIPLET_SPEC_REF holds (its build-record.json, the digest its die-contract.json names and
+# IDENTITY.sha256). Nothing under src/ or ci/ moves, pyproject.toml does not, and the version stays
+# 0.1.0.
+STAGE_PACKAGING_FLOW_REF=77552399b0b0b8950d7e6fea1b61bde511f4d22c
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
@@ -1252,7 +1258,7 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does not. No test module that
 # packaging-flow copies changes.
 #
-# This ref (5cb0848) is the merge of chiplet-flow's pull request 3, four commits on cf25851 (dev
+# An earlier move (5cb0848) was the merge of chiplet-flow's pull request 3, four commits on cf25851 (dev
 # after release v2026.11.3 came back into dev). A build record that binds run files gives each row
 # the shared die content table projects a content_sha256, the digest of the file's projection with
 # the run's own location rewritten to the run, design and PDK roots (ready_die_dir.py, used by
@@ -1263,7 +1269,12 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # not change, so ci/image-xor-tests.txt does not. Two test modules packaging-flow copies from
 # change (tests/test_emit_ready_die.py, tests/test_mixed_gf180_derive_die.py), by added cases,
 # so packaging-flow takes its helpers again at this ref and STAGE_PACKAGING_FLOW_REF moves with it.
-STAGE_CHIPLET_FLOW_REF=5cb0848028bafb2b6a8e542d5ddfff30a51c265e
+#
+# This ref (7556bfa) is the merge of one commit on 5cb0848: tests/test_emit_partner_die_klayout.py
+# pins the partner die's four files as they are taken under reader release 1.26.0 (the reader
+# string and two digests). Only that test module moves; packaging-flow does not copy it, so its
+# die-flow helpers stay as taken at 5cb0848.
+STAGE_CHIPLET_FLOW_REF=7556bfa8822fd6dc6d2a6941b20faefb6e33ff86
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,

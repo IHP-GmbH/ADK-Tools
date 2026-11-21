@@ -1012,6 +1012,39 @@ RUN --network=none --mount=type=bind,source=host-closure.tar,target=/run/host-cl
         --numeric-owner --same-owner --same-permissions
 COPY --chmod=0444 nix/host-closure.txt nix/host-closure.lock /opt/adk-tools/nix/
 
+# The sg13g2 IO cells' Verilog model, which chiplet-cosim compiles into every RTL
+# co-simulation of a modelled die (its die_sources refuses without it), and the four
+# sg13g2_pr Xschem symbols it reads to check an Xschem die against its CDL. They are
+# not in the slice above the thin-layer line; the whole PDK at the slice's ref is in
+# this image's store (the closure unpacked above), so they are copied from there into
+# $PDK_ROOT. A copy, not a link: die_sources refuses a path that resolves outside the
+# PDK root. The store path must be the slice's ref (its .shipped-ref) and a path the
+# closure list names, and each copy is compared with its source. Each file is named in
+# each command, with no loop: ci/check_slice_tech_files.py reads this RUN through
+# ci/shell_reader.py, which models plain ${NAME} expansions only and cannot tell where a
+# loop variable points, so a loop here turns the slice check red.
+ARG NIX_SG13G2_PDK_OUTPATH
+RUN --network=none set -e; \
+    s="$NIX_SG13G2_PDK_OUTPATH/ihp-sg13g2"; d="$PDK_ROOT/ihp-sg13g2"; \
+    io=libs.ref/sg13g2_io/verilog; pr=libs.tech/xschem/sg13g2_pr; \
+    test -n "$NIX_SG13G2_PDK_OUTPATH"; \
+    test "$(printf '%s\n' "$NIX_SG13G2_PDK_OUTPATH" | sed 's/.*-//')" = "$(cut -c1-7 "$PDK_ROOT/.shipped-ref")"; \
+    grep -qxF "$NIX_SG13G2_PDK_OUTPATH" /opt/adk-tools/nix/host-closure.txt; \
+    test ! -e "$d/$io"; test ! -e "$d/$pr"; \
+    mkdir -p "$d/$io" "$d/$pr"; \
+    cp "$s/$io/sg13g2_io.v" "$d/$io/sg13g2_io.v"; \
+    cp "$s/$pr/sg13_lv_nmos.sym" "$d/$pr/sg13_lv_nmos.sym"; \
+    cp "$s/$pr/sg13_lv_pmos.sym" "$d/$pr/sg13_lv_pmos.sym"; \
+    cp "$s/$pr/dantenna.sym" "$d/$pr/dantenna.sym"; \
+    cp "$s/$pr/dpantenna.sym" "$d/$pr/dpantenna.sym"; \
+    chmod 0444 "$d/$io/sg13g2_io.v" "$d/$pr/sg13_lv_nmos.sym" "$d/$pr/sg13_lv_pmos.sym" \
+        "$d/$pr/dantenna.sym" "$d/$pr/dpantenna.sym"; \
+    cmp "$s/$io/sg13g2_io.v" "$d/$io/sg13g2_io.v"; \
+    cmp "$s/$pr/sg13_lv_nmos.sym" "$d/$pr/sg13_lv_nmos.sym"; \
+    cmp "$s/$pr/sg13_lv_pmos.sym" "$d/$pr/sg13_lv_pmos.sym"; \
+    cmp "$s/$pr/dantenna.sym" "$d/$pr/dantenna.sym"; \
+    cmp "$s/$pr/dpantenna.sym" "$d/$pr/dpantenna.sym"
+
 # The tool identity table (formats/adk-tools-tool-identity.v1.schema.json),
 # /opt/adk-tools/tool-identity.json: each tool of this image named by its
 # content. build.sh wrote tool-identity.facts.json from the build host's store:
