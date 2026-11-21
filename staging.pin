@@ -1029,7 +1029,13 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # verification/verify_open.py move. pyproject.toml only keeps the six routed-geometry skips to T2,
 # no file under ci/ moves, and the version stays 0.1.0.
 #
-# This ref (5a41828) is packaging-flow dev after its pull request 36: a version 2 signature chain
+# This ref (5d24f6c) is packaging-flow dev after one merge on 5a41828: the vehicle's two pin
+# lists are copied again from chiplet-flow at STAGE_CHIPLET_FLOW_REF, where they carry the supply
+# pins' role and direction, and the bondpad fixture writes its pin types out in a table by role
+# and direction instead of deriving them through the reader. Nothing under src/ or ci/ moves,
+# pyproject.toml does not, and the version stays 0.1.0.
+#
+# An earlier move (5a41828) was packaging-flow dev after its pull request 36: a version 2 signature chain
 # is keyed and reviewed. A version 2 interposer is signed by its layout and the routing the run
 # recorded, and its gate shows the connection sheet and what the layout is drawn from; a checklist
 # item is held to the version its gate is keyed at; a run at a version the flow reads but does not
@@ -1050,7 +1056,7 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # STAGE_CHIPLET_SPEC_REF holds (its build-record.json, the digest its die-contract.json names and
 # IDENTITY.sha256). Nothing under src/ or ci/ moves, pyproject.toml does not, and the version stays
 # 0.1.0.
-STAGE_PACKAGING_FLOW_REF=5a41828bb0dca299ae4a6ffb1859637d45ce0c04
+STAGE_PACKAGING_FLOW_REF=5d24f6c7b1f12b3868f920f71361d475ba47993a
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
@@ -1292,7 +1298,15 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # change (tests/test_emit_ready_die.py, tests/test_mixed_gf180_derive_die.py), by added cases,
 # so packaging-flow takes its helpers again at this ref and STAGE_PACKAGING_FLOW_REF moves with it.
 #
-# This ref (9573337) is chiplet-flow dev after release v2026.11.4 came back into dev (3558cef, the
+# This ref (2341b7d) is chiplet-flow dev after one merge on 9573337: the vehicle's two pin lists
+# (vehicle/plans/driver.pins.json, echo.pins.json) are regenerated through gds_to_kicad's annotate
+# at the commit tools/gds_to_kicad holds, so the 21 supply pins of the driver and 11 of the echo
+# carry their role (POWER or GROUND) and direction INOUT; every type stays. Nothing else moves: no
+# package dependency, no die_errors class, tests/test_view_xor.py unchanged, so
+# ci/image-xor-tests.txt does not. packaging-flow holds copies of these two lists to chiplet-flow
+# at the pin (tests/test_die_flow_copies.py), so STAGE_PACKAGING_FLOW_REF moves with it.
+#
+# An earlier move (9573337) was chiplet-flow dev after release v2026.11.4 came back into dev (3558cef, the
 # same tree as 120feb7) and two merges: the host holds the pinned build record and the partner
 # die's reader to the installed ones (tests/partner_die_pins.py, shared by the two partner die
 # tests), and a content digest takes the run root from the run's own record (ready_die_dir.py),
@@ -1306,7 +1320,7 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # pins the partner die's four files as they are taken under reader release 1.26.0 (the reader
 # string and two digests). Only that test module moves; packaging-flow does not copy it, so its
 # die-flow helpers stay as taken at 5cb0848.
-STAGE_CHIPLET_FLOW_REF=957333721401b65988cb8273f566f859373cec64
+STAGE_CHIPLET_FLOW_REF=2341b7d048f949c0d46bad8f6c0b1decd77b9fb6
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
