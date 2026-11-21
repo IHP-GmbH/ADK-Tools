@@ -69,7 +69,7 @@
       "roots": [
         "eb1409ef76760cb56b971ff98d5078da43a9655b"
       ],
-      "sha": "2c043eb83edca0b7b49eacdc886ebdcf281e0099",
+      "sha": "1d4ddf7770e49eeb7acf2841bdfb6f95e32e4958",
       "source": "gitlink",
       "stage_name": null
     },
@@ -139,7 +139,7 @@
       "roots": [
         "8a782eb10dfea9c351320308c69010239838eb95"
       ],
-      "sha": "4c58de771959da836e40ce63d72cae3d63b83dc7",
+      "sha": "74ac8c2e1e735c79ed1456f512c02d0fbd2b50fa",
       "source": "staged",
       "stage_name": "chiplet-spec"
     },
@@ -167,7 +167,7 @@
       "roots": [
         "8f87581a1d7390f4ce56c14fe583012a97d73614"
       ],
-      "sha": "c397cb61698629af9d1fe05c0b934997fa8f725c",
+      "sha": "ec6f5d24d5ab0924cc0f0e78a633596d0c9f20c8",
       "source": "gitlink",
       "stage_name": null
     },
@@ -223,7 +223,7 @@
       "roots": [
         "07a36d25574d640be9ff51ffaf6655748aedaadb"
       ],
-      "sha": "79573240438e4732fab7be96e3e2c489677b8402",
+      "sha": "8715e230d5c1d3b80649c4016ab926010781ab38",
       "source": "staged",
       "stage_name": "interposer-pnr"
     },

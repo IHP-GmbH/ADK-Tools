@@ -457,14 +457,20 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # moves to reader 1.24.0 from chiplet-spec 9d84e3f, the commit its SOURCE now declares. It moves
 # with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
 #
-# This ref (7957324) is interposer-pnr dev after its pull requests 12 to 15: the pad-domain
+# This ref (8715e23) is interposer-pnr dev after release v2026.11.4 came back into dev, with three
+# merges before it: the signoff command reads and writes the version 4 ack, the review of a
+# layout, with its schema, fixtures and CLI reference; the refusals of a layout review say layout.
+# Nothing under _vendor moves, pyproject.toml does not change, no id in ci/ipnr-route-tests.txt
+# moves, and the version stays 0.6.0.dev0.
+#
+# An earlier move (7957324) was interposer-pnr dev after its pull requests 12 to 15: the pad-domain
 # archive is written as version 2 and read in versions 1 and 2, and a method's pad parameters are
 # read under either spelling, never both; pin lists of version 1.1 are read; the interconnect
 # method registry is read at contract 1.2, the version the interconnect PDK's manifest declares;
 # and _vendor/chiplet_format_io moves to reader 1.26.0 from chiplet-spec 4c58de7, the commit its
 # SOURCE now declares. pyproject.toml does not change and the version stays 0.6.0.dev0. It moves
 # with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
-STAGE_INTERPOSER_PNR_REF=79573240438e4732fab7be96e3e2c489677b8402
+STAGE_INTERPOSER_PNR_REF=8715e230d5c1d3b80649c4016ab926010781ab38
 
 # Orchestrator that chains die builds into the interposer flow from one spec: distribution
 # packaging_flow, console script `packaging-flow` (packaging_flow.cli:main). In the image the
@@ -1769,7 +1775,14 @@ STAGE_CHIPLET_COSIM_REF=45c1a5532be3a0916506cf80de1cac4d5a8c43a2
 # STAGE_INTERPOSER_PNR_REF and the tools/chiplet_kicad_plugin, tools/adk and tools/gds_to_kicad
 # gitlinks move with it, each to a dev commit that vendors 1.24.0 from this ref.
 #
-# This ref (4c58de7) is chiplet-spec dev after its pull requests 24 and 25: interconnect methods
+# This ref (74ac8c2) is chiplet-spec dev after release v2026.11.4 came back into dev. Its tree is
+# 4c58de7's, so no copy above changes bytes. The plugin's copy and adk's two declared pins (the
+# vendored reader and the mount-plane cases) name this ref, so the tools/chiplet_kicad_plugin and
+# tools/adk gitlinks move with it: adk resolves its pins by git in the staged tree, a one-commit
+# export that does not hold 4c58de7. The copies of interposer-pnr and gds_to_kicad still name
+# 4c58de7; they check bytes against their SOURCE files and need no other checkout.
+#
+# An earlier move (4c58de7) was chiplet-spec dev after its pull requests 24 and 25: interconnect methods
 # 1.2 names the two pad parameters without one technology's metal (passivation_opening_um and
 # pad_metal_enclosure_um beside the deprecated spellings, never both in one method), and
 # die_content.py gives the content form of a die's build record and contract. The reader release
@@ -1782,7 +1795,7 @@ STAGE_CHIPLET_COSIM_REF=45c1a5532be3a0916506cf80de1cac4d5a8c43a2
 # with it. So STAGE_INTERPOSER_PNR_REF and the tools/chiplet_kicad_plugin, tools/adk and
 # tools/gds_to_kicad gitlinks move with it, each to a dev commit that vendors 1.26.0 from this ref.
 STAGE_CHIPLET_SPEC_PATH=chiplet-spec
-STAGE_CHIPLET_SPEC_REF=4c58de771959da836e40ce63d72cae3d63b83dc7
+STAGE_CHIPLET_SPEC_REF=74ac8c2e1e735c79ed1456f512c02d0fbd2b50fa
 
 # ----------------------------------------------------------------------
 # LibreLane
