@@ -1019,7 +1019,10 @@ COPY --chmod=0444 nix/host-closure.txt nix/host-closure.lock /opt/adk-tools/nix/
 # this image's store (the closure unpacked above), so they are copied from there into
 # $PDK_ROOT. A copy, not a link: die_sources refuses a path that resolves outside the
 # PDK root. The store path must be the slice's ref (its .shipped-ref) and a path the
-# closure list names, and each copy is compared with its source.
+# closure list names, and each copy is compared with its source. Each file is named in
+# each command, with no loop: ci/check_slice_tech_files.py reads this RUN through
+# ci/shell_reader.py, which models plain ${NAME} expansions only and cannot tell where a
+# loop variable points, so a loop here turns the slice check red.
 ARG NIX_SG13G2_PDK_OUTPATH
 RUN --network=none set -e; \
     s="$NIX_SG13G2_PDK_OUTPATH/ihp-sg13g2"; d="$PDK_ROOT/ihp-sg13g2"; \
