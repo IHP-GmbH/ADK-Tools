@@ -69,7 +69,7 @@
       "roots": [
         "eb1409ef76760cb56b971ff98d5078da43a9655b"
       ],
-      "sha": "1d4ddf7770e49eeb7acf2841bdfb6f95e32e4958",
+      "sha": "536dea9e3f53a30fc6cde79e8ee40d14d030000a",
       "source": "gitlink",
       "stage_name": null
     },
@@ -125,7 +125,7 @@
       "roots": [
         "d22efd3d4e1ba349e7f254bdf2ce280d6a5fc6f1"
       ],
-      "sha": "22a09ff1177cb524adf8aa5a302ab1187d9d1278",
+      "sha": "3bfe7f4f2089754c69b19d41ffda397da5133a79",
       "source": "staged",
       "stage_name": "chiplet-flow"
     },
@@ -133,15 +133,13 @@
       "export_from": {
         "kind": "sibling"
       },
-      "extra": [
-        "74ac8c2e1e735c79ed1456f512c02d0fbd2b50fa"
-      ],
+      "extra": [],
       "reachable": "remote",
       "remote": "https://github.com/IHP-GmbH/chiplet-system-spec.git",
       "roots": [
         "8a782eb10dfea9c351320308c69010239838eb95"
       ],
-      "sha": "c1a55976cb939e01130a8dfbae0e2ad7b2bb5054",
+      "sha": "c2f1f3ae0cf961c6af55378dd8c4f83a9f32fbb7",
       "source": "staged",
       "stage_name": "chiplet-spec"
     },
@@ -170,7 +168,7 @@
         "8f87581a1d7390f4ce56c14fe583012a97d73614",
         "da739ab03014debaab92c59d6ab59218a4b908de"
       ],
-      "sha": "ce2dab6b7be1caada45ffd0312d6606cf6772d1f",
+      "sha": "725d415457b23810bbfdd41d166f18b8c3dad336",
       "source": "gitlink",
       "stage_name": null
     },
@@ -184,7 +182,7 @@
       "roots": [
         "03af0dc85d4528b13b05989fa7c1f4b85e9daa1a"
       ],
-      "sha": "02a2d42fb94a49272cf8a0537f68167a9ad7f612",
+      "sha": "33cc779280be18644aebda52d6aaa6179cb39f00",
       "source": "gitlink",
       "stage_name": null
     },
@@ -226,7 +224,7 @@
       "roots": [
         "07a36d25574d640be9ff51ffaf6655748aedaadb"
       ],
-      "sha": "3adc5f6af9ab16852609233ec17008ab7f734d9b",
+      "sha": "7e3ed11a1d02d1cc0f30947e590b2b278b9bdd65",
       "source": "staged",
       "stage_name": "interposer-pnr"
     },
@@ -255,7 +253,7 @@
       "roots": [
         "7e0160f4c889583ebb018c66a171f41eaf4dae3a"
       ],
-      "sha": "79ddf8b04bcde8053f4e7699725a31499b3ec793",
+      "sha": "0a70b8cef881a0068160dfea20c3299d3fcc8b12",
       "source": "staged",
       "stage_name": "packaging-flow"
     }
