@@ -457,7 +457,16 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # moves to reader 1.24.0 from chiplet-spec 9d84e3f, the commit its SOURCE now declares. It moves
 # with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
 #
-# This ref (8715e23) is interposer-pnr dev after release v2026.11.4 came back into dev, with three
+# This ref (3adc5f6) is interposer-pnr dev after its pull request 19: a board revision compares
+# the archived and the current pin list of a die per pin, not byte for byte, so a pin list
+# written again with a role and a direction on each pin revises; a pad moved, renamed, added or
+# dropped, or a role that changes the KiCad word, is still refused with the same text.
+# _vendor/chiplet_format_io gains pins.py, from chiplet-spec 4c58de7, the commit its SOURCE
+# already declares; the file is the same at STAGE_CHIPLET_SPEC_REF, which does not move.
+# pyproject.toml does not change, no id in ci/ipnr-route-tests.txt moves, and the version stays
+# 0.6.0.dev0.
+#
+# An earlier move (8715e23) was interposer-pnr dev after release v2026.11.4 came back into dev, with three
 # merges before it: the signoff command reads and writes the version 4 ack, the review of a
 # layout, with its schema, fixtures and CLI reference; the refusals of a layout review say layout.
 # Nothing under _vendor moves, pyproject.toml does not change, no id in ci/ipnr-route-tests.txt
@@ -470,7 +479,7 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # and _vendor/chiplet_format_io moves to reader 1.26.0 from chiplet-spec 4c58de7, the commit its
 # SOURCE now declares. pyproject.toml does not change and the version stays 0.6.0.dev0. It moves
 # with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
-STAGE_INTERPOSER_PNR_REF=8715e230d5c1d3b80649c4016ab926010781ab38
+STAGE_INTERPOSER_PNR_REF=3adc5f6af9ab16852609233ec17008ab7f734d9b
 
 # Orchestrator that chains die builds into the interposer flow from one spec: distribution
 # packaging_flow, console script `packaging-flow` (packaging_flow.cli:main). In the image the
@@ -1029,7 +1038,14 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # verification/verify_open.py move. pyproject.toml only keeps the six routed-geometry skips to T2,
 # no file under ci/ moves, and the version stays 0.1.0.
 #
-# This ref (d1dd217) is packaging-flow dev after its pull requests 39 and 40: every example
+# This ref (79ddf8b) is packaging-flow dev after its pull request 41 on d1dd217: a net-pins
+# command lists the die pins on each net of a run, refusing an unreadable assembly record or a
+# damaged review record on one line; the version 2 signature check tells a stray file and an
+# unreadable signatures folder apart from a broken review. Under src/ net_pins.py and
+# atomic_file.py are new, and cli.py, errors.py, tasks.py and verification/signature.py move.
+# Nothing under ci/ or tests/die_flow moves, pyproject.toml does not, and the version stays 0.1.0.
+#
+# An earlier move (d1dd217) was packaging-flow dev after its pull requests 39 and 40: every example
 # die tracks its die abstract (abstract.json and abstract.gds beside its files, named in its
 # IDENTITY.sha256), and the version 2 gate screen names the command that prints the connection
 # sheet's path, with verify-open kept on one unbroken line at a terminal and a hand-opened result
@@ -1074,7 +1090,7 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # STAGE_CHIPLET_SPEC_REF holds (its build-record.json, the digest its die-contract.json names and
 # IDENTITY.sha256). Nothing under src/ or ci/ moves, pyproject.toml does not, and the version stays
 # 0.1.0.
-STAGE_PACKAGING_FLOW_REF=d1dd21782db8b4909692cdbd7f13c5ed34434151
+STAGE_PACKAGING_FLOW_REF=79ddf8b04bcde8053f4e7699725a31499b3ec793
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
