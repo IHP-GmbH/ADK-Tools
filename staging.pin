@@ -1044,7 +1044,8 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # verification/verify_open.py move. pyproject.toml only keeps the six routed-geometry skips to T2,
 # no file under ci/ moves, and the version stays 0.1.0.
 #
-# This ref (d6a221f) adds, on dev 4160e9aa, the die key form at reader 1.27.0 and the partner die
+# This ref (0a70b8c) is packaging-flow dev after its pull request 47, which adds, on dev 4160e9aa,
+# the die key form at reader 1.27.0 and the partner die
 # refrozen under it. Dev after its pull requests 42 to 46: edit --native reads a sheet KiCad wrote,
 # the routed preview shows each die's pins, die pins are checked against files of any size and say
 # when a file cannot be read, a new run signs its assembly at version 2 over the connection sheet
@@ -1110,7 +1111,7 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # STAGE_CHIPLET_SPEC_REF holds (its build-record.json, the digest its die-contract.json names and
 # IDENTITY.sha256). Nothing under src/ or ci/ moves, pyproject.toml does not, and the version stays
 # 0.1.0.
-STAGE_PACKAGING_FLOW_REF=d6a221fd9286301b4b84d0e992326823a27acf5a
+STAGE_PACKAGING_FLOW_REF=0a70b8cef881a0068160dfea20c3299d3fcc8b12
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
