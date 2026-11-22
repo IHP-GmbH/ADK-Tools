@@ -1350,9 +1350,10 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # change (tests/test_emit_ready_die.py, tests/test_mixed_gf180_derive_die.py), by added cases,
 # so packaging-flow takes its helpers again at this ref and STAGE_PACKAGING_FLOW_REF moves with it.
 #
-# This ref (bb793ee) adds five commits on 22a09ff: each projected build record row carries its
+# This ref (f1caab9) adds six commits on 22a09ff: each projected build record row carries its
 # digest map under die-content/v2, a content file that is not a regular file is refused and is
-# opened without waiting, the refusals name what was found and the places as worded, and
+# opened without waiting, the refusals name what was found and the places as worded, a part
+# declared at other bytes is tested as an emit refusal (tests/test_eda_views.py), and
 # tests/partner_die_pins.py pins the partner die as taken under reader release 1.27.0. The reader
 # floors move to chiplet-format-io 1.27.0, which STAGE_CHIPLET_SPEC_REF holds. tests/test_emit_ready_die.py
 # changes, so packaging-flow's copy of it is held to these bytes. Nothing under ci/ moves and the
@@ -1401,7 +1402,7 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # pins the partner die's four files as they are taken under reader release 1.26.0 (the reader
 # string and two digests). Only that test module moves; packaging-flow does not copy it, so its
 # die-flow helpers stay as taken at 5cb0848.
-STAGE_CHIPLET_FLOW_REF=bb793ee1405fadb027c91d5aadde4b2c61809088
+STAGE_CHIPLET_FLOW_REF=f1caab9c37c49a717562b1e9bce4aecc1fddb2b0
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
