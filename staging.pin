@@ -457,7 +457,7 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # moves to reader 1.24.0 from chiplet-spec 9d84e3f, the commit its SOURCE now declares. It moves
 # with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
 #
-# This ref (62f01e2) adds one commit on 3adc5f6: _vendor/chiplet_format_io moves to reader 1.27.0
+# This ref (7e3ed11) is interposer-pnr dev after its pull request 20, one commit on 3adc5f6: _vendor/chiplet_format_io moves to reader 1.27.0
 # from chiplet-spec c2f1f3a, the commit its SOURCE now declares; only __init__.py's version line
 # changes. Nothing else moves, pyproject.toml does not change, and the version stays 0.6.0.dev0. It
 # moves with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
@@ -485,7 +485,7 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # and _vendor/chiplet_format_io moves to reader 1.26.0 from chiplet-spec 4c58de7, the commit its
 # SOURCE now declares. pyproject.toml does not change and the version stays 0.6.0.dev0. It moves
 # with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
-STAGE_INTERPOSER_PNR_REF=62f01e2bf279055d0096a5777dd15d07b87e9d0f
+STAGE_INTERPOSER_PNR_REF=7e3ed11a1d02d1cc0f30947e590b2b278b9bdd65
 
 # Orchestrator that chains die builds into the interposer flow from one spec: distribution
 # packaging_flow, console script `packaging-flow` (packaging_flow.cli:main). In the image the
@@ -1044,7 +1044,19 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # verification/verify_open.py move. pyproject.toml only keeps the six routed-geometry skips to T2,
 # no file under ci/ moves, and the version stays 0.1.0.
 #
-# This ref (79ddf8b) is packaging-flow dev after its pull request 41 on d1dd217: a net-pins
+# This ref (a6f2049) adds, on dev 4160e9aa, the die key form at reader 1.27.0 and the partner die
+# refrozen under it. Dev after its pull requests 42 to 46: edit --native reads a sheet KiCad wrote,
+# the routed preview shows each die's pins, die pins are checked against files of any size and say
+# when a file cannot be read, a new run signs its assembly at version 2 over the connection sheet
+# while example 8's version 1 chain keeps its frozen keys, and the external review keys its
+# terminal map by bump content from version 2. On top: a version 2 die gate keys under
+# die-content/v2, the form written down as a literal, and refuses a reader whose form differs,
+# naming its reader release; tests/fixtures/dies/partner_die is frozen again under reader release
+# 1.27.0 (its build-record.json, the digest its die-contract.json names, abstract.json and
+# IDENTITY.sha256; the content keys do not move). The reader floors move to chiplet-format-io
+# 1.27.0, which STAGE_CHIPLET_SPEC_REF holds. No file under ci/ moves and the version stays 0.1.0.
+#
+# An earlier move (79ddf8b) was packaging-flow dev after its pull request 41 on d1dd217: a net-pins
 # command lists the die pins on each net of a run (with --write, into views/net-pins.json), and
 # says each refusal on one line; the signature store tells a stray file in a key's folder and a
 # record it may not read apart from a damaged record. Under src/ net_pins.py and
@@ -1096,7 +1108,7 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # STAGE_CHIPLET_SPEC_REF holds (its build-record.json, the digest its die-contract.json names and
 # IDENTITY.sha256). Nothing under src/ or ci/ moves, pyproject.toml does not, and the version stays
 # 0.1.0.
-STAGE_PACKAGING_FLOW_REF=79ddf8b04bcde8053f4e7699725a31499b3ec793
+STAGE_PACKAGING_FLOW_REF=a6f2049b3da09de62af890315a7eb1a375a91c58
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
@@ -1338,7 +1350,15 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # change (tests/test_emit_ready_die.py, tests/test_mixed_gf180_derive_die.py), by added cases,
 # so packaging-flow takes its helpers again at this ref and STAGE_PACKAGING_FLOW_REF moves with it.
 #
-# This ref (22a09ff) is chiplet-flow dev after its pull request 9: die_view, bondpad_plan,
+# This ref (bb793ee) adds five commits on 22a09ff: each projected build record row carries its
+# digest map under die-content/v2, a content file that is not a regular file is refused and is
+# opened without waiting, the refusals name what was found and the places as worded, and
+# tests/partner_die_pins.py pins the partner die as taken under reader release 1.27.0. The reader
+# floors move to chiplet-format-io 1.27.0, which STAGE_CHIPLET_SPEC_REF holds. tests/test_emit_ready_die.py
+# changes, so packaging-flow's copy of it is held to these bytes. Nothing under ci/ moves and the
+# version stays 0.1.0.
+#
+# An earlier move (22a09ff) was chiplet-flow dev after its pull request 9: die_view, bondpad_plan,
 # pad_frame, padring_die, partner_die and the mixed_gf180 example take a pin's KiCad type from
 # chiplet_format_io.pins.KICAD_TYPE by role and direction, the table the pin list's readers use,
 # instead of a table of their own; no written file changes, and a test fails if a tracked module
@@ -1381,7 +1401,7 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # pins the partner die's four files as they are taken under reader release 1.26.0 (the reader
 # string and two digests). Only that test module moves; packaging-flow does not copy it, so its
 # die-flow helpers stay as taken at 5cb0848.
-STAGE_CHIPLET_FLOW_REF=22a09ff1177cb524adf8aa5a302ab1187d9d1278
+STAGE_CHIPLET_FLOW_REF=bb793ee1405fadb027c91d5aadde4b2c61809088
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
