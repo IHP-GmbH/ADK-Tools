@@ -1319,11 +1319,13 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # This ref (22a09ff) is chiplet-flow dev after its pull request 9: die_view, bondpad_plan,
 # pad_frame, padring_die, partner_die and the mixed_gf180 example take a pin's KiCad type from
 # chiplet_format_io.pins.KICAD_TYPE by role and direction, the table the pin list's readers use,
-# instead of a table of their own; no written file changes, and a test refuses a local table in
-# any tracked module. KICAD_TYPE is in the reader STAGE_CHIPLET_SPEC_REF holds. No package
-# dependency and no die_errors class moves, pyproject.toml and ci/ do not, and
-# tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does not. None of the test
-# modules packaging-flow copies from moves.
+# instead of a table of their own; no written file changes, and a test fails if a tracked module
+# outside the tests spells the KiCad words power_in or bidirectional. KICAD_TYPE is in the reader
+# STAGE_CHIPLET_SPEC_REF holds. No package dependency and no die_errors class moves, pyproject.toml
+# and ci/ do not, and tests/test_view_xor.py does not change, so ci/image-xor-tests.txt does not.
+# None of the test modules packaging-flow copies from moves; examples/mixed_gf180/derive_die.py,
+# which packaging-flow loads by path from this checkout, does, and its host suite passes with it,
+# so STAGE_PACKAGING_FLOW_REF need not move with this ref.
 #
 # An earlier move (a1727c5) was chiplet-flow dev after its pull request 8: every seam that writes a
 # die (emit-ready-die, emit-partner-die, pad-frame, the padring die and the full bundle) writes a
