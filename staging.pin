@@ -1055,7 +1055,7 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # 1.27.0 (its build-record.json, the digest its die-contract.json names, abstract.json and
 # IDENTITY.sha256; the content keys do not move). The reader floors move to chiplet-format-io
 # 1.27.0, which STAGE_CHIPLET_SPEC_REF holds. The emit helpers' PROVENANCE row is taken again
-# at chiplet-flow f1caab9, the ref STAGE_CHIPLET_FLOW_REF holds; the copied bytes do not change.
+# at chiplet-flow f1caab9, whose tree STAGE_CHIPLET_FLOW_REF holds; the copied bytes do not change.
 # No file under ci/ moves and the version stays 0.1.0.
 #
 # An earlier move (79ddf8b) was packaging-flow dev after its pull request 41 on d1dd217: a net-pins
@@ -1352,7 +1352,8 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # change (tests/test_emit_ready_die.py, tests/test_mixed_gf180_derive_die.py), by added cases,
 # so packaging-flow takes its helpers again at this ref and STAGE_PACKAGING_FLOW_REF moves with it.
 #
-# This ref (f1caab9) adds six commits on 22a09ff: each projected build record row carries its
+# This ref (3bfe7f4) is chiplet-flow dev after its pull request 10, which merges six commits on
+# 22a09ff: each projected build record row carries its
 # digest map under die-content/v2, a content file that is not a regular file is refused and is
 # opened without waiting, the refusals name what was found and the places as worded, a part
 # declared at other bytes is tested as an emit refusal (tests/test_eda_views.py), and
@@ -1404,7 +1405,7 @@ STAGE_CHIPLET_FLOW_PATH=chiplet-flow
 # pins the partner die's four files as they are taken under reader release 1.26.0 (the reader
 # string and two digests). Only that test module moves; packaging-flow does not copy it, so its
 # die-flow helpers stay as taken at 5cb0848.
-STAGE_CHIPLET_FLOW_REF=f1caab9c37c49a717562b1e9bce4aecc1fddb2b0
+STAGE_CHIPLET_FLOW_REF=3bfe7f4f2089754c69b19d41ffda397da5133a79
 
 # Co-simulation over the dies a flow emitted: distribution chiplet-cosim, console script
 # `chiplet-cosim` (chiplet_cosim.cli:main: system-top, xschem-sheet, xschem-read, from-run, select,
