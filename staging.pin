@@ -1049,10 +1049,13 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # verification/verify_open.py move. pyproject.toml only keeps the six routed-geometry skips to T2,
 # no file under ci/ moves, and the version stays 0.1.0.
 #
-# This ref (912fd12) is packaging-flow dev after its pull requests 48 to 52: the run's file list
+# This ref (9b7a4cc) is packaging-flow dev after its pull requests 48 to 54: the run's file list
 # says plainly what the connection sheet is; a version 1 external signature says why it is asked
 # again in a new run; an opened result is forgotten once its approval's digests move; three chain
 # tests that read what the flow does not write are repaired; and a new run signs at version 2.
+# In the extension, every item whose result has to be opened again loses its answer, closed forms
+# included; the version 2 gate screens are recorded again under tests/gate_screens, with their
+# fixtures.
 # At version 2 the signer is given the layout's name only when the layout is drawn from the
 # routing, the map binds the board of an interposer drawn from the board, and the edited-board
 # halt says what the route report shows and what a signature covers. Under src/ only cli.py,
@@ -1128,7 +1131,7 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # STAGE_CHIPLET_SPEC_REF holds (its build-record.json, the digest its die-contract.json names and
 # IDENTITY.sha256). Nothing under src/ or ci/ moves, pyproject.toml does not, and the version stays
 # 0.1.0.
-STAGE_PACKAGING_FLOW_REF=912fd12576218ce0e84435096383b20711641a90
+STAGE_PACKAGING_FLOW_REF=9b7a4cc9672a773641e7055e5da3b00bbe8b78e6
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
