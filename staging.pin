@@ -1044,7 +1044,19 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # verification/verify_open.py move. pyproject.toml only keeps the six routed-geometry skips to T2,
 # no file under ci/ moves, and the version stays 0.1.0.
 #
-# This ref (0a70b8c) is packaging-flow dev after its pull request 47, which adds, on dev 4160e9aa,
+# This ref (912fd12) is packaging-flow dev after its pull requests 48 to 52: the run's file list
+# says plainly what the connection sheet is; a version 1 external signature says why it is asked
+# again in a new run; an opened result is forgotten once its approval's digests move; three chain
+# tests that read what the flow does not write are repaired; and a new run signs at version 2.
+# At version 2 the signer is given the layout's name only when the layout is drawn from the
+# routing, the map binds the board of an interposer drawn from the board, and the edited-board
+# halt says what the route report shows and what a signature covers. Under src/ only cli.py,
+# deliverables.py, manifest.py, projection.py, run_map.py, runner.py, verification/enforce.py,
+# verification/gate_sign.py, verification/review/checklist.json and verification/signature.py
+# move. No file under ci/ moves,
+# pyproject.toml does not, and the version stays 0.1.0.
+#
+# An earlier move (0a70b8c) was packaging-flow dev after its pull request 47, which adds, on dev 4160e9aa,
 # the die key form at reader 1.27.0 and the partner die
 # refrozen under it. Dev after its pull requests 42 to 46: edit --native reads a sheet KiCad wrote,
 # the routed preview shows each die's pins, die pins are checked against files of any size and say
@@ -1111,7 +1123,7 @@ STAGE_PACKAGING_FLOW_PATH=packaging-flow
 # STAGE_CHIPLET_SPEC_REF holds (its build-record.json, the digest its die-contract.json names and
 # IDENTITY.sha256). Nothing under src/ or ci/ moves, pyproject.toml does not, and the version stays
 # 0.1.0.
-STAGE_PACKAGING_FLOW_REF=0a70b8cef881a0068160dfea20c3299d3fcc8b12
+STAGE_PACKAGING_FLOW_REF=912fd12576218ce0e84435096383b20711641a90
 
 # The die flow: one die per command, distribution chiplet-die-flow, console script
 # `chiplet-die-flow` (chiplet_die_flow.die_cli:main). In the image the `chiplet-die-flow` on PATH is
