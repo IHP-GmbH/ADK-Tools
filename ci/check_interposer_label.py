@@ -31,6 +31,7 @@ import importlib.util
 import pathlib
 import re
 import sys
+import subprocess
 import tempfile
 
 READER = pathlib.Path("libs.tech/klayout/python/intm4tm2_pycell_lib/ihp/pdk_version.py")
@@ -74,48 +75,78 @@ def self_test():
     def expect(name, ok):
         cases.append((name, ok))
 
-    pin = "0123456789abcdef0123456789abcdef01234567"
-    # A stub with the reader's names, whose label is the stamp plus a suffix the
-    # test sets, so each case reaches one branch of check(); the real reader is
-    # checked against a real tree in CI and in the image build.
-    reader = (
-        "import pathlib\n"
-        "NAME = 'intm4tm2'\n"
-        "STAMP = '.stamp'\n"
-        "VERSION = {version!r}\n"
-        "def declared_version(root):\n"
-        "    return VERSION\n"
-        "def pdk_version(root):\n"
-        "    commit = (pathlib.Path(root) / STAMP).read_text().strip()\n"
-        "    return '%s %s (%s%s)' % (NAME, VERSION, commit, {suffix!r})\n")
+    # A stub with the reader's one function, whose label the test sets, so each
+    # case reaches one branch of check(); the real reader is checked against a
+    # real tree in CI and in the image build.
+    reader = "def pdk_version(root):\n    return %r\n"
 
-    def run(version="0.2.0", suffix="", with_reader=True, want=pin):
+    def run(label="intm4tm2 0.8.0", with_reader=True, version="0.8.0"):
         with tempfile.TemporaryDirectory() as tmp:
             tree = pathlib.Path(tmp)
             if with_reader:
                 (tree / READER).parent.mkdir(parents=True)
-                (tree / READER).write_text(reader.format(version=version, suffix=suffix))
-            return check(tree, want)
+                (tree / READER).write_text(reader % label)
+            before = sorted(p.relative_to(tree) for p in tree.rglob("*"))
+            out = check(tree, version)
+            after = sorted(p.relative_to(tree) for p in tree.rglob("*"))
+            return out + (before == after,)
 
-    failures, label = run()
-    expect("a tree whose reader reads the stamped pin back passes",
-           not failures and label == "intm4tm2 0.2.0 (%s)" % pin)
+    failures, label, kept = run()
+    expect("a tree labelled with the pinned version passes",
+           not failures and label == "intm4tm2 0.8.0")
+    expect("the check writes nothing in the tree", kept)
 
-    failures, _ = run(suffix="-dirty")
-    expect("a label that is not the pin fails", any("-dirty" in f for f in failures))
+    for bad in ("intm4tm2 0.8.0 (local changes)", "intm4tm2 unknown",
+                "intm4tm2 0.8.0 (0123456789abcdef0123456789abcdef01234567)",
+                "intm4tm2 0.7.0"):
+        failures, _, _ = run(label=bad)
+        expect("the label %r fails" % bad, any(bad in f for f in failures))
 
-    failures, _ = run(with_reader=False)
+    failures, _, _ = run(with_reader=False)
     expect("a tree without the reader fails", any("has no" in f for f in failures))
 
-    failures, _ = run(version=None)
-    expect("a tree declaring no version fails", any("declares no" in f for f in failures))
+    for bad in ("", "unknown", "0.8.0 (local changes)", "0.8.0rc1", "v0.8.0", None):
+        failures, _, _ = run(version=bad)
+        expect("the version %r is refused" % bad,
+               any("not a released version" in f for f in failures))
 
-    for bad in ("", pin[:10], pin.upper(), pin + "-dirty"):
-        failures, _ = run(want=bad)
-        expect("the pin %r is refused" % bad, any("is not a 40-character" in f for f in failures))
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = pathlib.Path(tmp)
+
+        def commit(text):
+            if text is None:
+                (repo / "pyproject.toml").unlink(missing_ok=True)
+            else:
+                (repo / "pyproject.toml").write_text(text)
+            env = ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"]
+            subprocess.run(["git", "-C", tmp, *env, "add", "-A"], check=True)
+            subprocess.run(["git", "-C", tmp, *env, "commit", "-q", "--allow-empty", "-m", "x"],
+                           check=True)
+            return subprocess.run(["git", "-C", tmp, "rev-parse", "HEAD"], check=True,
+                                  capture_output=True, text=True).stdout.strip()
+
+        subprocess.run(["git", "init", "-q", tmp], check=True)
+        good = commit('[project]\nname = "x"\nversion = "0.8.0"\n')
+        newer = commit('[project]\nname = "x"\nversion = "0.9.0"\n')
+        failure, version = version_at(repo, good)
+        expect("the version is read at the pinned commit, not at HEAD",
+               failure is None and version == "0.8.0")
+        failure, version = version_at(repo, newer)
+        expect("a newer pin reads its own version", failure is None and version == "0.9.0")
+        for text, words in (('[project]\nname = "x"\n', "declares no [project] version"),
+                            ('[project]\nversion = "0.8.0.dev1"\n', "not a released version"),
+                            ('[project\n', "not valid TOML"),
+                            (None, "git could not read")):
+            failure, _ = version_at(repo, commit(text))
+            expect("a pin whose pyproject.toml gives %r fails" % words,
+                   failure is not None and words in failure)
+        for bad in ("", good[:10], good.upper(), good + "-dirty"):
+            failure, _ = version_at(repo, bad)
+            expect("the pin %r is refused" % bad,
+                   failure is not None and "is not a 40-character" in failure)
 
     for name, ok in cases:
-        print("%-60s %s" % (name, "ok" if ok else "FAIL"))
+        print("%-72s %s" % (name, "ok" if ok else "FAIL"))
     return 0 if all(ok for _, ok in cases) else 1
 
 
