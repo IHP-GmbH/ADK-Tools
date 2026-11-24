@@ -563,11 +563,15 @@ if [[ ! "$KLAYOUT_SOURCE_DATE_EPOCH" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 
-# The interposer PDK labels its layouts with the commit its tree is at, which
-# the image's copy reads from a stamp the runtime stage writes from this
-# gitlink (ci/check_interposer_label.py). That is only the copied tree's commit
-# when the submodule is checked out clean at the committed gitlink. The tools
-# image never reads the tree, so --tools-only skips this.
+# The image's manifest records the interposer PDK at this gitlink. That is only
+# the copied tree's commit when the submodule is checked out clean at the
+# committed gitlink, so the build refuses any other checkout: this keeps the
+# manifest's commit true. The PDK's layouts carry its version, not its commit;
+# INTERPOSER_VERSION is the version the pinned commit's pyproject.toml declares,
+# read here on the host, and the runtime stage checks that the copied tree
+# labels its layouts with exactly it (ci/check_interposer_label.py). The tools
+# image never reads the tree, so --tools-only skips both.
+
 # require_clean_gitlink <dir>: the submodule at dir is checked out at its
 # committed gitlink, with no tracked file changed.
 require_clean_gitlink() {
@@ -581,8 +585,12 @@ require_clean_gitlink() {
 }
 INTERPOSER_DIR=tools/OpenIntM4TM2
 INTERPOSER_PIN="$(git rev-parse HEAD:"$INTERPOSER_DIR")"
+INTERPOSER_VERSION=
 if [ "$TOOLS_ONLY" -eq 0 ]; then
     require_clean_gitlink "$INTERPOSER_DIR"
+    INTERPOSER_VERSION="$(python3 -B ci/check_interposer_label.py --repo "$INTERPOSER_DIR" \
+        --pin "$INTERPOSER_PIN" --print-version)" || \
+        cosim_refuse "cannot read the interposer PDK's version at $INTERPOSER_PIN; the line above says why"
 fi
 
 MANIFEST_B64="$(base64 -w0 manifest.json)"
@@ -705,7 +713,7 @@ RUNTIME_ARGS=(--build-arg "NIX_OPENROAD_OUTPATH=$NIX_OPENROAD_OUTPATH"
               --build-arg "NIX_LIBRELANE_PYTHON=$LIBRELANE_PYTHON"
               --build-arg "NIX_SG13G2_PDK_OUTPATH=$NIX_SG13G2_PDK_OUTPATH"
               --build-arg "LAUNCHER_SHA256=$LAUNCHER_SHA256"
-              --build-arg "INTERPOSER_PIN=$INTERPOSER_PIN")
+              --build-arg "INTERPOSER_VERSION=$INTERPOSER_VERSION")
 
 if [ "$SKIP_VERIFY" -eq 0 ]; then
     echo "== building verify stage (compiles everything + runs all suites)"

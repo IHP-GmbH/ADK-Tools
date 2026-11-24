@@ -71,8 +71,8 @@ DATA = [
 # The SG13G2 slice and the GF180 sheet are fetched by the Dockerfile rather than
 # carried as submodules, so build.sh's manifest never sees them and they would
 # print a dash. The Dockerfile writes what it actually fetched here, before
-# deleting the .git it read it from. The interposer PDK's .shipped-ref is not
-# listed: it belongs to that PDK's own version reader, and the build checks it.
+# deleting the .git it read it from. The interposer PDK has no .shipped-ref: its
+# layouts carry its version, and the manifest records its commit.
 SHIPPED_REF_FILES = {
     "IHP-Open-PDK": "/opt/adk-tools/IHP-Open-PDK/.shipped-ref",
     "gf180mcu": "/opt/adk-tools/gf180mcu/.shipped-ref",
