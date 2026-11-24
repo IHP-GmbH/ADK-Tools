@@ -1,28 +1,31 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 IHP GmbH
-"""The interposer PDK the image ships labels its layouts with the commit it is pinned at.
+"""The interposer PDK the image ships labels its layouts with the version it is pinned at.
 
 The interposer PDK records its version in every layout it makes, through its
 own reader (libs.tech/klayout/python/intm4tm2_pycell_lib/ihp/pdk_version.py):
-'intm4tm2 <version> (<commit>)', the version from its pyproject.toml and the
-commit from git, or, in a tree without .git, from the reader's STAMP file at
-its top. The image's copy has no .git (.dockerignore drops it), so the build
-writes that file.
+'intm4tm2 <version>', the version its pyproject.toml declares. In a checkout
+with tracked local changes the reader appends ' (local changes)'; a tree
+without .git, as the image's copy is (.dockerignore drops it), gets no suffix.
+The commit is not in the label; the image's manifest records it.
 
-This writes the pin to the reader's STAMP, then runs the reader on the tree
-and fails unless it reports exactly that pin and a declared version. Writing
-the pin rather than reading the commit back from the tree is right because
-build.sh refuses a submodule that is uninitialised, dirty or not at its
-committed gitlink, so the copied tree is that commit. A tree without the
+On the host, --print-version reads the version that the pinned commit's
+pyproject.toml declares, with git, from the submodule. In the image, the check
+runs the reader on the copied tree and fails unless the label is exactly
+'intm4tm2 <that version>': no suffix, not 'unknown', no other version. The
+copied tree is the pinned commit because build.sh refuses a submodule that is
+uninitialised, dirty or not at its committed gitlink. A tree without the
 reader fails too: the label is what a layout made in the image says about its
-PDK, and a build that cannot show it is right does not pass.
+PDK, and a build that cannot show it is right does not pass. Neither mode
+writes anything.
 
 Callers run it with python3 -B, so loading the reader leaves no __pycache__ in
 the tree.
 
 Usage:
-    check_interposer_label.py --tree /opt/adk-tools/OpenIntM4TM2 --pin SHA
+    check_interposer_label.py --repo tools/OpenIntM4TM2 --pin SHA --print-version
+    check_interposer_label.py --tree /opt/adk-tools/OpenIntM4TM2 --version VERSION
     check_interposer_label.py --self-test
 """
 
@@ -30,12 +33,16 @@ import argparse
 import importlib.util
 import pathlib
 import re
-import sys
 import subprocess
+import sys
 import tempfile
+import tomllib
 
 READER = pathlib.Path("libs.tech/klayout/python/intm4tm2_pycell_lib/ihp/pdk_version.py")
 PIN = re.compile(r"[0-9a-f]{40}")
+# A released version: digits and dots, nothing after them.
+VERSION = re.compile(r"[0-9]+(\.[0-9]+)+")
+NAME = "intm4tm2"
 
 
 def load_reader(tree):
@@ -49,21 +56,38 @@ def load_reader(tree):
     return module
 
 
-def check(tree, pin):
-    """[failure] for the shipped tree against the pinned commit, and the label read."""
-    tree = pathlib.Path(tree)
+def version_at(repo, pin):
+    """(failure or None, the [project] version of pyproject.toml at commit `pin` of `repo`)."""
     if not PIN.fullmatch(pin or ""):
-        return ["the pin %r is not a 40-character lowercase commit id" % pin], None
+        return "the pin %r is not a 40-character lowercase commit id" % pin, None
+    proc = subprocess.run(["git", "-C", str(repo), "show", "%s:pyproject.toml" % pin],
+                          capture_output=True, check=False)
+    if proc.returncode:
+        return ("git could not read pyproject.toml at %s in %s: %s"
+                % (pin, repo, proc.stderr.decode(errors="replace").strip())), None
+    try:
+        version = tomllib.loads(proc.stdout.decode()).get("project", {}).get("version")
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
+        return "pyproject.toml at %s is not valid TOML: %s" % (pin, exc), None
+    if version is None:
+        return "pyproject.toml at %s declares no [project] version" % pin, None
+    if not isinstance(version, str) or not VERSION.fullmatch(version):
+        return ("pyproject.toml at %s declares version %r, not a released version "
+                "(digits and dots)" % (pin, version)), None
+    return None, version
+
+
+def check(tree, version):
+    """[failure] for the shipped tree against the pinned version, and the label read."""
+    tree = pathlib.Path(tree)
+    if not VERSION.fullmatch(version or ""):
+        return ["the version %r is not a released version (digits and dots)" % version], None
     reader = load_reader(tree)
     if reader is None:
         return ["%s has no %s, so nothing shows what its layouts will record"
                 % (tree, READER)], None
-    version = reader.declared_version(tree)
-    if version is None:
-        return ["%s/pyproject.toml declares no [project] version" % tree], None
-    (tree / reader.STAMP).write_text(pin + "\n", encoding="utf-8")
     label = reader.pdk_version(tree)
-    want = "%s %s (%s)" % (reader.NAME, version, pin)
+    want = "%s %s" % (NAME, version)
     if label != want:
         return ["the shipped tree labels its layouts '%s', not '%s'" % (label, want)], label
     return [], label
@@ -152,15 +176,28 @@ def self_test():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--tree", help="the shipped interposer PDK tree")
+    parser.add_argument("--repo", help="the interposer PDK submodule, on the host")
     parser.add_argument("--pin", help="the commit adk-tools pins it at")
+    parser.add_argument("--print-version", action="store_true",
+                        help="print the version the pinned commit declares")
+    parser.add_argument("--tree", help="the shipped interposer PDK tree")
+    parser.add_argument("--version", help="the version the pinned commit declares")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
     if args.self_test:
         return self_test()
-    if not args.tree or args.pin is None:
-        parser.error("--tree and --pin are required")
-    failures, label = check(args.tree, args.pin)
+    if args.print_version:
+        if not args.repo or args.pin is None:
+            parser.error("--print-version needs --repo and --pin")
+        failure, version = version_at(args.repo, args.pin)
+        if failure:
+            print("FAIL: %s" % failure, file=sys.stderr)
+            return 1
+        print(version)
+        return 0
+    if not args.tree or args.version is None:
+        parser.error("--tree and --version are required")
+    failures, label = check(args.tree, args.version)
     for failure in failures:
         print("FAIL: %s" % failure, file=sys.stderr)
     if failures:

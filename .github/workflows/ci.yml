@@ -221,15 +221,16 @@ jobs:
       - name: Every path the build reaches for exists in the pinned tree
         run: python3 ci/check_paths.py
 
-      - name: The pinned interposer PDK reads its stamped commit back
+      - name: The pinned interposer PDK labels its layouts with its version
         # The image build's check on a copy of the submodule without .git,
-        # as the image has it.
+        # as the image has it, against the version build.sh reads on the host.
         run: |
           tree="$RUNNER_TEMP/OpenIntM4TM2"
           mkdir "$tree"
           git -C tools/OpenIntM4TM2 archive HEAD | tar -x -C "$tree"
-          python3 -B ci/check_interposer_label.py --tree "$tree" \
-            --pin "$(git rev-parse HEAD:tools/OpenIntM4TM2)"
+          version="$(python3 -B ci/check_interposer_label.py --repo tools/OpenIntM4TM2 \
+            --pin "$(git rev-parse HEAD:tools/OpenIntM4TM2)" --print-version)"
+          python3 -B ci/check_interposer_label.py --tree "$tree" --version "$version"
 
   attach-plane:
     runs-on: ubuntu-24.04
