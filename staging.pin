@@ -457,7 +457,13 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # moves to reader 1.24.0 from chiplet-spec 9d84e3f, the commit its SOURCE now declares. It moves
 # with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
 #
-# This ref (c080174) is interposer-pnr dev after its pull request 21: the bumps rail role check
+# This ref (c67f239) is interposer-pnr dev after its pull request 22, one commit on c080174: the
+# frozen interposer PDK copy under tests/data/frozen/ takes technology.json at the PDK pin
+# (OpenIntM4TM2 ca108e7, revision 0.8.0), with its MANIFEST.json entry. Tests only: nothing under
+# src/ or _vendor moves, pyproject.toml does not change, no id in ci/ipnr-route-tests.txt moves,
+# and the version stays 0.6.0.dev0. It moves with the interposer PDK gitlink.
+#
+# An earlier move (c080174) was interposer-pnr dev after its pull request 21: the bumps rail role check
 # also refuses a pad whose role is a rail of the other polarity, read through one map from rail
 # class to role. Under src/ only pads.py moves; nothing under _vendor moves, pyproject.toml does not
 # change, no id in ci/ipnr-route-tests.txt moves, and the version stays 0.6.0.dev0.
@@ -490,7 +496,7 @@ STAGE_INTERPOSER_PNR_PATH=interposer-pnr
 # and _vendor/chiplet_format_io moves to reader 1.26.0 from chiplet-spec 4c58de7, the commit its
 # SOURCE now declares. pyproject.toml does not change and the version stays 0.6.0.dev0. It moves
 # with STAGE_CHIPLET_SPEC_REF, since step 0b holds the copy to that tree.
-STAGE_INTERPOSER_PNR_REF=c0801744134b74a579fc306c017034480b2c23d3
+STAGE_INTERPOSER_PNR_REF=c67f239ae47df7bba086d20b22688bf07fc851d3
 
 # Orchestrator that chains die builds into the interposer flow from one spec: distribution
 # packaging_flow, console script `packaging-flow` (packaging_flow.cli:main). In the image the
