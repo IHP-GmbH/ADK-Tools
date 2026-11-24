@@ -571,6 +571,7 @@ fi
 # read here on the host, and the runtime stage checks that the copied tree
 # labels its layouts with exactly it (ci/check_interposer_label.py). The tools
 # image never reads the tree, so --tools-only skips both.
+
 # require_clean_gitlink <dir>: the submodule at dir is checked out at its
 # committed gitlink, with no tracked file changed.
 require_clean_gitlink() {
@@ -589,7 +590,7 @@ if [ "$TOOLS_ONLY" -eq 0 ]; then
     require_clean_gitlink "$INTERPOSER_DIR"
     INTERPOSER_VERSION="$(python3 -B ci/check_interposer_label.py --repo "$INTERPOSER_DIR" \
         --pin "$INTERPOSER_PIN" --print-version)" || \
-        cosim_refuse "$INTERPOSER_DIR at $INTERPOSER_PIN declares no released version"
+        cosim_refuse "cannot read the interposer PDK's version at $INTERPOSER_PIN; the line above says why"
 fi
 
 MANIFEST_B64="$(base64 -w0 manifest.json)"

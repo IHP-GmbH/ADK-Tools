@@ -230,7 +230,7 @@ jobs:
           git -C tools/OpenIntM4TM2 archive HEAD | tar -x -C "$tree"
           version="$(python3 -B ci/check_interposer_label.py --repo tools/OpenIntM4TM2 \
             --pin "$(git rev-parse HEAD:tools/OpenIntM4TM2)" --print-version)"
-          python3 -B ci/check_interposer_label.py --tree "$tree" --version "$version"
+          python3 -B ci/check_interposer_label.py --tree "$tree" --expect-version "$version"
 
   attach-plane:
     runs-on: ubuntu-24.04

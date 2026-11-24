@@ -867,7 +867,7 @@ ARG INTERPOSER_VERSION
 RUN --network=none \
     --mount=type=bind,source=ci/check_interposer_label.py,target=/run/check_interposer_label.py \
     /opt/adk-tools/venv/bin/python3 -B /run/check_interposer_label.py \
-        --tree /opt/adk-tools/OpenIntM4TM2 --version "${INTERPOSER_VERSION}"
+        --tree /opt/adk-tools/OpenIntM4TM2 --expect-version "${INTERPOSER_VERSION}"
 # No examples here: the runtime image carries no demo. The person copies it
 # from the adk-tools clone they ran run.sh from (adk-example says how), and the
 # verify stage COPYs examples/ for its own checks.
@@ -1393,12 +1393,12 @@ RUN QT_QPA_PLATFORM=offscreen /opt/adk-tools/venv/bin/python3 \
 #    ngspice or xschem (live_tool) and the long field solves (slow); the image
 #    has the tools, and -m "" replaces that selection, so every case runs, as
 #    the PDK's own full-suite job runs them.
-#    The PDK's version guard lists its files with git; this copy has no .git
-#    (.dockerignore drops it), so the RUN declares the copy, and the guard
+#    The PDK's version check lists its files with git; this copy has no .git
+#    (.dockerignore drops it), so the RUN declares the copy, and the check
 #    skips with that reason. The copy is the pinned commit (build.sh refuses
-#    any other checkout), and the pin's own CI ran the guard with git.
+#    any other checkout), and that commit passed the check in the PDK's own CI.
 RUN cd /opt/adk-tools/OpenIntM4TM2/libs.tech/klayout \
-    && INTM4TM2_TREE_WITHOUT_GIT="image copy of the pinned commit; the pin's own CI ran the version guard" \
+    && INTM4TM2_TREE_WITHOUT_GIT="image copy of the pinned commit, which passed this check in the PDK's own CI" \
        /opt/adk-tools/venv/bin/python3 -m pytest intm4tm2_tests -q -m "" \
         --deselect libs.tech/klayout/intm4tm2_tests/test_verification_gui.py::test_configure_run_and_open_reports_in_real_klayout
 

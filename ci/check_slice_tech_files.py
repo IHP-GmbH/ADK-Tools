@@ -116,7 +116,7 @@ KNOWN = {
         (("/opt/adk-tools/chiplet-studio/build",),
          "cmake runs in Studio's build/, writes its build tree there and reads the source above"),
     ("runtime", "/opt/adk-tools/venv/bin/python3 -B /run/check_interposer_label.py --tree "
-                "/opt/adk-tools/OpenIntM4TM2 --version \"${INTERPOSER_VERSION}\""):
+                "/opt/adk-tools/OpenIntM4TM2 --expect-version \"${INTERPOSER_VERSION}\""):
         ((), "ci/check_interposer_label.py runs the PDK's version reader on the tree and "
              "writes nothing"),
     ("runtime", "/opt/adk-tools/venv/bin/python3 -B /opt/adk-tools/ci/check_die_views.py "

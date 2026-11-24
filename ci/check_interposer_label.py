@@ -11,7 +11,10 @@ without .git, as the image's copy is (.dockerignore drops it), gets no suffix.
 The commit is not in the label; the image's manifest records it.
 
 On the host, --print-version reads the version that the pinned commit's
-pyproject.toml declares, with git, from the submodule. In the image, the check
+pyproject.toml declares, with git, from the submodule: the commit the image's
+manifest records, so the expected value does not come from the tree under
+check, and a copy that differs from the pin fails instead of passing on its
+own word. In the image, the check
 runs the reader on the copied tree and fails unless the label is exactly
 'intm4tm2 <that version>': no suffix, not 'unknown', no other version. The
 copied tree is the pinned commit because build.sh refuses a submodule that is
@@ -25,23 +28,30 @@ the tree.
 
 Usage:
     check_interposer_label.py --repo tools/OpenIntM4TM2 --pin SHA --print-version
-    check_interposer_label.py --tree /opt/adk-tools/OpenIntM4TM2 --version VERSION
+    check_interposer_label.py --tree /opt/adk-tools/OpenIntM4TM2 --expect-version VERSION
     check_interposer_label.py --self-test
 """
 
 import argparse
 import importlib.util
+import os
 import pathlib
 import re
 import subprocess
 import sys
 import tempfile
-import tomllib
+
+try:
+    import tomllib
+except ImportError:  # Python 3.10 and older
+    tomllib = None
 
 READER = pathlib.Path("libs.tech/klayout/python/intm4tm2_pycell_lib/ihp/pdk_version.py")
 PIN = re.compile(r"[0-9a-f]{40}")
 # A released version: digits and dots, nothing after them.
 VERSION = re.compile(r"[0-9]+(\.[0-9]+)+")
+# The reader's name, written here rather than read from it, so that the
+# expected label does not come from the code under check.
 NAME = "intm4tm2"
 
 
@@ -56,12 +66,26 @@ def load_reader(tree):
     return module
 
 
+def _git_env():
+    """This environment without GIT_* variables, so git acts only on the repository named."""
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+
+def released_version_failure(version, where):
+    """None when `version` is a released version, else what is wrong with it."""
+    if isinstance(version, str) and VERSION.fullmatch(version):
+        return None
+    return "%s %r is not a released version (digits and dots)" % (where, version)
+
+
 def version_at(repo, pin):
     """(failure or None, the [project] version of pyproject.toml at commit `pin` of `repo`)."""
     if not PIN.fullmatch(pin or ""):
         return "the pin %r is not a 40-character lowercase commit id" % pin, None
+    if tomllib is None:
+        return "reading pyproject.toml needs Python 3.11 or later (tomllib)", None
     proc = subprocess.run(["git", "-C", str(repo), "show", "%s:pyproject.toml" % pin],
-                          capture_output=True, check=False)
+                          capture_output=True, check=False, env=_git_env())
     if proc.returncode:
         return ("git could not read pyproject.toml at %s in %s: %s"
                 % (pin, repo, proc.stderr.decode(errors="replace").strip())), None
@@ -71,17 +95,18 @@ def version_at(repo, pin):
         return "pyproject.toml at %s is not valid TOML: %s" % (pin, exc), None
     if version is None:
         return "pyproject.toml at %s declares no [project] version" % pin, None
-    if not isinstance(version, str) or not VERSION.fullmatch(version):
-        return ("pyproject.toml at %s declares version %r, not a released version "
-                "(digits and dots)" % (pin, version)), None
-    return None, version
+    return released_version_failure(version, "pyproject.toml at %s declares version" % pin), \
+        version
 
 
 def check(tree, version):
     """[failure] for the shipped tree against the pinned version, and the label read."""
     tree = pathlib.Path(tree)
-    if not VERSION.fullmatch(version or ""):
-        return ["the version %r is not a released version (digits and dots)" % version], None
+    failure = released_version_failure(
+        version, "the expected version (--expect-version; build.sh passes it as the build "
+                 "argument INTERPOSER_VERSION)")
+    if failure:
+        return [failure], None
     reader = load_reader(tree)
     if reader is None:
         return ["%s has no %s, so nothing shows what its layouts will record"
@@ -111,9 +136,9 @@ def self_test():
                 (tree / READER).parent.mkdir(parents=True)
                 (tree / READER).write_text(reader % label)
             before = sorted(p.relative_to(tree) for p in tree.rglob("*"))
-            out = check(tree, version)
+            failures, label = check(tree, version)
             after = sorted(p.relative_to(tree) for p in tree.rglob("*"))
-            return out + (before == after,)
+            return failures, label, before == after
 
     failures, label, kept = run()
     expect("a tree labelled with the pinned version passes",
@@ -142,14 +167,19 @@ def self_test():
                 (repo / "pyproject.toml").unlink(missing_ok=True)
             else:
                 (repo / "pyproject.toml").write_text(text)
-            env = ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"]
-            subprocess.run(["git", "-C", tmp, *env, "add", "-A"], check=True)
-            subprocess.run(["git", "-C", tmp, *env, "commit", "-q", "--allow-empty", "-m", "x"],
-                           check=True)
-            return subprocess.run(["git", "-C", tmp, "rev-parse", "HEAD"], check=True,
+            git("add", "-A")
+            git("commit", "-q", "--allow-empty", "-m", "x")
+            return git("rev-parse", "HEAD")
+
+        def git(*args):
+            # no global or system config: a user's hooks or signing do not reach the test
+            env = dict(_git_env(), GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1",
+                       GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t",
+                       GIT_COMMITTER_EMAIL="t@t")
+            return subprocess.run(["git", "-C", tmp, *args], check=True, env=env,
                                   capture_output=True, text=True).stdout.strip()
 
-        subprocess.run(["git", "init", "-q", tmp], check=True)
+        git("init", "-q")
         good = commit('[project]\nname = "x"\nversion = "0.8.0"\n')
         newer = commit('[project]\nname = "x"\nversion = "0.9.0"\n')
         failure, version = version_at(repo, good)
@@ -181,7 +211,7 @@ def main():
     parser.add_argument("--print-version", action="store_true",
                         help="print the version the pinned commit declares")
     parser.add_argument("--tree", help="the shipped interposer PDK tree")
-    parser.add_argument("--version", help="the version the pinned commit declares")
+    parser.add_argument("--expect-version", help="the version the pinned commit declares")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
     if args.self_test:
@@ -195,9 +225,9 @@ def main():
             return 1
         print(version)
         return 0
-    if not args.tree or args.version is None:
-        parser.error("--tree and --version are required")
-    failures, label = check(args.tree, args.version)
+    if not args.tree or args.expect_version is None:
+        parser.error("--tree and --expect-version are required")
+    failures, label = check(args.tree, args.expect_version)
     for failure in failures:
         print("FAIL: %s" % failure, file=sys.stderr)
     if failures:
